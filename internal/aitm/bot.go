@@ -1,6 +1,9 @@
 package aitm
 
-import "time"
+import (
+	"net/http"
+	"time"
+)
 
 // BotStore is the persistence interface required by BotGuardService.
 type BotStore interface {
@@ -33,14 +36,22 @@ type BotSignature struct {
 // ProxyContext is the per-connection state bag threaded through the request pipeline.
 // Allocated once per connection; must not be shared across goroutines.
 type ProxyContext struct {
-	ClientIP    string
-	JA4Hash     string
-	BotVerdict  BotVerdict
-	Phishlet    *PhishletDef
-	PhishletCfg *PhishletConfig
-	Lure        *Lure
-	Session     *Session
-	IsNewSession bool
+	ClientIP         string
+	JA4Hash          string
+	ClientHelloBytes []byte // raw TLS ClientHello record, set before pipeline runs
+	BotVerdict       BotVerdict
+	Phishlet         *PhishletDef
+	PhishletCfg      *PhishletConfig
+	Lure             *Lure
+	Session          *Session
+	IsNewSession     bool
+
+	// ResponseWriter is set by the CONNECT handler so short-circuiting handlers
+	// can write directly to the client without going upstream.
+	ResponseWriter http.ResponseWriter
+
+	// RequestID is a random hex string assigned at connection time for log correlation.
+	RequestID string
 }
 
 // BotScorer is the interface implemented by botguard.Scorer.
