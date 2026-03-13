@@ -21,14 +21,14 @@ func NewSessions() *Sessions {
 	return &Sessions{data: make(map[string]*aitm.Session)}
 }
 
-func (s *Sessions) CreateSession(sess *aitm.Session) error {
+func (s *Sessions) CreateSession(session *aitm.Session) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.data[sess.ID]; ok {
+	if _, ok := s.data[session.ID]; ok {
 		return store.ErrConflict
 	}
-	cp := *sess
-	s.data[sess.ID] = &cp
+	cp := *session
+	s.data[session.ID] = &cp
 	return nil
 }
 
@@ -43,14 +43,14 @@ func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
 	return &cp, nil
 }
 
-func (s *Sessions) UpdateSession(sess *aitm.Session) error {
+func (s *Sessions) UpdateSession(session *aitm.Session) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.data[sess.ID]; !ok {
+	if _, ok := s.data[session.ID]; !ok {
 		return store.ErrNotFound
 	}
-	cp := *sess
-	s.data[sess.ID] = &cp
+	cp := *session
+	s.data[session.ID] = &cp
 	return nil
 }
 
@@ -72,23 +72,23 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 	defer s.mu.RUnlock()
 
 	var out []*aitm.Session
-	for _, sess := range s.data {
-		if f.Phishlet != "" && sess.Phishlet != f.Phishlet {
+	for _, session := range s.data {
+		if f.Phishlet != "" && session.Phishlet != f.Phishlet {
 			continue
 		}
-		if f.CompletedOnly && sess.CompletedAt == nil {
+		if f.CompletedOnly && session.CompletedAt == nil {
 			continue
 		}
-		if f.IncompleteOnly && sess.CompletedAt != nil {
+		if f.IncompleteOnly && session.CompletedAt != nil {
 			continue
 		}
-		if !f.After.IsZero() && !sess.StartedAt.After(f.After) {
+		if !f.After.IsZero() && !session.StartedAt.After(f.After) {
 			continue
 		}
-		if !f.Before.IsZero() && !sess.StartedAt.Before(f.Before) {
+		if !f.Before.IsZero() && !session.StartedAt.Before(f.Before) {
 			continue
 		}
-		cp := *sess
+		cp := *session
 		out = append(out, &cp)
 	}
 

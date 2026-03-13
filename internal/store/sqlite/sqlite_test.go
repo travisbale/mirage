@@ -26,7 +26,7 @@ func openTestDB(t *testing.T) *sqlite.DB {
 func TestSessions_RoundTrip(t *testing.T) {
 	s := sqlite.NewSessions(openTestDB(t))
 
-	sess := &aitm.Session{
+	session := &aitm.Session{
 		ID:         "sess-1",
 		Phishlet:   "microsoft",
 		RemoteAddr: "203.0.113.5:12345",
@@ -34,16 +34,16 @@ func TestSessions_RoundTrip(t *testing.T) {
 		Custom:     map[string]string{"k": "v"},
 	}
 
-	if err := s.CreateSession(sess); err != nil {
+	if err := s.CreateSession(session); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
-	got, err := s.GetSession(sess.ID)
+	got, err := s.GetSession(session.ID)
 	if err != nil {
 		t.Fatalf("GetSession: %v", err)
 	}
-	if got.Phishlet != sess.Phishlet {
-		t.Errorf("Phishlet: got %q, want %q", got.Phishlet, sess.Phishlet)
+	if got.Phishlet != session.Phishlet {
+		t.Errorf("Phishlet: got %q, want %q", got.Phishlet, session.Phishlet)
 	}
 	if got.Custom["k"] != "v" {
 		t.Errorf("Custom map not round-tripped correctly")
@@ -54,26 +54,26 @@ func TestSessions_RoundTrip(t *testing.T) {
 	if err := s.UpdateSession(got); err != nil {
 		t.Fatalf("UpdateSession: %v", err)
 	}
-	got2, _ := s.GetSession(sess.ID)
+	got2, _ := s.GetSession(session.ID)
 	if got2.Username != "alice@corp.com" {
 		t.Errorf("Username after update: got %q", got2.Username)
 	}
 
 	// Delete
-	if err := s.DeleteSession(sess.ID); err != nil {
+	if err := s.DeleteSession(session.ID); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
 	}
-	if _, err := s.GetSession(sess.ID); err != store.ErrNotFound {
+	if _, err := s.GetSession(session.ID); err != store.ErrNotFound {
 		t.Errorf("after delete: got %v, want ErrNotFound", err)
 	}
 }
 
 func TestSessions_Errors(t *testing.T) {
 	s := sqlite.NewSessions(openTestDB(t))
-	sess := &aitm.Session{ID: "s1", Phishlet: "p", StartedAt: time.Now()}
-	_ = s.CreateSession(sess)
+	session := &aitm.Session{ID: "s1", Phishlet: "p", StartedAt: time.Now()}
+	_ = s.CreateSession(session)
 
-	if err := s.CreateSession(sess); err != store.ErrConflict {
+	if err := s.CreateSession(session); err != store.ErrConflict {
 		t.Errorf("duplicate create: got %v, want ErrConflict", err)
 	}
 	if _, err := s.GetSession("missing"); err != store.ErrNotFound {
@@ -233,8 +233,8 @@ func TestPhishlets_SubPhishlets(t *testing.T) {
 func TestBots_RoundTrip(t *testing.T) {
 	db := openTestDB(t)
 	// Bot telemetry has a FK to sessions, so create a session first.
-	sess := &aitm.Session{ID: "sess-bot", Phishlet: "p", StartedAt: time.Now()}
-	_ = sqlite.NewSessions(db).CreateSession(sess)
+	session := &aitm.Session{ID: "sess-bot", Phishlet: "p", StartedAt: time.Now()}
+	_ = sqlite.NewSessions(db).CreateSession(session)
 
 	s := sqlite.NewBots(db)
 	tel := &aitm.BotTelemetry{
