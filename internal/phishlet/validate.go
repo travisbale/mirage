@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/travisbale/mirage/aitm"
+	"github.com/travisbale/mirage/internal/aitm"
 )
 
 // ParseError is a single field-level problem found while validating or

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/travisbale/mirage/config"
+	"github.com/travisbale/mirage/internal/config"
 )
 
 func TestLoad_ValidMinimal(t *testing.T) {

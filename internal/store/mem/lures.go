@@ -3,8 +3,8 @@ package mem
 import (
 	"sync"
 
-	"github.com/travisbale/mirage/aitm"
-	"github.com/travisbale/mirage/store"
+	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/store"
 )
 
 var _ aitm.LureStore = (*Lures)(nil)

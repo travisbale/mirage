@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/travisbale/mirage/aitm"
-	"github.com/travisbale/mirage/store"
-	"github.com/travisbale/mirage/store/sqlite"
+	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/store"
+	"github.com/travisbale/mirage/internal/store/sqlite"
 )
 
 func openTestDB(t *testing.T) *sqlite.DB {

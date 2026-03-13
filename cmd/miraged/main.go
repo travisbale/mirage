@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-	"github.com/travisbale/mirage/config"
+	"github.com/travisbale/mirage/internal/config"
 )
 
 var Version = "dev"

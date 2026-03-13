@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/travisbale/mirage/store"
+	"github.com/travisbale/mirage/internal/store"
 	_ "modernc.org/sqlite"
 )
 

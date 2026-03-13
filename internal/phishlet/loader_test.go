@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/travisbale/mirage/aitm"
-	"github.com/travisbale/mirage/events"
-	"github.com/travisbale/mirage/phishlet"
+	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/events"
+	"github.com/travisbale/mirage/internal/phishlet"
 )
 
 func TestLoader(t *testing.T) {

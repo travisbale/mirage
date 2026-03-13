@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/travisbale/mirage/aitm"
+	"github.com/travisbale/mirage/internal/aitm"
 )
 
 // DefaultBufferSize is the channel buffer size used when none is specified.

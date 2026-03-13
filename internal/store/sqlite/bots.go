@@ -3,8 +3,8 @@ package sqlite
 import (
 	"time"
 
-	"github.com/travisbale/mirage/aitm"
-	"github.com/travisbale/mirage/store"
+	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/store"
 )
 
 // Compile-time check: Bots satisfies aitm.BotStore.

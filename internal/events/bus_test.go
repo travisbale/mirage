@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/travisbale/mirage/aitm"
-	"github.com/travisbale/mirage/events"
+	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/events"
 )
 
 func TestPublishReachesAllSubscribers(t *testing.T) {

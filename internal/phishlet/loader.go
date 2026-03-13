@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/travisbale/mirage/aitm"
+	"github.com/travisbale/mirage/internal/aitm"
 )
 
 // Loader reads phishlet YAML files, validates them, compiles all regexes,

@@ -1,0 +1,17 @@
+domain: phish.example.com
+external_ipv4: 1.2.3.4
+
+# Optional — defaults shown
+https_port: 443
+dns_port: 53
+db_path: /var/lib/mirage/data.db
+phishlets_dir: /etc/mirage/phishlets
+redirectors_dir: /etc/mirage/redirectors
+autocert: true
+
+# Optional — remove if not using a DNS provider for automatic record management
+dns_providers:
+  - alias: cf-main
+    provider: cloudflare
+    settings:
+      api_token: YOUR_TOKEN

@@ -8,7 +8,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/travisbale/mirage/aitm"
+	"github.com/travisbale/mirage/internal/aitm"
 )
 
 // Watcher monitors a directory for YAML file changes and re-parses modified
