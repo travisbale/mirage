@@ -43,12 +43,25 @@ type ProxyContext struct {
 	IsNewSession bool
 }
 
-// BotGuardService evaluates connections for bot/scanner signatures.
-type BotGuardService struct {
-	store BotStore
-	bus   EventBus
+// BotScorer is the interface implemented by botguard.Scorer.
+// It combines L1 (JA4 hash lookup) and L2 (telemetry heuristic) signals
+// into a single verdict per connection.
+type BotScorer interface {
+	ScoreConnection(ja4 string, telemetry *BotTelemetry) BotVerdict
 }
 
-func NewBotGuardService(store BotStore, bus EventBus) *BotGuardService {
-	return &BotGuardService{store: store, bus: bus}
+// BotGuardService evaluates connections for bot/scanner signatures.
+type BotGuardService struct {
+	scorer BotScorer
+	store  BotStore
+	bus    EventBus
+}
+
+func NewBotGuardService(scorer BotScorer, store BotStore, bus EventBus) *BotGuardService {
+	return &BotGuardService{scorer: scorer, store: store, bus: bus}
+}
+
+// Evaluate delegates to the injected BotScorer.
+func (s *BotGuardService) Evaluate(ja4 string, telemetry *BotTelemetry) BotVerdict {
+	return s.scorer.ScoreConnection(ja4, telemetry)
 }
