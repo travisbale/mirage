@@ -124,45 +124,45 @@ func NewSessionService(store SessionStore, bus EventBus) *SessionService {
 	return &SessionService{store: store, bus: bus}
 }
 
-func (svc *SessionService) Create(s *Session) error {
-	if err := svc.store.CreateSession(s); err != nil {
+func (s *SessionService) Create(session *Session) error {
+	if err := s.store.CreateSession(session); err != nil {
 		return err
 	}
-	svc.bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: s})
+	s.bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: session})
 	return nil
 }
 
-func (svc *SessionService) Complete(id string) error {
-	s, err := svc.store.GetSession(id)
+func (s *SessionService) Complete(id string) error {
+	session, err := s.store.GetSession(id)
 	if err != nil {
 		return err
 	}
-	s.Complete()
-	if err := svc.store.UpdateSession(s); err != nil {
+	session.Complete()
+	if err := s.store.UpdateSession(session); err != nil {
 		return err
 	}
-	svc.bus.Publish(Event{Type: EventSessionCompleted, OccurredAt: time.Now(), Payload: s})
+	s.bus.Publish(Event{Type: EventSessionCompleted, OccurredAt: time.Now(), Payload: session})
 	return nil
 }
 
-func (svc *SessionService) Get(id string) (*Session, error) {
-	return svc.store.GetSession(id)
+func (s *SessionService) Get(id string) (*Session, error) {
+	return s.store.GetSession(id)
 }
 
-func (svc *SessionService) List(f SessionFilter) ([]*Session, error) {
-	return svc.store.ListSessions(f)
+func (s *SessionService) List(f SessionFilter) ([]*Session, error) {
+	return s.store.ListSessions(f)
 }
 
-func (svc *SessionService) Delete(id string) error {
-	return svc.store.DeleteSession(id)
+func (s *SessionService) Delete(id string) error {
+	return s.store.DeleteSession(id)
 }
 
 // ExportCookiesJSON returns the captured cookies for a session as a JSON byte
 // slice ready to be sent to the API caller or written to a file.
-func (svc *SessionService) ExportCookiesJSON(id string) ([]byte, error) {
-	s, err := svc.store.GetSession(id)
+func (s *SessionService) ExportCookiesJSON(id string) ([]byte, error) {
+	session, err := s.store.GetSession(id)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(s.ExportCookies())
+	return json.Marshal(session.ExportCookies())
 }

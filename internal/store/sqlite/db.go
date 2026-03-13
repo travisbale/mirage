@@ -49,12 +49,12 @@ func Open(path string) (*DB, error) {
 }
 
 // Close releases the underlying database connection.
-func (db *DB) Close() error { return db.db.Close() }
+func (d *DB) Close() error { return d.db.Close() }
 
 // WithTx executes fn inside a transaction. If fn returns an error the transaction
 // is rolled back; otherwise it is committed.
-func (db *DB) WithTx(fn func(*sql.Tx) error) error {
-	tx, err := db.db.Begin()
+func (d *DB) WithTx(fn func(*sql.Tx) error) error {
+	tx, err := d.db.Begin()
 	if err != nil {
 		return err
 	}

@@ -134,7 +134,7 @@ func decryptParams(key []byte, encoded string) (map[string]string, error) {
 		return nil, err
 	}
 	out := make(map[string]string)
-	for _, line := range strings.Split(string(plain), "\n") {
+	for line := range strings.SplitSeq(string(plain), "\n") {
 		k, v, ok := strings.Cut(line, "=")
 		if ok {
 			out[k] = v
@@ -153,34 +153,34 @@ func NewLureService(store LureStore, bus EventBus) *LureService {
 	return &LureService{store: store, bus: bus}
 }
 
-func (svc *LureService) Create(l *Lure) error {
+func (s *LureService) Create(l *Lure) error {
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return err
 	}
 	l.ParamsKey = key
-	return svc.store.CreateLure(l)
+	return s.store.CreateLure(l)
 }
 
-func (svc *LureService) Get(id string) (*Lure, error)   { return svc.store.GetLure(id) }
-func (svc *LureService) Update(l *Lure) error           { return svc.store.UpdateLure(l) }
-func (svc *LureService) Delete(id string) error         { return svc.store.DeleteLure(id) }
-func (svc *LureService) List() ([]*Lure, error)         { return svc.store.ListLures() }
+func (s *LureService) Get(id string) (*Lure, error) { return s.store.GetLure(id) }
+func (s *LureService) Update(l *Lure) error         { return s.store.UpdateLure(l) }
+func (s *LureService) Delete(id string) error       { return s.store.DeleteLure(id) }
+func (s *LureService) List() ([]*Lure, error)       { return s.store.ListLures() }
 
-func (svc *LureService) Pause(id string, d time.Duration) error {
-	l, err := svc.store.GetLure(id)
+func (s *LureService) Pause(id string, d time.Duration) error {
+	l, err := s.store.GetLure(id)
 	if err != nil {
 		return err
 	}
 	l.PausedUntil = time.Now().Add(d)
-	return svc.store.UpdateLure(l)
+	return s.store.UpdateLure(l)
 }
 
-func (svc *LureService) Unpause(id string) error {
-	l, err := svc.store.GetLure(id)
+func (s *LureService) Unpause(id string) error {
+	l, err := s.store.GetLure(id)
 	if err != nil {
 		return err
 	}
 	l.PausedUntil = time.Time{}
-	return svc.store.UpdateLure(l)
+	return s.store.UpdateLure(l)
 }

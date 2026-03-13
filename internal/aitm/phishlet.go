@@ -106,8 +106,8 @@ type SubFilter struct {
 }
 
 // MatchesMIME returns true if this filter applies to the given MIME type.
-func (sf *SubFilter) MatchesMIME(mimeType string) bool {
-	for _, m := range sf.MimeTypes {
+func (s *SubFilter) MatchesMIME(mimeType string) bool {
+	for _, m := range s.MimeTypes {
 		if strings.HasPrefix(mimeType, m) {
 			return true
 		}
@@ -208,9 +208,9 @@ func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService, cert
 }
 
 // GetActiveHostnames returns a snapshot of hostname → phishlet name for the proxy router.
-func (svc *PhishletService) GetActiveHostnames() map[string]string {
+func (s *PhishletService) GetActiveHostnames() map[string]string {
 	out := make(map[string]string)
-	svc.activeHostnames.Range(func(k, v any) bool {
+	s.activeHostnames.Range(func(k, v any) bool {
 		out[k.(string)] = v.(string)
 		return true
 	})

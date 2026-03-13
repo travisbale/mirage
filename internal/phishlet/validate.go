@@ -33,9 +33,9 @@ func (e ParseError) Error() string {
 // problems are found in a single phishlet file.
 type ParseErrors []ParseError
 
-func (pe ParseErrors) Error() string {
-	msgs := make([]string, len(pe))
-	for i, e := range pe {
+func (p ParseErrors) Error() string {
+	msgs := make([]string, len(p))
+	for i, e := range p {
 		msgs[i] = e.Error()
 	}
 	return strings.Join(msgs, "\n")
@@ -43,7 +43,7 @@ func (pe ParseErrors) Error() string {
 
 // Is implements errors.Is for ParseErrors so callers can use
 // errors.Is(err, ErrParseError) as a type check.
-func (pe ParseErrors) Is(target error) bool {
+func (p ParseErrors) Is(target error) bool {
 	_, ok := target.(ParseErrors)
 	return ok
 }
