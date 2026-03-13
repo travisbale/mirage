@@ -73,11 +73,11 @@ type scanner interface {
 
 // requireOneRow returns ErrNotFound if the statement affected zero rows.
 func requireOneRow(res sql.Result) error {
-	n, err := res.RowsAffected()
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
-	if n == 0 {
+	if rowsAffected == 0 {
 		return store.ErrNotFound
 	}
 	return nil

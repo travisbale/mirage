@@ -52,8 +52,8 @@ func (p *GandiDNSProvider) putRRSet(ctx context.Context, zone, name, typ, value 
 	if ttl == 0 {
 		ttl = 300
 	}
-	u := fmt.Sprintf("%s/domains/%s/records/%s/%s", p.baseURL, zone, name, typ)
-	resp, err := p.do(ctx, http.MethodPut, u, gandiRRSet{
+	endpoint := fmt.Sprintf("%s/domains/%s/records/%s/%s", p.baseURL, zone, name, typ)
+	resp, err := p.do(ctx, http.MethodPut, endpoint, gandiRRSet{
 		RRSetValues: []string{value},
 		RRSetTTL:    ttl,
 	})
@@ -77,8 +77,8 @@ func (p *GandiDNSProvider) UpdateRecord(zone, name, typ, value string, ttl int) 
 
 func (p *GandiDNSProvider) DeleteRecord(zone, name, typ string) error {
 	ctx := context.Background()
-	u := fmt.Sprintf("%s/domains/%s/records/%s/%s", p.baseURL, zone, name, typ)
-	resp, err := p.do(ctx, http.MethodDelete, u, nil)
+	endpoint := fmt.Sprintf("%s/domains/%s/records/%s/%s", p.baseURL, zone, name, typ)
+	resp, err := p.do(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("gandi: delete %s %s: %w", typ, name, err)
 	}
@@ -106,8 +106,8 @@ func (p *GandiDNSProvider) CleanUp(domain, token, keyAuth string) error {
 
 func (p *GandiDNSProvider) Ping() error {
 	ctx := context.Background()
-	u := fmt.Sprintf("%s/domains", p.baseURL)
-	resp, err := p.do(ctx, http.MethodGet, u, nil)
+	endpoint := fmt.Sprintf("%s/domains", p.baseURL)
+	resp, err := p.do(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("gandi: ping failed: %w", err)
 	}

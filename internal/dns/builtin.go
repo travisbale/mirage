@@ -19,9 +19,9 @@ type recordKey struct {
 
 // recordUpdate is sent over the update channel to add or remove a record.
 type recordUpdate struct {
-	op  string // "upsert" or "delete"
-	key recordKey
-	rr  dns.RR // only set for "upsert"
+	operation string // "upsert" or "delete"
+	key       recordKey
+	record    dns.RR // only set for "upsert"
 }
 
 // BuiltInDNSProvider is a self-contained authoritative DNS server.
@@ -86,41 +86,41 @@ func (p *BuiltInDNSProvider) Stop() error {
 }
 
 func (p *BuiltInDNSProvider) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
-	m := new(dns.Msg)
-	m.SetReply(r)
-	m.Authoritative = true
+	reply := new(dns.Msg)
+	reply.SetReply(r)
+	reply.Authoritative = true
 
 	if len(r.Question) == 0 {
-		w.WriteMsg(m)
+		w.WriteMsg(reply)
 		return
 	}
 
-	q := r.Question[0]
-	name := strings.ToLower(q.Name)
+	question := r.Question[0]
+	name := strings.ToLower(question.Name)
 
 	p.mu.RLock()
-	rr, found := p.records[recordKey{Name: name, Type: q.Qtype}]
+	record, found := p.records[recordKey{Name: name, Type: question.Qtype}]
 	p.mu.RUnlock()
 
 	if found {
-		m.Answer = append(m.Answer, rr)
+		reply.Answer = append(reply.Answer, record)
 	} else {
-		m.Rcode = dns.RcodeNameError
+		reply.Rcode = dns.RcodeNameError
 	}
 
-	if err := w.WriteMsg(m); err != nil {
+	if err := w.WriteMsg(reply); err != nil {
 		p.logger.Warn("dns write failed", "error", err)
 	}
 }
 
 func (p *BuiltInDNSProvider) drainUpdates() {
-	for upd := range p.updates {
+	for update := range p.updates {
 		p.mu.Lock()
-		switch upd.op {
+		switch update.operation {
 		case "upsert":
-			p.records[upd.key] = upd.rr
+			p.records[update.key] = update.record
 		case "delete":
-			delete(p.records, upd.key)
+			delete(p.records, update.key)
 		}
 		p.mu.Unlock()
 	}
@@ -137,8 +137,8 @@ func (p *BuiltInDNSProvider) upsert(zone, name, typ, value string, ttl int) erro
 	if ttl == 0 {
 		ttl = 300
 	}
-	q := fqdn(name, zone)
-	var rr dns.RR
+	recordName := fqdn(name, zone)
+	var record dns.RR
 
 	switch strings.ToUpper(typ) {
 	case "A":
@@ -146,8 +146,8 @@ func (p *BuiltInDNSProvider) upsert(zone, name, typ, value string, ttl int) erro
 		if ip == nil {
 			return fmt.Errorf("builtin dns: invalid A record value %q", value)
 		}
-		rr = &dns.A{
-			Hdr: dns.RR_Header{Name: q, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: uint32(ttl)},
+		record = &dns.A{
+			Hdr: dns.RR_Header{Name: recordName, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: uint32(ttl)},
 			A:   ip.To4(),
 		}
 	case "AAAA":
@@ -155,26 +155,26 @@ func (p *BuiltInDNSProvider) upsert(zone, name, typ, value string, ttl int) erro
 		if ip == nil {
 			return fmt.Errorf("builtin dns: invalid AAAA record value %q", value)
 		}
-		rr = &dns.AAAA{
-			Hdr:  dns.RR_Header{Name: q, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: uint32(ttl)},
+		record = &dns.AAAA{
+			Hdr:  dns.RR_Header{Name: recordName, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: uint32(ttl)},
 			AAAA: ip.To16(),
 		}
 	case "TXT":
-		rr = &dns.TXT{
-			Hdr: dns.RR_Header{Name: q, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: uint32(ttl)},
+		record = &dns.TXT{
+			Hdr: dns.RR_Header{Name: recordName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: uint32(ttl)},
 			Txt: []string{value},
 		}
 	case "NS":
-		rr = &dns.NS{
-			Hdr: dns.RR_Header{Name: q, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: uint32(ttl)},
+		record = &dns.NS{
+			Hdr: dns.RR_Header{Name: recordName, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: uint32(ttl)},
 			Ns:  dns.Fqdn(value),
 		}
 	default:
 		return fmt.Errorf("builtin dns: unsupported record type %q", typ)
 	}
 
-	key := recordKey{Name: q, Type: rr.Header().Rrtype}
-	p.updates <- recordUpdate{op: "upsert", key: key, rr: rr}
+	key := recordKey{Name: recordName, Type: record.Header().Rrtype}
+	p.updates <- recordUpdate{operation: "upsert", key: key, record: record}
 	return nil
 }
 
@@ -187,21 +187,21 @@ func (p *BuiltInDNSProvider) UpdateRecord(zone, name, typ, value string, ttl int
 }
 
 func (p *BuiltInDNSProvider) DeleteRecord(zone, name, typ string) error {
-	q := fqdn(name, zone)
-	var qtype uint16
+	recordName := fqdn(name, zone)
+	var recordType uint16
 	switch strings.ToUpper(typ) {
 	case "A":
-		qtype = dns.TypeA
+		recordType = dns.TypeA
 	case "AAAA":
-		qtype = dns.TypeAAAA
+		recordType = dns.TypeAAAA
 	case "TXT":
-		qtype = dns.TypeTXT
+		recordType = dns.TypeTXT
 	case "NS":
-		qtype = dns.TypeNS
+		recordType = dns.TypeNS
 	default:
 		return fmt.Errorf("builtin dns: unsupported record type %q", typ)
 	}
-	p.updates <- recordUpdate{op: "delete", key: recordKey{Name: q, Type: qtype}}
+	p.updates <- recordUpdate{operation: "delete", key: recordKey{Name: recordName, Type: recordType}}
 	return nil
 }
 

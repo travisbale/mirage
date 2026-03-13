@@ -95,8 +95,8 @@ func (w *Watcher) loop() {
 		select {
 		case <-w.stopCh:
 			// Cancel any pending debounce timers.
-			for _, t := range debounce {
-				t.Stop()
+			for _, timer := range debounce {
+				timer.Stop()
 			}
 			return
 

@@ -14,9 +14,9 @@ import (
 
 // LureStore is the persistence interface required by LureService.
 type LureStore interface {
-	CreateLure(l *Lure) error
+	CreateLure(lure *Lure) error
 	GetLure(id string) (*Lure, error)
-	UpdateLure(l *Lure) error
+	UpdateLure(lure *Lure) error
 	DeleteLure(id string) error
 	ListLures() ([]*Lure, error)
 }
@@ -58,11 +58,11 @@ func (l *Lure) CompileUA() error {
 		l.uaFilter = nil
 		return nil
 	}
-	re, err := regexp.Compile(l.UAFilter)
+	compiled, err := regexp.Compile(l.UAFilter)
 	if err != nil {
 		return err
 	}
-	l.uaFilter = re
+	l.uaFilter = compiled
 	return nil
 }
 
@@ -94,8 +94,8 @@ func (l *Lure) DecryptParams(token string) (map[string]string, error) {
 
 func encryptParams(key []byte, params map[string]string) (string, error) {
 	var sb strings.Builder
-	for k, v := range params {
-		sb.WriteString(k + "=" + v + "\n")
+	for key, value := range params {
+		sb.WriteString(key + "=" + value + "\n")
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -135,9 +135,9 @@ func decryptParams(key []byte, encoded string) (map[string]string, error) {
 	}
 	out := make(map[string]string)
 	for line := range strings.SplitSeq(string(plain), "\n") {
-		k, v, ok := strings.Cut(line, "=")
+		key, val, ok := strings.Cut(line, "=")
 		if ok {
-			out[k] = v
+			out[key] = val
 		}
 	}
 	return out, nil
@@ -153,34 +153,34 @@ func NewLureService(store LureStore, bus EventBus) *LureService {
 	return &LureService{store: store, bus: bus}
 }
 
-func (s *LureService) Create(l *Lure) error {
+func (s *LureService) Create(lure *Lure) error {
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return err
 	}
-	l.ParamsKey = key
-	return s.store.CreateLure(l)
+	lure.ParamsKey = key
+	return s.store.CreateLure(lure)
 }
 
 func (s *LureService) Get(id string) (*Lure, error) { return s.store.GetLure(id) }
-func (s *LureService) Update(l *Lure) error         { return s.store.UpdateLure(l) }
+func (s *LureService) Update(lure *Lure) error       { return s.store.UpdateLure(lure) }
 func (s *LureService) Delete(id string) error       { return s.store.DeleteLure(id) }
 func (s *LureService) List() ([]*Lure, error)       { return s.store.ListLures() }
 
 func (s *LureService) Pause(id string, d time.Duration) error {
-	l, err := s.store.GetLure(id)
+	lure, err := s.store.GetLure(id)
 	if err != nil {
 		return err
 	}
-	l.PausedUntil = time.Now().Add(d)
-	return s.store.UpdateLure(l)
+	lure.PausedUntil = time.Now().Add(d)
+	return s.store.UpdateLure(lure)
 }
 
 func (s *LureService) Unpause(id string) error {
-	l, err := s.store.GetLure(id)
+	lure, err := s.store.GetLure(id)
 	if err != nil {
 		return err
 	}
-	l.PausedUntil = time.Time{}
-	return s.store.UpdateLure(l)
+	lure.PausedUntil = time.Time{}
+	return s.store.UpdateLure(lure)
 }

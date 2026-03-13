@@ -44,8 +44,8 @@ func (p *Route53DNSProvider) hostedZoneID(ctx context.Context, zone string) (str
 	if len(out.HostedZones) == 0 || !strings.HasPrefix(aws.ToString(out.HostedZones[0].Name), zone) {
 		return "", fmt.Errorf("route53: hosted zone not found for %q", zone)
 	}
-	id := aws.ToString(out.HostedZones[0].Id)
-	return strings.TrimPrefix(id, "/hostedzone/"), nil
+	rawID := aws.ToString(out.HostedZones[0].Id)
+	return strings.TrimPrefix(rawID, "/hostedzone/"), nil
 }
 
 func (p *Route53DNSProvider) change(ctx context.Context, zone, name, typ, value string, ttl int, action types.ChangeAction) error {
@@ -106,13 +106,13 @@ func (p *Route53DNSProvider) DeleteRecord(zone, name, typ string) error {
 	if len(out.ResourceRecordSets) == 0 {
 		return nil // idempotent
 	}
-	rrs := out.ResourceRecordSets[0]
+	rrSet := out.ResourceRecordSets[0]
 	_, err = p.client.ChangeResourceRecordSets(ctx, &route53.ChangeResourceRecordSetsInput{
 		HostedZoneId: aws.String(zoneID),
 		ChangeBatch: &types.ChangeBatch{
 			Changes: []types.Change{{
 				Action:            types.ChangeActionDelete,
-				ResourceRecordSet: &rrs,
+				ResourceRecordSet: &rrSet,
 			}},
 		},
 	})

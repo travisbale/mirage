@@ -8,6 +8,6 @@ type NoOpBus struct{}
 
 var _ aitm.EventBus = (*NoOpBus)(nil)
 
-func (n *NoOpBus) Publish(e aitm.Event)                                    {}
-func (n *NoOpBus) Subscribe(t aitm.EventType) <-chan aitm.Event            { return nil }
-func (n *NoOpBus) Unsubscribe(t aitm.EventType, ch <-chan aitm.Event)      {}
+func (n *NoOpBus) Publish(event aitm.Event)                                         {}
+func (n *NoOpBus) Subscribe(eventType aitm.EventType) <-chan aitm.Event             { return nil }
+func (n *NoOpBus) Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event)       {}

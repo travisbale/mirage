@@ -51,23 +51,23 @@ func NewBus(bufSize int) *Bus {
 // e.OccurredAt is set to time.Now() before delivery regardless of what the
 // caller provides. If a subscriber's channel is full the event is dropped for
 // that subscriber and a warning is written to the default slog logger.
-func (b *Bus) Publish(e aitm.Event) {
-	e.OccurredAt = time.Now()
+func (b *Bus) Publish(event aitm.Event) {
+	event.OccurredAt = time.Now()
 
 	b.mu.RLock()
-	entries := b.subs[e.Type]
+	entries := b.subs[event.Type]
 	// Copy the slice under the read lock to avoid holding it during sends,
 	// which can block briefly when waking a receiver goroutine.
 	snapshot := make([]subEntry, len(entries))
 	copy(snapshot, entries)
 	b.mu.RUnlock()
 
-	for _, sub := range snapshot {
+	for _, entry := range snapshot {
 		select {
-		case sub.ch <- e:
+		case entry.ch <- event:
 		default:
 			slog.Warn("events: subscriber channel full, dropping event",
-				"type", string(e.Type),
+				"type", string(event.Type),
 			)
 		}
 	}
@@ -75,10 +75,10 @@ func (b *Bus) Publish(e aitm.Event) {
 
 // Subscribe creates and registers a new channel for events of type t.
 // The returned channel is buffered with the size set at bus construction.
-func (b *Bus) Subscribe(t aitm.EventType) <-chan aitm.Event {
+func (b *Bus) Subscribe(eventType aitm.EventType) <-chan aitm.Event {
 	ch := make(chan aitm.Event, b.bufSize)
 	b.mu.Lock()
-	b.subs[t] = append(b.subs[t], subEntry{ch: ch})
+	b.subs[eventType] = append(b.subs[eventType], subEntry{ch: ch})
 	b.mu.Unlock()
 	return ch
 }
@@ -92,8 +92,8 @@ func (b *Bus) Subscribe(t aitm.EventType) <-chan aitm.Event {
 func SubscribeFunc(bus aitm.EventBus, eventType aitm.EventType, fn func(aitm.Event)) <-chan aitm.Event {
 	ch := bus.Subscribe(eventType)
 	go func() {
-		for e := range ch {
-			fn(e)
+		for event := range ch {
+			fn(event)
 		}
 	}()
 	return ch
@@ -101,25 +101,25 @@ func SubscribeFunc(bus aitm.EventBus, eventType aitm.EventType, fn func(aitm.Eve
 
 // Unsubscribe removes ch from the subscriber list for t and closes it.
 // Safe to call multiple times for the same channel — subsequent calls are no-ops.
-func (b *Bus) Unsubscribe(t aitm.EventType, ch <-chan aitm.Event) {
+func (b *Bus) Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	entries := b.subs[t]
-	for i, sub := range entries {
+	entries := b.subs[eventType]
+	for i, entry := range entries {
 		// Compare by converting the bidirectional internal channel to
 		// receive-only, matching the type of the ch parameter.
-		if (<-chan aitm.Event)(sub.ch) == ch {
-			if sub.closed {
+		if (<-chan aitm.Event)(entry.ch) == ch {
+			if entry.closed {
 				return // already unsubscribed — no-op
 			}
 			entries[i].closed = true
-			close(sub.ch)
+			close(entry.ch)
 
 			// Fast delete: swap with last element, shrink slice.
 			last := len(entries) - 1
 			entries[i] = entries[last]
-			b.subs[t] = entries[:last]
+			b.subs[eventType] = entries[:last]
 			return
 		}
 	}

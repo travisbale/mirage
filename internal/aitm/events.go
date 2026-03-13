@@ -27,9 +27,9 @@ type Event struct {
 // Implementations must be safe for concurrent use.
 // Publish must never block — if a subscriber's channel is full, the event is dropped.
 type EventBus interface {
-	Publish(e Event)
-	Subscribe(t EventType) <-chan Event
-	Unsubscribe(t EventType, ch <-chan Event)
+	Publish(event Event)
+	Subscribe(eventType EventType) <-chan Event
+	Unsubscribe(eventType EventType, ch <-chan Event)
 }
 
 // LureHitPayload is the payload for EventLureHit.

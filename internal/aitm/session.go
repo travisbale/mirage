@@ -8,11 +8,11 @@ import (
 // SessionStore is the persistence interface required by SessionService.
 // Implementations must be safe for concurrent use.
 type SessionStore interface {
-	CreateSession(s *Session) error
+	CreateSession(session *Session) error
 	GetSession(id string) (*Session, error)
-	UpdateSession(s *Session) error
+	UpdateSession(session *Session) error
 	DeleteSession(id string) error
-	ListSessions(f SessionFilter) ([]*Session, error)
+	ListSessions(filter SessionFilter) ([]*Session, error)
 }
 
 // SessionFilter scopes a ListSessions call.
@@ -74,16 +74,16 @@ func (s *Session) AddCookieToken(domain, name string, tok *CookieToken) {
 func (s *Session) ExportCookies() []CookieExport {
 	var out []CookieExport
 	for _, byName := range s.CookieTokens {
-		for _, tok := range byName {
+		for _, token := range byName {
 			out = append(out, CookieExport{
-				Name:     tok.Name,
-				Value:    tok.Value,
-				Domain:   tok.Domain,
-				Path:     tok.Path,
-				Expires:  tok.Expires.Unix(),
-				HttpOnly: tok.HttpOnly,
-				Secure:   tok.Secure,
-				SameSite: tok.SameSite,
+				Name:     token.Name,
+				Value:    token.Value,
+				Domain:   token.Domain,
+				Path:     token.Path,
+				Expires:  token.Expires.Unix(),
+				HttpOnly: token.HttpOnly,
+				Secure:   token.Secure,
+				SameSite: token.SameSite,
 			})
 		}
 	}
