@@ -4,6 +4,8 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/travisbale/mirage/internal/store"
@@ -26,6 +28,11 @@ type DB struct {
 // foreign key enforcement, then runs all pending migrations.
 // Pass ":memory:" for an ephemeral database suitable for tests.
 func Open(path string) (*DB, error) {
+	if path != ":memory:" {
+		if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+			return nil, fmt.Errorf("sqlite.Open: creating directory: %w", err)
+		}
+	}
 	sqlDB, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite.Open: %w", err)

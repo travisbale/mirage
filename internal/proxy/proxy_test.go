@@ -102,10 +102,10 @@ func TestPipeline_ResponseHandlers_ShortCircuit(t *testing.T) {
 	}
 }
 
-// ---- ActiveHostnames --------------------------------------------------------
+// ---- ActiveHostnameSet --------------------------------------------------------
 
-func TestActiveHostnames_Contains(t *testing.T) {
-	ah := &proxy.ActiveHostnames{}
+func TestActiveHostnameSet_Contains(t *testing.T) {
+	ah := &proxy.ActiveHostnameSet{}
 	ah.Add("phish.example.com")
 
 	if !ah.Contains("phish.example.com") {
@@ -119,8 +119,8 @@ func TestActiveHostnames_Contains(t *testing.T) {
 	}
 }
 
-func TestActiveHostnames_Remove(t *testing.T) {
-	ah := &proxy.ActiveHostnames{}
+func TestActiveHostnameSet_Remove(t *testing.T) {
+	ah := &proxy.ActiveHostnameSet{}
 	ah.Add("phish.example.com")
 	ah.Remove("phish.example.com")
 	if ah.Contains("phish.example.com") {
@@ -128,8 +128,8 @@ func TestActiveHostnames_Remove(t *testing.T) {
 	}
 }
 
-func TestActiveHostnames_Snapshot(t *testing.T) {
-	ah := &proxy.ActiveHostnames{}
+func TestActiveHostnameSet_Snapshot(t *testing.T) {
+	ah := &proxy.ActiveHostnameSet{}
 	ah.Add("a.example.com")
 	ah.Add("b.example.com")
 	snap := ah.Snapshot()

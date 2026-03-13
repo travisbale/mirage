@@ -24,7 +24,7 @@ func openTestDB(t *testing.T) *sqlite.DB {
 // --- Sessions ---
 
 func TestSessions_RoundTrip(t *testing.T) {
-	s := sqlite.NewSessions(openTestDB(t))
+	s := sqlite.NewSessionStore(openTestDB(t))
 
 	session := &aitm.Session{
 		ID:         "sess-1",
@@ -69,7 +69,7 @@ func TestSessions_RoundTrip(t *testing.T) {
 }
 
 func TestSessions_Errors(t *testing.T) {
-	s := sqlite.NewSessions(openTestDB(t))
+	s := sqlite.NewSessionStore(openTestDB(t))
 	session := &aitm.Session{ID: "s1", Phishlet: "p", StartedAt: time.Now()}
 	_ = s.CreateSession(session)
 
@@ -85,7 +85,7 @@ func TestSessions_Errors(t *testing.T) {
 }
 
 func TestSessions_ListFilter(t *testing.T) {
-	s := sqlite.NewSessions(openTestDB(t))
+	s := sqlite.NewSessionStore(openTestDB(t))
 
 	for i, phishlet := range []string{"microsoft", "microsoft", "google"} {
 		_ = s.CreateSession(&aitm.Session{
@@ -124,7 +124,7 @@ func TestSessions_ListFilter(t *testing.T) {
 // --- Lures ---
 
 func TestLures_RoundTrip(t *testing.T) {
-	s := sqlite.NewLures(openTestDB(t))
+	s := sqlite.NewLureStore(openTestDB(t))
 
 	l := &aitm.Lure{
 		ID:          "lure-1",
@@ -166,7 +166,7 @@ func TestLures_RoundTrip(t *testing.T) {
 // --- Phishlets ---
 
 func TestPhishlets_ConfigUpsert(t *testing.T) {
-	s := sqlite.NewPhishlets(openTestDB(t))
+	s := sqlite.NewPhishletStore(openTestDB(t))
 
 	cfg := &aitm.PhishletConfig{
 		Name:       "microsoft",
@@ -199,7 +199,7 @@ func TestPhishlets_ConfigUpsert(t *testing.T) {
 }
 
 func TestPhishlets_SubPhishlets(t *testing.T) {
-	s := sqlite.NewPhishlets(openTestDB(t))
+	s := sqlite.NewPhishletStore(openTestDB(t))
 
 	sp := &aitm.SubPhishlet{
 		Name:       "ms-corp",
@@ -234,9 +234,9 @@ func TestBots_RoundTrip(t *testing.T) {
 	db := openTestDB(t)
 	// Bot telemetry has a FK to sessions, so create a session first.
 	session := &aitm.Session{ID: "sess-bot", Phishlet: "p", StartedAt: time.Now()}
-	_ = sqlite.NewSessions(db).CreateSession(session)
+	_ = sqlite.NewSessionStore(db).CreateSession(session)
 
-	s := sqlite.NewBots(db)
+	s := sqlite.NewBotStore(db)
 	tel := &aitm.BotTelemetry{
 		ID:          "tel-1",
 		SessionID:   "sess-bot",
@@ -283,7 +283,7 @@ func TestWithTx_Rollback(t *testing.T) {
 	}
 
 	// The session should not exist because the transaction was rolled back.
-	s := sqlite.NewSessions(db)
+	s := sqlite.NewSessionStore(db)
 	if _, err := s.GetSession("tx-sess"); err != store.ErrNotFound {
 		t.Errorf("rolled-back session should not exist, got %v", err)
 	}

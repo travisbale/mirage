@@ -76,3 +76,18 @@ func NewBotGuardService(scorer BotScorer, store BotStore, bus EventBus) *BotGuar
 func (s *BotGuardService) Evaluate(ja4 string, telemetry *BotTelemetry) BotVerdict {
 	return s.scorer.ScoreConnection(ja4, telemetry)
 }
+
+// ScoreSession loads stored telemetry for sessionID and returns a [0.0, 1.0]
+// bot probability score. Returns 1.0 if any telemetry record scores as non-allow.
+func (s *BotGuardService) ScoreSession(sessionID string) float64 {
+	records, err := s.store.GetBotTelemetry(sessionID)
+	if err != nil || len(records) == 0 {
+		return 0.0
+	}
+	for _, record := range records {
+		if s.scorer.ScoreConnection("", record) != VerdictAllow {
+			return 1.0
+		}
+	}
+	return 0.0
+}

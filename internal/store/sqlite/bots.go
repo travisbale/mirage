@@ -13,7 +13,7 @@ var _ aitm.BotStore = (*Bots)(nil)
 // Bots implements aitm.BotStore backed by SQLite.
 type Bots struct{ db *DB }
 
-func NewBots(db *DB) *Bots { return &Bots{db: db} }
+func NewBotStore(db *DB) *Bots { return &Bots{db: db} }
 
 func (s *Bots) StoreBotTelemetry(t *aitm.BotTelemetry) error {
 	raw, err := marshalJSON(t.Raw)

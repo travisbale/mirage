@@ -13,7 +13,7 @@ var _ aitm.PhishletStore = (*Phishlets)(nil)
 // Phishlets implements aitm.PhishletStore backed by SQLite.
 type Phishlets struct{ db *DB }
 
-func NewPhishlets(db *DB) *Phishlets { return &Phishlets{db: db} }
+func NewPhishletStore(db *DB) *Phishlets { return &Phishlets{db: db} }
 
 func (s *Phishlets) GetPhishletConfig(name string) (*aitm.PhishletConfig, error) {
 	row := s.db.db.QueryRow(`SELECT

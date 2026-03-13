@@ -16,7 +16,7 @@ var _ aitm.SessionStore = (*Sessions)(nil)
 // Sessions implements aitm.SessionStore backed by SQLite.
 type Sessions struct{ db *DB }
 
-func NewSessions(db *DB) *Sessions { return &Sessions{db: db} }
+func NewSessionStore(db *DB) *Sessions { return &Sessions{db: db} }
 
 func (s *Sessions) CreateSession(session *aitm.Session) error {
 	custom, err := marshalJSON(session.Custom)

@@ -14,7 +14,7 @@ var _ aitm.LureStore = (*Lures)(nil)
 // Lures implements aitm.LureStore backed by SQLite.
 type Lures struct{ db *DB }
 
-func NewLures(db *DB) *Lures { return &Lures{db: db} }
+func NewLureStore(db *DB) *Lures { return &Lures{db: db} }
 
 func (s *Lures) CreateLure(l *aitm.Lure) error {
 	_, err := s.db.db.Exec(`

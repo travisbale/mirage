@@ -1,4 +1,4 @@
-// Package proxy implements the HTTPS MITM proxy pipeline.
+// Package proxy implements the HTTPS AiTM proxy pipeline.
 package proxy
 
 import (

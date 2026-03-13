@@ -18,12 +18,12 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
-// MITMProxy is a reverse-proxy HTTPS server.
+// AiTMProxy is a reverse-proxy HTTPS server.
 // It accepts raw TCP connections on port 443, peeks at the TLS ClientHello
 // to capture bytes for JA4 fingerprinting, completes the TLS handshake using
 // the SNI hostname to select the right certificate, then routes all decrypted
 // HTTP traffic through the configured Pipeline.
-type MITMProxy struct {
+type AiTMProxy struct {
 	certSource aitm.CertSource
 	pipeline   *Pipeline
 	wsHub      *WSHub
@@ -31,15 +31,15 @@ type MITMProxy struct {
 	logger     *slog.Logger
 }
 
-// NewMITMProxy constructs a MITMProxy. Call Start() to begin accepting connections.
-func NewMITMProxy(
+// NewAiTMProxy constructs a AiTMProxy. Call Start() to begin accepting connections.
+func NewAiTMProxy(
 	certSource aitm.CertSource,
 	pipeline *Pipeline,
 	wsHub *WSHub,
 	spoof *ProxySpoofProxy,
 	logger *slog.Logger,
-) *MITMProxy {
-	return &MITMProxy{
+) *AiTMProxy {
+	return &AiTMProxy{
 		certSource: certSource,
 		pipeline:   pipeline,
 		wsHub:      wsHub,
@@ -49,7 +49,7 @@ func NewMITMProxy(
 }
 
 // Start begins listening on addr (e.g. ":443") and blocks until ctx is cancelled.
-func (p *MITMProxy) Start(ctx context.Context, addr string) error {
+func (p *AiTMProxy) Start(ctx context.Context, addr string) error {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("mitm: listen %s: %w", addr, err)
@@ -83,7 +83,7 @@ func (p *MITMProxy) Start(ctx context.Context, addr string) error {
 //     ClientHello to select the right phishing certificate.
 //  3. Allocate a ProxyContext for this connection.
 //  4. Serve HTTP/1.1 over the decrypted connection via serveDecrypted().
-func (p *MITMProxy) handleConn(rawConn net.Conn) {
+func (p *AiTMProxy) handleConn(rawConn net.Conn) {
 	defer rawConn.Close()
 
 	// Wrap in PeekedConn to tee the first TLS record before the handshake
@@ -114,7 +114,7 @@ func (p *MITMProxy) handleConn(rawConn net.Conn) {
 // serveDecrypted reads HTTP requests from the decrypted connection, runs the
 // request pipeline, forwards to upstream if not short-circuited, runs the
 // response pipeline, and writes the response back.
-func (p *MITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
+func (p *AiTMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 	connReader := bufio.NewReader(conn)
 
 	for {
@@ -181,7 +181,7 @@ func (p *MITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 }
 
 // forwardRequest sends req to the upstream origin and returns the response.
-func (p *MITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
+func (p *AiTMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
 		DialContext: (&net.Dialer{

