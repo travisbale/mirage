@@ -31,3 +31,31 @@ type EventBus interface {
 	Subscribe(t EventType) <-chan Event
 	Unsubscribe(t EventType, ch <-chan Event)
 }
+
+// LureHitPayload is the payload for EventLureHit.
+type LureHitPayload struct {
+	LureID     string
+	Phishlet   string
+	RemoteAddr string
+	UserAgent  string
+}
+
+// BotDetectedPayload is the payload for EventBotDetected.
+type BotDetectedPayload struct {
+	SessionID  string
+	RemoteAddr string
+	JA4Hash    string
+	BotScore   float64
+	Verdict    string // "spoof" or "block"
+	Reason     string // e.g. "JA4 match: zgrab2"
+}
+
+// DNSSyncPayload is the payload for EventDNSRecordSynced.
+type DNSSyncPayload struct {
+	Zone     string
+	Name     string
+	Type     string // "A", "AAAA", "TXT", etc.
+	Value    string
+	Action   string // "create", "update", "delete"
+	Provider string // provider alias from config
+}
