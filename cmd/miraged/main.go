@@ -59,7 +59,15 @@ func main() {
 		},
 	}
 
-	root.AddCommand(serveCmd, validateCmd)
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print the version and exit",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(Version)
+		},
+	}
+
+	root.AddCommand(serveCmd, validateCmd, versionCmd)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()

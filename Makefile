@@ -1,14 +1,15 @@
-GO := /usr/local/bin/go
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
 
 .PHONY: build clean test
 
 build:
 	mkdir -p build
-	$(GO) build -o build/miraged ./cmd/miraged
-	$(GO) build -o build/mirage ./cmd/mirage
+	go build $(LDFLAGS) -o build/miraged ./cmd/miraged
+	go build $(LDFLAGS) -o build/mirage ./cmd/mirage
 
 clean:
 	rm -rf build/
 
 test:
-	$(GO) test ./...
+	go test ./...
