@@ -1,0 +1,24 @@
+# Build output
+build/
+
+# Test binary and coverage output
+*.test
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Environment and secrets
+.env
+*.env
+
+# Editor and OS artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
