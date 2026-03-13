@@ -1,0 +1,15 @@
+name: test-unknown
+author: "@testauthor"
+version: "1"
+typo_field: should_cause_error
+
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    example.com
+
+auth_tokens:
+  - domain: ".example.com"
+    keys:
+      - name: session
+        required: true

