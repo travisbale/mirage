@@ -1,22 +1,3 @@
-package sqlite
-
-import (
-	"database/sql"
-	"fmt"
-	"time"
-)
-
-type migration struct {
-	version int
-	sql     string
-}
-
-// allMigrations is the ordered list of all schema migrations.
-// Never edit or reorder existing entries — append only.
-var allMigrations = []migration{
-	{
-		version: 1,
-		sql: `
 CREATE TABLE IF NOT EXISTS sessions (
     id              TEXT    PRIMARY KEY,
     phishlet        TEXT    NOT NULL,
@@ -88,37 +69,3 @@ CREATE TABLE IF NOT EXISTS bot_telemetry (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bot_telemetry_session ON bot_telemetry(session_id);
-`,
-	},
-}
-
-func runMigrations(db *sql.DB) error {
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS migrations (
-		version    INTEGER PRIMARY KEY,
-		applied_at INTEGER NOT NULL
-	)`); err != nil {
-		return err
-	}
-
-	for _, m := range allMigrations {
-		var count int
-		if err := db.QueryRow(
-			`SELECT COUNT(*) FROM migrations WHERE version = ?`, m.version,
-		).Scan(&count); err != nil {
-			return fmt.Errorf("checking migration %d: %w", m.version, err)
-		}
-		if count > 0 {
-			continue
-		}
-		if _, err := db.Exec(m.sql); err != nil {
-			return fmt.Errorf("applying migration %d: %w", m.version, err)
-		}
-		if _, err := db.Exec(
-			`INSERT INTO migrations (version, applied_at) VALUES (?, ?)`,
-			m.version, time.Now().Unix(),
-		); err != nil {
-			return fmt.Errorf("recording migration %d: %w", m.version, err)
-		}
-	}
-	return nil
-}

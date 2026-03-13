@@ -42,8 +42,8 @@ func Open(path string) (*DB, error) {
 	}
 
 	db := &DB{db: sqlDB}
-	if err := runMigrations(db.db); err != nil {
-		return nil, fmt.Errorf("sqlite.Open: running migrations: %w", err)
+	if err := applySchema(db.db); err != nil {
+		return nil, fmt.Errorf("sqlite.Open: %w", err)
 	}
 	return db, nil
 }
