@@ -54,3 +54,14 @@ func (s *BlacklistService) WhitelistTemporary(ip string, dur time.Duration) {
 	s.whitelist[ip] = time.Now().Add(dur)
 	s.mu.Unlock()
 }
+
+// List returns all currently blocked IPs as a slice (unsorted).
+func (s *BlacklistService) List() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.blocked))
+	for ip := range s.blocked {
+		out = append(out, ip)
+	}
+	return out
+}

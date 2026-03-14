@@ -17,41 +17,33 @@ type BotGuardConfig struct {
 // Scorer combines L1 (JA4 signature lookup) and L2 (telemetry heuristic) signals
 // into a BotVerdict. It implicitly satisfies aitm.BotScorer.
 type Scorer struct {
-	cfg    BotGuardConfig
-	sigDB  *JA4SignatureDB
-	logger *slog.Logger
-}
-
-// NewScorer constructs a Scorer with the given configuration and signature DB.
-func NewScorer(cfg BotGuardConfig, sigDB *JA4SignatureDB, logger *slog.Logger) *Scorer {
-	return &Scorer{cfg: cfg, sigDB: sigDB, logger: logger}
+	Cfg    BotGuardConfig
+	SigDB  *JA4SignatureDB
+	Logger *slog.Logger
 }
 
 // ScoreConnection implements aitm.BotScorer.
 //
 // Verdict logic:
-//   - !cfg.Enabled                → VerdictAllow
-//   - ja4 in sigDB                → VerdictSpoof (L1 match)
+//   - !Cfg.Enabled                → VerdictAllow
+//   - ja4 in SigDB                → VerdictSpoof (L1 match)
 //   - telemetry score ≥ threshold → VerdictSpoof (L2 score)
 //   - otherwise                   → VerdictAllow
 func (s *Scorer) ScoreConnection(ja4 string, telemetry *aitm.BotTelemetry) aitm.BotVerdict {
-	if !s.cfg.Enabled {
+	if !s.Cfg.Enabled {
 		return aitm.VerdictAllow
 	}
 	if ja4 != "" {
-		if sig, found := s.sigDB.Lookup(ja4); found {
-			s.logger.Info("botguard: L1 match", "ja4", ja4, "description", sig.Description)
+		if sig, found := s.SigDB.Lookup(ja4); found {
+			s.Logger.Info("botguard: L1 match", "ja4", ja4, "description", sig.Description)
 			return aitm.VerdictSpoof
 		}
 	}
-	if telemetry != nil && s.scoreTelemetry(telemetry) >= s.cfg.TelemetryThreshold {
+	if telemetry != nil && s.scoreTelemetry(telemetry) >= s.Cfg.TelemetryThreshold {
 		return aitm.VerdictSpoof
 	}
 	return aitm.VerdictAllow
 }
-
-// UpdateConfig replaces the scorer's runtime configuration.
-func (s *Scorer) UpdateConfig(cfg BotGuardConfig) { s.cfg = cfg }
 
 // scoreTelemetry computes a [0.0, 1.0] bot probability score from the
 // telemetry blob. Each signal contributes an additive weight; the total

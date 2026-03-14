@@ -145,12 +145,7 @@ func decryptParams(key []byte, encoded string) (map[string]string, error) {
 
 // LureService owns all business logic for lure management.
 type LureService struct {
-	store LureStore
-	bus   EventBus
-}
-
-func NewLureService(store LureStore, bus EventBus) *LureService {
-	return &LureService{store: store, bus: bus}
+	Store LureStore
 }
 
 func (s *LureService) Create(lure *Lure) error {
@@ -159,28 +154,39 @@ func (s *LureService) Create(lure *Lure) error {
 		return err
 	}
 	lure.ParamsKey = key
-	return s.store.CreateLure(lure)
+	return s.Store.CreateLure(lure)
 }
 
-func (s *LureService) Get(id string) (*Lure, error) { return s.store.GetLure(id) }
-func (s *LureService) Update(lure *Lure) error       { return s.store.UpdateLure(lure) }
-func (s *LureService) Delete(id string) error       { return s.store.DeleteLure(id) }
-func (s *LureService) List() ([]*Lure, error)       { return s.store.ListLures() }
+func (s *LureService) Get(id string) (*Lure, error) {
+	return s.Store.GetLure(id)
+}
+
+func (s *LureService) Update(lure *Lure) error {
+	return s.Store.UpdateLure(lure)
+}
+
+func (s *LureService) Delete(id string) error {
+	return s.Store.DeleteLure(id)
+}
+
+func (s *LureService) List() ([]*Lure, error) {
+	return s.Store.ListLures()
+}
 
 func (s *LureService) Pause(id string, d time.Duration) error {
-	lure, err := s.store.GetLure(id)
+	lure, err := s.Store.GetLure(id)
 	if err != nil {
 		return err
 	}
 	lure.PausedUntil = time.Now().Add(d)
-	return s.store.UpdateLure(lure)
+	return s.Store.UpdateLure(lure)
 }
 
 func (s *LureService) Unpause(id string) error {
-	lure, err := s.store.GetLure(id)
+	lure, err := s.Store.GetLure(id)
 	if err != nil {
 		return err
 	}
 	lure.PausedUntil = time.Time{}
-	return s.store.UpdateLure(lure)
+	return s.Store.UpdateLure(lure)
 }

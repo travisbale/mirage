@@ -173,7 +173,7 @@ func TestJA4SignatureDB_HotReload(t *testing.T) {
 
 func TestScorer_KnownBadJA4ReturnsVerdictSpoof(t *testing.T) {
 	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	scorer := botguard.NewScorer(botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, db, slog.Default())
+	scorer := &botguard.Scorer{Cfg: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SigDB: db, Logger: slog.Default()}
 	verdict := scorer.ScoreConnection("badja4_aabbccddeeff_112233445566", nil)
 	if verdict != aitm.VerdictSpoof {
 		t.Errorf("expected VerdictSpoof, got %v", verdict)
@@ -182,7 +182,7 @@ func TestScorer_KnownBadJA4ReturnsVerdictSpoof(t *testing.T) {
 
 func TestScorer_UnknownHashReturnsVerdictAllow(t *testing.T) {
 	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	scorer := botguard.NewScorer(botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, db, slog.Default())
+	scorer := &botguard.Scorer{Cfg: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SigDB: db, Logger: slog.Default()}
 	verdict := scorer.ScoreConnection("unknownhash_000000000000_000000000000", nil)
 	if verdict != aitm.VerdictAllow {
 		t.Errorf("expected VerdictAllow, got %v", verdict)
@@ -191,7 +191,7 @@ func TestScorer_UnknownHashReturnsVerdictAllow(t *testing.T) {
 
 func TestScorer_DisabledAlwaysAllows(t *testing.T) {
 	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	scorer := botguard.NewScorer(botguard.BotGuardConfig{Enabled: false}, db, slog.Default())
+	scorer := &botguard.Scorer{Cfg: botguard.BotGuardConfig{Enabled: false}, SigDB: db, Logger: slog.Default()}
 	verdict := scorer.ScoreConnection("badja4_aabbccddeeff_112233445566", nil)
 	if verdict != aitm.VerdictAllow {
 		t.Errorf("expected VerdictAllow when disabled, got %v", verdict)
@@ -200,7 +200,7 @@ func TestScorer_DisabledAlwaysAllows(t *testing.T) {
 
 func TestScorer_HighTelemetryScoreReturnsVerdictSpoof(t *testing.T) {
 	db := emptyDB(t)
-	scorer := botguard.NewScorer(botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, db, slog.Default())
+	scorer := &botguard.Scorer{Cfg: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SigDB: db, Logger: slog.Default()}
 	// SwiftShader renderer + 0 mouse moves + pixel_ratio 1.0 + device_memory 0 → score > 0.6
 	telem := &aitm.BotTelemetry{Raw: map[string]any{
 		"webgl_renderer":   "ANGLE (SwiftShader)",

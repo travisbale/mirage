@@ -63,29 +63,25 @@ type BotScorer interface {
 
 // BotGuardService evaluates connections for bot/scanner signatures.
 type BotGuardService struct {
-	scorer BotScorer
-	store  BotStore
-	bus    EventBus
-}
-
-func NewBotGuardService(scorer BotScorer, store BotStore, bus EventBus) *BotGuardService {
-	return &BotGuardService{scorer: scorer, store: store, bus: bus}
+	Scorer BotScorer
+	Store  BotStore
+	Bus    EventBus
 }
 
 // Evaluate delegates to the injected BotScorer.
 func (s *BotGuardService) Evaluate(ja4 string, telemetry *BotTelemetry) BotVerdict {
-	return s.scorer.ScoreConnection(ja4, telemetry)
+	return s.Scorer.ScoreConnection(ja4, telemetry)
 }
 
 // ScoreSession loads stored telemetry for sessionID and returns a [0.0, 1.0]
 // bot probability score. Returns 1.0 if any telemetry record scores as non-allow.
 func (s *BotGuardService) ScoreSession(sessionID string) float64 {
-	records, err := s.store.GetBotTelemetry(sessionID)
+	records, err := s.Store.GetBotTelemetry(sessionID)
 	if err != nil || len(records) == 0 {
 		return 0.0
 	}
 	for _, record := range records {
-		if s.scorer.ScoreConnection("", record) != VerdictAllow {
+		if s.Scorer.ScoreConnection("", record) != VerdictAllow {
 			return 1.0
 		}
 	}

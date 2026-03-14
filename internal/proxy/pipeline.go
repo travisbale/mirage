@@ -43,30 +43,21 @@ type HostnameSet interface {
 
 // Pipeline holds ordered slices of request and response handlers.
 type Pipeline struct {
-	requestHandlers  []RequestHandler
-	responseHandlers []ResponseHandler
-	logger           *slog.Logger
-}
-
-// NewPipeline constructs a Pipeline with the given ordered handler slices.
-func NewPipeline(requestHandlers []RequestHandler, responseHandlers []ResponseHandler, logger *slog.Logger) *Pipeline {
-	return &Pipeline{
-		requestHandlers:  requestHandlers,
-		responseHandlers: responseHandlers,
-		logger:           logger,
-	}
+	RequestHandlers  []RequestHandler
+	ResponseHandlers []ResponseHandler
+	Logger           *slog.Logger
 }
 
 // RunRequest executes all request handlers in order.
 // Returns ErrShortCircuit if any handler short-circuits.
 func (p *Pipeline) RunRequest(ctx *aitm.ProxyContext, req *http.Request) error {
-	for _, handler := range p.requestHandlers {
+	for _, handler := range p.RequestHandlers {
 		if err := handler.Handle(ctx, req); err != nil {
 			if errors.Is(err, ErrShortCircuit) {
-				p.logger.Debug("request pipeline short-circuited", "handler", handler.Name())
+				p.Logger.Debug("request pipeline short-circuited", "handler", handler.Name())
 				return ErrShortCircuit
 			}
-			p.logger.Error("request handler error", "handler", handler.Name(), "error", err)
+			p.Logger.Error("request handler error", "handler", handler.Name(), "error", err)
 			return err
 		}
 	}
@@ -75,13 +66,13 @@ func (p *Pipeline) RunRequest(ctx *aitm.ProxyContext, req *http.Request) error {
 
 // RunResponse executes all response handlers in order.
 func (p *Pipeline) RunResponse(ctx *aitm.ProxyContext, resp *http.Response) error {
-	for _, handler := range p.responseHandlers {
+	for _, handler := range p.ResponseHandlers {
 		if err := handler.Handle(ctx, resp); err != nil {
 			if errors.Is(err, ErrShortCircuit) {
-				p.logger.Debug("response pipeline short-circuited", "handler", handler.Name())
+				p.Logger.Debug("response pipeline short-circuited", "handler", handler.Name())
 				return ErrShortCircuit
 			}
-			p.logger.Error("response handler error", "handler", handler.Name(), "error", err)
+			p.Logger.Error("response handler error", "handler", handler.Name(), "error", err)
 			return err
 		}
 	}
