@@ -31,7 +31,7 @@ func (s *Sessions) CreateSession(session *aitm.Session) error {
 	if err != nil {
 		return err
 	}
-	httpTok, err := marshalJSON(session.HttpTokens)
+	httpTok, err := marshalJSON(session.HTTPTokens)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (s *Sessions) UpdateSession(session *aitm.Session) error {
 	custom, _ := marshalJSON(session.Custom)
 	cookies, _ := marshalJSON(session.CookieTokens)
 	body, _ := marshalJSON(session.BodyTokens)
-	httpTok, _ := marshalJSON(session.HttpTokens)
+	httpTok, _ := marshalJSON(session.HTTPTokens)
 	var completedAt *int64
 	if session.CompletedAt != nil {
 		t := session.CompletedAt.Unix()
@@ -190,6 +190,6 @@ func scanSession(row scanner) (*aitm.Session, error) {
 	_ = unmarshalJSON(custom, &session.Custom)
 	_ = unmarshalJSON(cookies, &session.CookieTokens)
 	_ = unmarshalJSON(body, &session.BodyTokens)
-	_ = unmarshalJSON(httpTok, &session.HttpTokens)
+	_ = unmarshalJSON(httpTok, &session.HTTPTokens)
 	return &session, nil
 }

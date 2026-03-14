@@ -15,9 +15,13 @@ import (
 // phishlet files. On successful re-parse it publishes EventPhishletReloaded on
 // the event bus. Parse failures are logged but not published — the previously
 // loaded definition remains in use.
+type eventPublisher interface {
+	Publish(event aitm.Event)
+}
+
 type Watcher struct {
 	dir    string
-	bus    aitm.EventBus
+	bus    eventPublisher
 	loader Loader
 	fsw    *fsnotify.Watcher
 	stopCh chan struct{}
@@ -26,7 +30,7 @@ type Watcher struct {
 
 // NewWatcher creates a Watcher for the given directory. Call Start to begin
 // watching. The watcher must be closed via Close when no longer needed.
-func NewWatcher(dir string, bus aitm.EventBus) (*Watcher, error) {
+func NewWatcher(dir string, bus eventPublisher) (*Watcher, error) {
 	fsw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err

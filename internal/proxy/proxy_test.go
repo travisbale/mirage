@@ -138,10 +138,10 @@ func TestActiveHostnameSet_Snapshot(t *testing.T) {
 	}
 }
 
-// ---- ProxySpoofProxy --------------------------------------------------------
+// ---- SpoofProxy --------------------------------------------------------
 
-func TestProxySpoofProxy_EmptyURL_Returns200(t *testing.T) {
-	sp := proxy.NewProxySpoofProxy("")
+func TestSpoofProxy_EmptyURL_Returns200(t *testing.T) {
+	sp := proxy.NewSpoofProxy("")
 	req := httptest.NewRequest(http.MethodGet, "https://phish.example.com/", nil)
 	rec := httptest.NewRecorder()
 	sp.ServeHTTP(rec, req)

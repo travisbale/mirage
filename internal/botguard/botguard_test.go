@@ -169,50 +169,38 @@ func TestJA4SignatureDB_HotReload(t *testing.T) {
 	}
 }
 
-// ── BotGuardService ───────────────────────────────────────────────────────────
+// ── Scorer (verdict) ──────────────────────────────────────────────────────────
 
-func TestBotGuardService_KnownBadJA4ReturnsVerdictSpoof(t *testing.T) {
+func TestScorer_KnownBadJA4ReturnsVerdictSpoof(t *testing.T) {
 	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	svc := botguard.NewBotGuardService(
-		botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6},
-		db, &noOpBotStore{}, &events.NoOpBus{}, slog.Default(),
-	)
-	verdict := svc.Evaluate("badja4_aabbccddeeff_112233445566", nil)
+	scorer := botguard.NewScorer(botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, db, slog.Default())
+	verdict := scorer.ScoreConnection("badja4_aabbccddeeff_112233445566", nil)
 	if verdict != aitm.VerdictSpoof {
 		t.Errorf("expected VerdictSpoof, got %v", verdict)
 	}
 }
 
-func TestBotGuardService_UnknownHashReturnsVerdictAllow(t *testing.T) {
+func TestScorer_UnknownHashReturnsVerdictAllow(t *testing.T) {
 	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	svc := botguard.NewBotGuardService(
-		botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6},
-		db, &noOpBotStore{}, &events.NoOpBus{}, slog.Default(),
-	)
-	verdict := svc.Evaluate("unknownhash_000000000000_000000000000", nil)
+	scorer := botguard.NewScorer(botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, db, slog.Default())
+	verdict := scorer.ScoreConnection("unknownhash_000000000000_000000000000", nil)
 	if verdict != aitm.VerdictAllow {
 		t.Errorf("expected VerdictAllow, got %v", verdict)
 	}
 }
 
-func TestBotGuardService_DisabledAlwaysAllows(t *testing.T) {
+func TestScorer_DisabledAlwaysAllows(t *testing.T) {
 	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	svc := botguard.NewBotGuardService(
-		botguard.BotGuardConfig{Enabled: false},
-		db, &noOpBotStore{}, &events.NoOpBus{}, slog.Default(),
-	)
-	verdict := svc.Evaluate("badja4_aabbccddeeff_112233445566", nil)
+	scorer := botguard.NewScorer(botguard.BotGuardConfig{Enabled: false}, db, slog.Default())
+	verdict := scorer.ScoreConnection("badja4_aabbccddeeff_112233445566", nil)
 	if verdict != aitm.VerdictAllow {
 		t.Errorf("expected VerdictAllow when disabled, got %v", verdict)
 	}
 }
 
-func TestBotGuardService_HighTelemetryScoreReturnsVerdictSpoof(t *testing.T) {
+func TestScorer_HighTelemetryScoreReturnsVerdictSpoof(t *testing.T) {
 	db := emptyDB(t)
-	svc := botguard.NewBotGuardService(
-		botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6},
-		db, &noOpBotStore{}, &events.NoOpBus{}, slog.Default(),
-	)
+	scorer := botguard.NewScorer(botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, db, slog.Default())
 	// SwiftShader renderer + 0 mouse moves + pixel_ratio 1.0 + device_memory 0 → score > 0.6
 	telem := &aitm.BotTelemetry{Raw: map[string]any{
 		"webgl_renderer":   "ANGLE (SwiftShader)",
@@ -221,7 +209,7 @@ func TestBotGuardService_HighTelemetryScoreReturnsVerdictSpoof(t *testing.T) {
 		"device_memory":    float64(0),
 		"fonts_detected":   float64(1),
 	}}
-	verdict := svc.Evaluate("", telem)
+	verdict := scorer.ScoreConnection("", telem)
 	if verdict != aitm.VerdictSpoof {
 		t.Errorf("expected VerdictSpoof for high telemetry score, got %v", verdict)
 	}

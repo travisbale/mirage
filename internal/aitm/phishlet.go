@@ -199,12 +199,11 @@ type PhishletService struct {
 	store           PhishletStore
 	bus             EventBus
 	dns             *DNSService
-	cert            *CertService
 	activeHostnames sync.Map // hostname → phishlet name
 }
 
-func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService, cert *CertService) *PhishletService {
-	return &PhishletService{store: store, bus: bus, dns: dns, cert: cert}
+func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService) *PhishletService {
+	return &PhishletService{store: store, bus: bus, dns: dns}
 }
 
 // GetActiveHostnames returns a snapshot of hostname → phishlet name for the proxy router.

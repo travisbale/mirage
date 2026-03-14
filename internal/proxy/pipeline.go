@@ -41,11 +41,6 @@ type HostnameSet interface {
 	Contains(hostname string) bool
 }
 
-// SessionUpdater persists session changes.
-type SessionUpdater interface {
-	UpdateSession(session *aitm.Session) error
-}
-
 // Pipeline holds ordered slices of request and response handlers.
 type Pipeline struct {
 	requestHandlers  []RequestHandler

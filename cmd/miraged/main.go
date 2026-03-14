@@ -121,7 +121,7 @@ func runServe(ctx context.Context, configPath string, debug, developer bool) err
 	blacklistSvc := aitm.NewBlacklistService(bus)
 	phishletResolver := aitm.NewPhishletResolver(sqlite.NewPhishletStore(db), sqlite.NewLureStore(db))
 	activeHostnames := &proxy.ActiveHostnameSet{}
-	spoofProxy := proxy.NewProxySpoofProxy("")
+	spoofProxy := proxy.NewSpoofProxy("")
 	wsHub := proxy.NewWSHub(bus, logger)
 
 	pipeline := buildPipeline(pipelineDeps{
@@ -184,7 +184,7 @@ type pipelineDeps struct {
 	sessionStore     aitm.SessionStore
 	phishletResolver *aitm.PhishletResolver
 	activeHostnames  *proxy.ActiveHostnameSet
-	spoofProxy       *proxy.ProxySpoofProxy
+	spoofProxy       *proxy.SpoofProxy
 	bus              aitm.EventBus
 }
 

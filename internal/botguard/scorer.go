@@ -107,32 +107,3 @@ func (s *Scorer) scoreTelemetry(telemetry *aitm.BotTelemetry) float64 {
 	return score
 }
 
-// BotGuardService wires a Scorer with a store and bus for use in the
-// request pipeline. It provides the Evaluate entry point called per connection.
-type BotGuardService struct {
-	scorer *Scorer
-	store  aitm.BotStore
-	bus    aitm.EventBus
-	logger *slog.Logger
-}
-
-// NewBotGuardService constructs a BotGuardService backed by a fresh Scorer.
-func NewBotGuardService(
-	cfg BotGuardConfig,
-	sigDB *JA4SignatureDB,
-	store aitm.BotStore,
-	bus aitm.EventBus,
-	logger *slog.Logger,
-) *BotGuardService {
-	return &BotGuardService{
-		scorer: NewScorer(cfg, sigDB, logger),
-		store:  store,
-		bus:    bus,
-		logger: logger,
-	}
-}
-
-// Evaluate scores the connection and returns the bot verdict.
-func (s *BotGuardService) Evaluate(ja4 string, telemetry *aitm.BotTelemetry) aitm.BotVerdict {
-	return s.scorer.ScoreConnection(ja4, telemetry)
-}

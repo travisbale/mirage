@@ -18,25 +18,29 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
+type certSource interface {
+	GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error)
+}
+
 // AiTMProxy is a reverse-proxy HTTPS server.
 // It accepts raw TCP connections on port 443, peeks at the TLS ClientHello
 // to capture bytes for JA4 fingerprinting, completes the TLS handshake using
 // the SNI hostname to select the right certificate, then routes all decrypted
 // HTTP traffic through the configured Pipeline.
 type AiTMProxy struct {
-	certSource aitm.CertSource
+	certSource certSource
 	pipeline   *Pipeline
 	wsHub      *WSHub
-	spoof      *ProxySpoofProxy
+	spoof      *SpoofProxy
 	logger     *slog.Logger
 }
 
 // NewAiTMProxy constructs a AiTMProxy. Call Start() to begin accepting connections.
 func NewAiTMProxy(
-	certSource aitm.CertSource,
+	certSource certSource,
 	pipeline *Pipeline,
 	wsHub *WSHub,
-	spoof *ProxySpoofProxy,
+	spoof *SpoofProxy,
 	logger *slog.Logger,
 ) *AiTMProxy {
 	return &AiTMProxy{

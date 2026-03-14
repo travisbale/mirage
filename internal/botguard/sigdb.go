@@ -26,6 +26,10 @@ type signatureFile struct {
 	Signatures []aitm.BotSignature `json:"signatures"`
 }
 
+type eventSubscriber interface {
+	Subscribe(eventType aitm.EventType) <-chan aitm.Event
+}
+
 // JA4SignatureDB is a thread-safe in-memory database of known-bad JA4 hashes.
 // It loads from a JSON file on disk and hot-reloads when EventPhishletReloaded fires.
 type JA4SignatureDB struct {
@@ -39,7 +43,7 @@ type JA4SignatureDB struct {
 // NewJA4SignatureDB constructs the database and loads the file immediately.
 // Returns an error if the file exists but cannot be parsed.
 // If path does not exist, the DB starts empty (warn-only, not a hard error).
-func NewJA4SignatureDB(path string, bus aitm.EventBus, logger *slog.Logger) (*JA4SignatureDB, error) {
+func NewJA4SignatureDB(path string, bus eventSubscriber, logger *slog.Logger) (*JA4SignatureDB, error) {
 	db := &JA4SignatureDB{
 		path:   path,
 		sigs:   make(map[string]aitm.BotSignature),

@@ -18,6 +18,10 @@ type redirectMsg struct {
 	RedirectURL string `json:"redirect_url"`
 }
 
+type eventSubscriber interface {
+	Subscribe(eventType aitm.EventType) <-chan aitm.Event
+}
+
 // WSHub manages active WebSocket connections waiting for session completion.
 // When EventSessionCompleted fires, the hub sends the redirect URL to all
 // WebSocket connections waiting on that session ID.
@@ -29,7 +33,7 @@ type WSHub struct {
 }
 
 // NewWSHub creates a WSHub and subscribes to EventSessionCompleted on bus.
-func NewWSHub(bus aitm.EventBus, logger *slog.Logger) *WSHub {
+func NewWSHub(bus eventSubscriber, logger *slog.Logger) *WSHub {
 	hub := &WSHub{
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
@@ -42,7 +46,7 @@ func NewWSHub(bus aitm.EventBus, logger *slog.Logger) *WSHub {
 }
 
 // listenCompletions fans out EventSessionCompleted events to all waiting connections.
-func (h *WSHub) listenCompletions(bus aitm.EventBus) {
+func (h *WSHub) listenCompletions(bus eventSubscriber) {
 	completionCh := bus.Subscribe(aitm.EventSessionCompleted)
 	for event := range completionCh {
 		sess, ok := event.Payload.(*aitm.Session)

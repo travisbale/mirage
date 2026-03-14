@@ -1,6 +1,7 @@
 package request
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/url"
@@ -31,7 +32,7 @@ func (h *ForcePostInjector) Handle(ctx *aitm.ProxyContext, req *http.Request) er
 			continue
 		}
 		modified := injectFormParams(bodyBytes, forcePost.Params)
-		req.Body = io.NopCloser(bytesReader(modified))
+		req.Body = io.NopCloser(bytes.NewReader(modified))
 		req.ContentLength = int64(len(modified))
 		req.Header.Set("Content-Length", strconv.Itoa(len(modified)))
 	}
@@ -67,16 +68,6 @@ func injectFormParams(body []byte, params []aitm.ForcePostParam) []byte {
 		parsed.Set(param.Key, param.Value)
 	}
 	return []byte(parsed.Encode())
-}
-
-type bytesReader []byte
-
-func (b bytesReader) Read(p []byte) (int, error) {
-	n := copy(p, b)
-	if n == len(b) {
-		return n, io.EOF
-	}
-	return n, nil
 }
 
 var _ proxy.RequestHandler = (*ForcePostInjector)(nil)

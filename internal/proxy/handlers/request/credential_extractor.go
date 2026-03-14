@@ -1,8 +1,6 @@
 package request
 
 import (
-	"bytes"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,15 +9,18 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-// SessionUpdater persists session changes.
-type CredentialSessionUpdater interface {
+type sessionUpdater interface {
 	UpdateSession(session *aitm.Session) error
+}
+
+type eventPublisher interface {
+	Publish(event aitm.Event)
 }
 
 // CredentialExtractor captures username and password from matching login requests.
 type CredentialExtractor struct {
-	Store CredentialSessionUpdater
-	Bus   aitm.EventBus
+	Store sessionUpdater
+	Bus   eventPublisher
 }
 
 func (h *CredentialExtractor) Name() string { return "CredentialExtractor" }
@@ -77,15 +78,6 @@ func matchesLoginPath(login aitm.LoginSpec, req *http.Request) bool {
 	return true
 }
 
-func readAndRestoreBody(req *http.Request) ([]byte, error) {
-	if req.Body == nil {
-		return nil, nil
-	}
-	bodyBytes, err := io.ReadAll(req.Body)
-	req.Body.Close()
-	req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-	return bodyBytes, err
-}
 
 func extractField(rule aitm.CredentialRule, body []byte, req *http.Request) string {
 	switch rule.Type {
