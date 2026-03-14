@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -72,6 +73,7 @@ type RouterDeps struct {
 	Bus       eventBus
 	Domain    string // global base domain for lure URL generation
 	Version   string
+	Logger    *slog.Logger
 }
 
 // Router is the top-level handler for the management API. It implements
@@ -87,10 +89,15 @@ type Router struct {
 	domain    string
 	version   string
 	startedAt time.Time
+	logger    *slog.Logger
 }
 
 // NewRouter wires all dependencies into the ServeMux and returns a ready Router.
 func NewRouter(deps RouterDeps) *Router {
+	logger := deps.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	r := &Router{
 		mux:       http.NewServeMux(),
 		sessions:  deps.Sessions,
@@ -102,6 +109,7 @@ func NewRouter(deps RouterDeps) *Router {
 		domain:    deps.Domain,
 		version:   deps.Version,
 		startedAt: time.Now(),
+		logger:    logger,
 	}
 	r.registerRoutes()
 	return r
@@ -112,9 +120,8 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) registerRoutes() {
-	auth := r.authMiddleware
 	h := func(method, route string, handler http.HandlerFunc) {
-		r.mux.HandleFunc(method+" "+route, auth(handler))
+		r.mux.HandleFunc(method+" "+route, r.authMiddleware(r.auditMiddleware(handler)))
 	}
 
 	// Sessions

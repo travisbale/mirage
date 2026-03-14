@@ -135,6 +135,7 @@ func runServe(ctx context.Context, configPath string, debug, developer bool) err
 		Bus:       bus,
 		Domain:    cfg.Domain,
 		Version:   Version,
+		Logger:    logger,
 	})
 
 	pipeline := buildPipeline(pipelineDeps{
