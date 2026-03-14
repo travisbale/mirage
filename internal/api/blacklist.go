@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+
+	"github.com/travisbale/mirage/sdk"
 )
 
 func (r *Router) listBlacklist(w http.ResponseWriter, req *http.Request) {
@@ -16,11 +18,11 @@ func (r *Router) listBlacklist(w http.ResponseWriter, req *http.Request) {
 	end := min(start+limit, total)
 	page := entries[start:end]
 
-	items := make([]BlacklistEntryResponse, len(page))
+	items := make([]sdk.BlacklistEntryResponse, len(page))
 	for i, v := range page {
-		items[i] = BlacklistEntryResponse{Value: v}
+		items[i] = sdk.BlacklistEntryResponse{Value: v}
 	}
-	writeJSON(w, http.StatusOK, PaginatedResponse[BlacklistEntryResponse]{
+	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.BlacklistEntryResponse]{
 		Items:  items,
 		Total:  total,
 		Limit:  limit,
@@ -29,7 +31,7 @@ func (r *Router) listBlacklist(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) addBlacklistEntry(w http.ResponseWriter, req *http.Request) {
-	var body AddBlacklistEntryRequest
+	var body sdk.AddBlacklistEntryRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
 		return
@@ -44,7 +46,7 @@ func (r *Router) addBlacklistEntry(w http.ResponseWriter, req *http.Request) {
 	}
 
 	r.blacklist.Block(body.Value)
-	writeJSON(w, http.StatusCreated, BlacklistEntryResponse{Value: body.Value})
+	writeJSON(w, http.StatusCreated, sdk.BlacklistEntryResponse{Value: body.Value})
 }
 
 func (r *Router) removeBlacklistEntry(w http.ResponseWriter, req *http.Request) {

@@ -1,17 +1,18 @@
-package api
+// Package sdk provides types and a client for the mirage management API.
+package sdk
 
 import "time"
 
-// ErrorResponse is the JSON body returned for all error responses.
+// ErrorResponse is returned by the API for all error responses.
 type ErrorResponse struct {
 	Error string `json:"error"` // human-readable message
-	Code  string `json:"code"`  // machine-readable code for the CLI to switch on
+	Code  string `json:"code"`  // machine-readable code
 }
 
-// PaginatedResponse is the wrapper for all list endpoint responses.
+// PaginatedResponse wraps all list endpoint responses.
 type PaginatedResponse[T any] struct {
 	Items  []T `json:"items"`
-	Total  int `json:"total"`  // total matching records (ignores limit/offset)
+	Total  int `json:"total"`
 	Limit  int `json:"limit"`
 	Offset int `json:"offset"`
 }
@@ -36,31 +37,41 @@ type SessionResponse struct {
 	CompletedAt  *time.Time                   `json:"completed_at"`
 }
 
+// SessionFilter scopes a ListSessions request.
+type SessionFilter struct {
+	Phishlet  string
+	Completed *bool
+	Since     *time.Time
+	Until     *time.Time
+	Limit     int
+	Offset    int
+}
+
 // --- Lures ---
 
 type CreateLureRequest struct {
-	Phishlet    string `json:"phishlet"`     // required
-	BaseDomain  string `json:"base_domain"`  // optional
-	Path        string `json:"path"`         // optional, auto-generated if empty
-	RedirectURL string `json:"redirect_url"` // optional
-	SpoofURL    string `json:"spoof_url"`    // optional
-	UAFilter    string `json:"ua_filter"`    // optional regex
-	OGTitle     string `json:"og_title"`
-	OGDesc      string `json:"og_desc"`
-	OGImage     string `json:"og_image"`
-	OGURL       string `json:"og_url"`
-	Redirector  string `json:"redirector"`
+	Phishlet    string `json:"phishlet"`
+	BaseDomain  string `json:"base_domain,omitempty"`
+	Path        string `json:"path,omitempty"`
+	RedirectURL string `json:"redirect_url,omitempty"`
+	SpoofURL    string `json:"spoof_url,omitempty"`
+	UAFilter    string `json:"ua_filter,omitempty"`
+	OGTitle     string `json:"og_title,omitempty"`
+	OGDesc      string `json:"og_desc,omitempty"`
+	OGImage     string `json:"og_image,omitempty"`
+	OGURL       string `json:"og_url,omitempty"`
+	Redirector  string `json:"redirector,omitempty"`
 }
 
 type UpdateLureRequest struct {
-	RedirectURL *string `json:"redirect_url"`
-	SpoofURL    *string `json:"spoof_url"`
-	UAFilter    *string `json:"ua_filter"`
-	OGTitle     *string `json:"og_title"`
-	OGDesc      *string `json:"og_desc"`
-	OGImage     *string `json:"og_image"`
-	OGURL       *string `json:"og_url"`
-	Redirector  *string `json:"redirector"`
+	RedirectURL *string `json:"redirect_url,omitempty"`
+	SpoofURL    *string `json:"spoof_url,omitempty"`
+	UAFilter    *string `json:"ua_filter,omitempty"`
+	OGTitle     *string `json:"og_title,omitempty"`
+	OGDesc      *string `json:"og_desc,omitempty"`
+	OGImage     *string `json:"og_image,omitempty"`
+	OGURL       *string `json:"og_url,omitempty"`
+	Redirector  *string `json:"redirector,omitempty"`
 }
 
 type LureResponse struct {
@@ -72,7 +83,7 @@ type LureResponse struct {
 	RedirectURL string    `json:"redirect_url"`
 	SpoofURL    string    `json:"spoof_url"`
 	UAFilter    string    `json:"ua_filter"`
-	PausedUntil time.Time `json:"paused_until,omitempty"`
+	PausedUntil *time.Time `json:"paused_until,omitempty"`
 	OGTitle     string    `json:"og_title"`
 	OGDesc      string    `json:"og_desc"`
 	OGImage     string    `json:"og_image"`
@@ -113,20 +124,20 @@ type EnablePhishletRequest struct {
 }
 
 type CreateSubPhishletRequest struct {
-	ParentName string            `json:"parent_name"` // required
-	Name       string            `json:"name"`        // required
+	ParentName string            `json:"parent_name"`
+	Name       string            `json:"name"`
 	Params     map[string]string `json:"params"`
 }
 
 // --- Blacklist ---
 
 type BlacklistEntryResponse struct {
-	Value string `json:"value"` // IP or CIDR string
+	Value string `json:"value"` // IP or CIDR
 }
 
 type AddBlacklistEntryRequest struct {
-	Value string `json:"value"` // required
-	Note  string `json:"note"`  // optional annotation (stored in-memory only)
+	Value string `json:"value"`
+	Note  string `json:"note,omitempty"`
 }
 
 // --- BotGuard ---
@@ -138,8 +149,8 @@ type BotSignatureResponse struct {
 }
 
 type AddBotSignatureRequest struct {
-	JA4Hash     string `json:"ja4_hash"`    // required
-	Description string `json:"description"` // optional
+	JA4Hash     string `json:"ja4_hash"`
+	Description string `json:"description,omitempty"`
 }
 
 type UpdateBotThresholdRequest struct {
@@ -150,10 +161,10 @@ type UpdateBotThresholdRequest struct {
 
 type StatusResponse struct {
 	Version        string    `json:"version"`
-	Uptime         string    `json:"uptime"`          // human-readable, e.g. "3h24m"
+	Uptime         string    `json:"uptime"`
 	UptimeSeconds  float64   `json:"uptime_seconds"`
 	GoRoutines     int       `json:"goroutines"`
 	TotalSessions  int       `json:"total_sessions"`
-	ActiveSessions int       `json:"active_sessions"` // started in last hour, not completed
+	ActiveSessions int       `json:"active_sessions"`
 	StartedAt      time.Time `json:"started_at"`
 }

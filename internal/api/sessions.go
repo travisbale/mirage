@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
@@ -48,11 +49,11 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 		Before:         filter.Before,
 	})
 
-	items := make([]SessionResponse, len(sessions))
+	items := make([]sdk.SessionResponse, len(sessions))
 	for i, s := range sessions {
 		items[i] = sessionToResponse(s)
 	}
-	writeJSON(w, http.StatusOK, PaginatedResponse[SessionResponse]{
+	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.SessionResponse]{
 		Items:  items,
 		Total:  len(all),
 		Limit:  limit,
@@ -151,7 +152,7 @@ func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func sessionToResponse(s *aitm.Session) SessionResponse {
+func sessionToResponse(s *aitm.Session) sdk.SessionResponse {
 	cookies := make(map[string]map[string]string)
 	for domain, byName := range s.CookieTokens {
 		cookies[domain] = make(map[string]string)
@@ -159,7 +160,7 @@ func sessionToResponse(s *aitm.Session) SessionResponse {
 			cookies[domain][name] = tok.Value
 		}
 	}
-	return SessionResponse{
+	return sdk.SessionResponse{
 		ID:           s.ID,
 		Phishlet:     s.Phishlet,
 		LureID:       s.LureID,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
@@ -17,15 +18,15 @@ func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
 	end := min(start+limit, total)
 	page := sigs[start:end]
 
-	items := make([]BotSignatureResponse, len(page))
+	items := make([]sdk.BotSignatureResponse, len(page))
 	for i, sig := range page {
-		items[i] = BotSignatureResponse{
+		items[i] = sdk.BotSignatureResponse{
 			JA4Hash:     sig.JA4Hash,
 			Description: sig.Description,
 			AddedAt:     sig.AddedAt,
 		}
 	}
-	writeJSON(w, http.StatusOK, PaginatedResponse[BotSignatureResponse]{
+	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.BotSignatureResponse]{
 		Items:  items,
 		Total:  total,
 		Limit:  limit,
@@ -34,7 +35,7 @@ func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) addBotSignature(w http.ResponseWriter, req *http.Request) {
-	var body AddBotSignatureRequest
+	var body sdk.AddBotSignatureRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
 		return
@@ -60,7 +61,7 @@ func (r *Router) addBotSignature(w http.ResponseWriter, req *http.Request) {
 	r.botguard.Add(sig)
 	r.botguard.Save()
 
-	writeJSON(w, http.StatusCreated, BotSignatureResponse{
+	writeJSON(w, http.StatusCreated, sdk.BotSignatureResponse{
 		JA4Hash:     sig.JA4Hash,
 		Description: sig.Description,
 		AddedAt:     sig.AddedAt,
@@ -78,7 +79,7 @@ func (r *Router) removeBotSignature(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) updateBotThreshold(w http.ResponseWriter, req *http.Request) {
-	var body UpdateBotThresholdRequest
+	var body sdk.UpdateBotThresholdRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
 		return

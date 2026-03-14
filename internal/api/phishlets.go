@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
@@ -21,11 +22,11 @@ func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 	end := min(start+limit, total)
 	page := cfgs[start:end]
 
-	items := make([]PhishletResponse, len(page))
+	items := make([]sdk.PhishletResponse, len(page))
 	for i, cfg := range page {
 		items[i] = phishletConfigToResponse(cfg)
 	}
-	writeJSON(w, http.StatusOK, PaginatedResponse[PhishletResponse]{
+	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.PhishletResponse]{
 		Items:  items,
 		Total:  total,
 		Limit:  limit,
@@ -36,7 +37,7 @@ func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 
-	var body EnablePhishletRequest
+	var body sdk.EnablePhishletRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
 		return
@@ -122,7 +123,7 @@ func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
-	var body CreateSubPhishletRequest
+	var body sdk.CreateSubPhishletRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
 		return
@@ -146,7 +147,7 @@ func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
 		writeError(w, status, err.Error(), code)
 		return
 	}
-	writeJSON(w, http.StatusCreated, PhishletResponse{
+	writeJSON(w, http.StatusCreated, sdk.PhishletResponse{
 		Name:       sp.Name,
 		ParentName: sp.ParentName,
 	})
@@ -165,8 +166,8 @@ func (r *Router) deleteSubPhishlet(w http.ResponseWriter, req *http.Request) {
 // listRegistry stubs the phishlet registry — not implemented until Phase 15.
 func (r *Router) listRegistry(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
-	writeJSON(w, http.StatusOK, PaginatedResponse[PhishletResponse]{
-		Items:  []PhishletResponse{},
+	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.PhishletResponse]{
+		Items:  []sdk.PhishletResponse{},
 		Total:  0,
 		Limit:  limit,
 		Offset: offset,
@@ -180,8 +181,8 @@ func (r *Router) getPhishletHosts(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func phishletConfigToResponse(cfg *aitm.PhishletConfig) PhishletResponse {
-	return PhishletResponse{
+func phishletConfigToResponse(cfg *aitm.PhishletConfig) sdk.PhishletResponse {
+	return sdk.PhishletResponse{
 		Name:        cfg.Name,
 		BaseDomain:  cfg.BaseDomain,
 		Hostname:    cfg.Hostname,

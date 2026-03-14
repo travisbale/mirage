@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func (r *Router) getStatus(w http.ResponseWriter, req *http.Request) {
@@ -19,7 +20,7 @@ func (r *Router) getStatus(w http.ResponseWriter, req *http.Request) {
 		After:          time.Now().Add(-time.Hour),
 	})
 
-	writeJSON(w, http.StatusOK, StatusResponse{
+	writeJSON(w, http.StatusOK, sdk.StatusResponse{
 		Version:        r.version,
 		Uptime:         uptime.Round(time.Second).String(),
 		UptimeSeconds:  uptime.Seconds(),
