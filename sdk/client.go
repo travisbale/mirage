@@ -3,11 +3,13 @@ package sdk
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -23,30 +25,49 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// NewClient constructs a Client for the given API hostname.
-// certPEM and keyPEM are the operator client certificate and key used for mTLS.
-// caCertPEM is the CA that signed the server's certificate; pass nil to use system roots.
-func NewClient(host string, certPEM, keyPEM, caCertPEM []byte) (*Client, error) {
+// NewClient constructs a Client that connects to address using mTLS.
+//
+// address is the server's IP/hostname and port (e.g. "https://1.2.3.4:443").
+// secretHostname is used for TLS SNI and the Host header; the TCP connection
+// always dials address so the operator's workstation does not need to resolve
+// secretHostname via DNS.
+// certPEM and keyPEM are the operator's client certificate and private key.
+// caCertPEM is the CA that signed the server's certificate, used for pinning.
+func NewClient(address, secretHostname string, certPEM, keyPEM, caCertPEM []byte) (*Client, error) {
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("sdk: loading client cert: %w", err)
 	}
 
-	tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caCertPEM) {
+		return nil, fmt.Errorf("sdk: server CA cert is not valid PEM")
+	}
 
-	if caCertPEM != nil {
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(caCertPEM) {
-			return nil, fmt.Errorf("sdk: parsing server CA cert")
-		}
+	u, err := url.Parse(address)
+	if err != nil {
+		return nil, fmt.Errorf("sdk: parsing address: %w", err)
+	}
+	dialAddr := u.Host
 
-		tlsCfg.RootCAs = pool
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      pool,
+		ServerName:   secretHostname,
+		MinVersion:   tls.VersionTLS13,
+	}
+
+	transport := &http.Transport{
+		TLSClientConfig: tlsCfg,
+		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, network, dialAddr)
+		},
 	}
 
 	return &Client{
-		baseURL: "https://" + host,
+		baseURL: "https://" + secretHostname,
 		httpClient: &http.Client{
-			Transport: &http.Transport{TLSClientConfig: tlsCfg},
+			Transport: transport,
 			Timeout:   30 * time.Second,
 		},
 	}, nil
@@ -107,7 +128,7 @@ func (c *Client) ExportSessionCookies(id string) ([]byte, error) {
 // lifecycle events (created, updated, completed, deleted) to the returned channel.
 // The channel is closed when the context-level done signal fires or the server
 // closes the connection. Call the returned cancel function to stop streaming.
-func (c *Client) StreamSessions() (<-chan SessionResponse, func(), error) {
+func (c *Client) StreamSessions() (<-chan SessionEvent, func(), error) {
 	req, err := http.NewRequest(http.MethodGet, c.baseURL+RouteSessionsStream, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("sdk: stream request: %w", err)
@@ -123,7 +144,7 @@ func (c *Client) StreamSessions() (<-chan SessionResponse, func(), error) {
 		return nil, nil, err
 	}
 
-	ch := make(chan SessionResponse, 16)
+	ch := make(chan SessionEvent, 16)
 	cancel := func() { resp.Body.Close() }
 
 	go func() {
@@ -131,17 +152,20 @@ func (c *Client) StreamSessions() (<-chan SessionResponse, func(), error) {
 		defer resp.Body.Close()
 
 		scanner := bufio.NewScanner(resp.Body)
-		var dataLine string
+		var eventType, dataLine string
 
 		for scanner.Scan() {
 			line := scanner.Text()
-			if data, ok := strings.CutPrefix(line, "data: "); ok {
+			if et, ok := strings.CutPrefix(line, "event: "); ok {
+				eventType = et
+			} else if data, ok := strings.CutPrefix(line, "data: "); ok {
 				dataLine = data
 			} else if line == "" && dataLine != "" {
 				var s SessionResponse
 				if json.Unmarshal([]byte(dataLine), &s) == nil {
-					ch <- s
+					ch <- SessionEvent{Type: eventType, Session: s}
 				}
+				eventType = ""
 				dataLine = ""
 			}
 		}

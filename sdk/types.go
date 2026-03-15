@@ -37,6 +37,20 @@ type SessionResponse struct {
 	CompletedAt  *time.Time                   `json:"completed_at"`
 }
 
+// Session event types delivered by StreamSessions.
+const (
+	EventSessionCreated   = "session.created"
+	EventSessionUpdated   = "session.updated"
+	EventSessionCompleted = "session.completed"
+	EventSessionDeleted   = "session.deleted"
+)
+
+// SessionEvent is delivered by StreamSessions for each lifecycle event.
+type SessionEvent struct {
+	Type    string // one of the EventSession* constants
+	Session SessionResponse
+}
+
 // SessionFilter scopes a ListSessions request.
 type SessionFilter struct {
 	Phishlet  string

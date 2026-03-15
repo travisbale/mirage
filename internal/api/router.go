@@ -13,11 +13,6 @@ import (
 	"github.com/travisbale/mirage/sdk"
 )
 
-// --- Local interfaces ---
-// Each interface is defined here at the point of use, containing only the
-// methods the Router actually needs. This keeps the api package decoupled
-// from concrete service and store types.
-
 type sessionManager interface {
 	Get(id string) (*aitm.Session, error)
 	List(filter aitm.SessionFilter) ([]*aitm.Session, error)
@@ -94,10 +89,6 @@ type Router struct {
 
 // NewRouter wires all dependencies into the ServeMux and returns a ready Router.
 func NewRouter(deps RouterDeps) *Router {
-	logger := deps.Logger
-	if logger == nil {
-		logger = slog.Default()
-	}
 	r := &Router{
 		mux:       http.NewServeMux(),
 		sessions:  deps.Sessions,
@@ -109,9 +100,11 @@ func NewRouter(deps RouterDeps) *Router {
 		domain:    deps.Domain,
 		version:   deps.Version,
 		startedAt: time.Now(),
-		logger:    logger,
+		logger:    deps.Logger,
 	}
+
 	r.registerRoutes()
+
 	return r
 }
 
