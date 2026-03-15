@@ -123,6 +123,14 @@ func (p *AITMProxy) handleConn(rawConn net.Conn) {
 func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 	connReader := bufio.NewReader(conn)
 
+	// http.ReadRequest never populates req.TLS; capture it once per connection
+	// so authMiddleware can verify the client certificate on management requests.
+	var tlsState *tls.ConnectionState
+	if tlsConn, ok := conn.(*tls.Conn); ok {
+		cs := tlsConn.ConnectionState()
+		tlsState = &cs
+	}
+
 	for {
 		req, err := http.ReadRequest(connReader)
 		if err != nil {
@@ -131,6 +139,7 @@ func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 			}
 			return
 		}
+		req.TLS = tlsState
 		req.URL.Scheme = "https"
 
 		// Check for WebSocket upgrade to the hub endpoint.
