@@ -32,6 +32,7 @@ func (h *BotGuardCheck) Handle(ctx *aitm.ProxyContext, req *http.Request) error 
 		return proxy.ErrShortCircuit
 	}
 	if verdict == aitm.VerdictBlock {
+		http.Error(ctx.ResponseWriter, "Not Found", http.StatusNotFound)
 		return proxy.ErrShortCircuit
 	}
 	return nil
