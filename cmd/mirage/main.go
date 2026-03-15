@@ -41,6 +41,7 @@ func newRootCmd() *cobra.Command {
 
 	root.AddCommand(
 		newREPLCmd(),
+		newDeployCmd(),
 		newServerCmd(),
 		newSessionsCmd(),
 		newLuresCmd(),
