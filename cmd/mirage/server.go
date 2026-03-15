@@ -9,7 +9,7 @@ import (
 func newServerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "server",
-		Short: "Manage miraged server endpoints",
+		Short: "Manage miraged servers",
 	}
 	cmd.AddCommand(
 		newServerAddCmd(),
@@ -31,9 +31,9 @@ func newServerAddCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Add a miraged server endpoint",
+		Short: "Add a miraged server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ep := Endpoint{
+			server := Server{
 				Alias:          alias,
 				Address:        address,
 				SecretHostname: secretHostname,
@@ -43,7 +43,7 @@ func newServerAddCmd() *cobra.Command {
 			}
 
 			// Verify the connection before saving.
-			client, err := newClient(&ep)
+			client, err := newClient(&server)
 			if err != nil {
 				return fmt.Errorf("building client: %w", err)
 			}
@@ -56,7 +56,7 @@ func newServerAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cfg.addServer(ep)
+			cfg.addServer(server)
 			if cfg.DefaultServer == "" {
 				cfg.DefaultServer = alias
 			}
@@ -85,7 +85,7 @@ func newServerAddCmd() *cobra.Command {
 func newServerListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List configured server endpoints",
+		Short: "List configured servers",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, _, err := resolveConfig(cmd)
 			if err != nil {
@@ -112,7 +112,7 @@ func newServerListCmd() *cobra.Command {
 func newServerRemoveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <alias>",
-		Short: "Remove a server endpoint",
+		Short: "Remove a server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, cfgPath, err := resolveConfig(cmd)
@@ -134,7 +134,7 @@ func newServerRemoveCmd() *cobra.Command {
 func newServerDefaultCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "default <alias>",
-		Short: "Set the default server endpoint",
+		Short: "Set the default server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, cfgPath, err := resolveConfig(cmd)

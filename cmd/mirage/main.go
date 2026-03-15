@@ -22,11 +22,11 @@ func main() {
 			return cmd.Help()
 		}
 		alias, _ := cmd.Flags().GetString("server")
-		ep, err := cfg.findServer(alias)
+		server, err := cfg.findServer(alias)
 		if err != nil {
 			return err
 		}
-		return runREPL(cmd.Context(), ep.Alias, cfgPath)
+		return runREPL(cmd.Context(), server.Alias, cfgPath)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)

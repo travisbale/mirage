@@ -8,25 +8,25 @@ import (
 	"github.com/travisbale/mirage/sdk"
 )
 
-// newClient builds an sdk.Client for the given endpoint by reading the
+// newClient builds an sdk.Client for the given server by reading the
 // cert files from disk and delegating transport construction to the SDK.
-func newClient(ep *Endpoint) (*sdk.Client, error) {
-	certPEM, err := os.ReadFile(ep.ClientCertPath)
+func newClient(server *Server) (*sdk.Client, error) {
+	certPEM, err := os.ReadFile(server.ClientCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading client cert: %w", err)
 	}
-	keyPEM, err := os.ReadFile(ep.ClientKeyPath)
+	keyPEM, err := os.ReadFile(server.ClientKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading client key: %w", err)
 	}
-	caPEM, err := os.ReadFile(ep.ServerCACert)
+	caPEM, err := os.ReadFile(server.ServerCACert)
 	if err != nil {
 		return nil, fmt.Errorf("reading server CA: %w", err)
 	}
-	return sdk.NewClient(ep.Address, ep.SecretHostname, certPEM, keyPEM, caPEM)
+	return sdk.NewClient(server.Address, server.SecretHostname, certPEM, keyPEM, caPEM)
 }
 
-// resolveClient loads the config, finds the target endpoint, and returns a
+// resolveClient loads the config, finds the target server, and returns a
 // ready API client. All API subcommands call this at the start of RunE.
 func resolveClient(cmd *cobra.Command) (*sdk.Client, error) {
 	cfgPath, _ := cmd.Flags().GetString("config")
@@ -42,9 +42,9 @@ func resolveClient(cmd *cobra.Command) (*sdk.Client, error) {
 		return nil, err
 	}
 	alias, _ := cmd.Flags().GetString("server")
-	ep, err := cfg.findServer(alias)
+	server, err := cfg.findServer(alias)
 	if err != nil {
 		return nil, err
 	}
-	return newClient(ep)
+	return newClient(server)
 }

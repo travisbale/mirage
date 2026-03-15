@@ -13,11 +13,11 @@ import (
 // Client is the top-level structure of ~/.mirage/client.json.
 type Client struct {
 	DefaultServer string     `json:"default_server"`
-	Servers       []Endpoint `json:"servers"`
+	Servers       []Server `json:"servers"`
 }
 
-// Endpoint is one configured miraged instance.
-type Endpoint struct {
+// Server is one configured miraged instance.
+type Server struct {
 	Alias          string `json:"alias"`
 	Address        string `json:"address"`
 	SecretHostname string `json:"secret_hostname"`
@@ -95,9 +95,9 @@ func saveConfig(cfg *Client, path string) error {
 	return nil
 }
 
-// findServer returns the Endpoint for alias, or the default endpoint if alias
+// findServer returns the Server for alias, or the default server if alias
 // is "". Returns an error if no matching server is found.
-func (c *Client) findServer(alias string) (*Endpoint, error) {
+func (c *Client) findServer(alias string) (*Server, error) {
 	if alias == "" {
 		alias = c.DefaultServer
 	}
@@ -116,14 +116,14 @@ func (c *Client) findServer(alias string) (*Endpoint, error) {
 }
 
 // addServer appends or replaces a server entry by alias.
-func (c *Client) addServer(ep Endpoint) {
+func (c *Client) addServer(server Server) {
 	for i := range c.Servers {
-		if c.Servers[i].Alias == ep.Alias {
-			c.Servers[i] = ep
+		if c.Servers[i].Alias == server.Alias {
+			c.Servers[i] = server
 			return
 		}
 	}
-	c.Servers = append(c.Servers, ep)
+	c.Servers = append(c.Servers, server)
 }
 
 // removeServer removes the entry with the given alias.
