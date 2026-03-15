@@ -1,6 +1,10 @@
 package main
 
-import "github.com/travisbale/mirage/internal/aitm"
+import (
+	"context"
+
+	"github.com/travisbale/mirage/internal/aitm"
+)
 
 // Shutdown tears down all subsystems in reverse dependency order.
 // Called after Run returns.
@@ -23,6 +27,13 @@ func (d *Daemon) Shutdown() {
 	d.log.Info("closing store")
 	if err := d.db.Close(); err != nil {
 		d.log.Error("store close error", "error", err)
+	}
+
+	// Shut down JS obfuscator sidecar processes if running.
+	if d.obfuscator != nil {
+		if err := d.obfuscator.Shutdown(context.Background()); err != nil {
+			d.log.Error("obfuscator shutdown error", "error", err)
+		}
 	}
 
 	d.log.Info("shutdown complete")

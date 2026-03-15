@@ -1,6 +1,7 @@
 package response
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -8,20 +9,16 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-// ScriptObfuscator obfuscates marked script blocks in HTML responses.
-type ScriptObfuscator interface {
-	ObfuscateMarked(body []byte) ([]byte, error)
+// bodyObfuscator is the interface JSObfuscator needs from its dependency.
+type bodyObfuscator interface {
+	Obfuscate(ctx context.Context, html []byte) ([]byte, error)
 }
 
-// NoOpObfuscator is a pass-through used when obfuscation is disabled.
-type NoOpObfuscator struct{}
-
-func (n *NoOpObfuscator) ObfuscateMarked(body []byte) ([]byte, error) { return body, nil }
-
 // JSObfuscator passes HTML bodies through the configured obfuscator to hide
-// injected scripts from analysis.
+// injected scripts from static analysis. Only blocks marked with the mirage
+// injection markers are obfuscated; third-party scripts are untouched.
 type JSObfuscator struct {
-	Obfuscator ScriptObfuscator
+	Obfuscator bodyObfuscator
 	Logger     *slog.Logger
 }
 
@@ -31,14 +28,14 @@ func (h *JSObfuscator) Handle(ctx *aitm.ProxyContext, resp *http.Response) error
 	if !isHTMLResponse(resp) {
 		return nil
 	}
-	bodyBytes, err := readBody(resp)
+	body, err := readBody(resp)
 	if err != nil {
 		return err
 	}
-	obfuscated, err := h.Obfuscator.ObfuscateMarked(bodyBytes)
+	obfuscated, err := h.Obfuscator.Obfuscate(resp.Request.Context(), body)
 	if err != nil {
 		h.Logger.Warn("js obfuscation failed, using plaintext", "error", err)
-		replaceBody(resp, bodyBytes)
+		replaceBody(resp, body)
 		return nil
 	}
 	replaceBody(resp, obfuscated)

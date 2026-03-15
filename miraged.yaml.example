@@ -9,6 +9,15 @@ phishlets_dir: /etc/mirage/phishlets
 redirectors_dir: /etc/mirage/redirectors
 autocert: true
 
+# Optional — JS obfuscation of injected scripts (requires Node.js >= 18 on the server)
+# Run `make sidecar-install` to install the sidecar npm dependencies before enabling.
+# obfuscator:
+#   enabled: true
+#   sidecar_dir: /etc/mirage/obfuscator/sidecar
+#   node_path: ""          # empty = search PATH
+#   request_timeout: 5s
+#   max_concurrent: 4
+
 # Optional — remove if not using a DNS provider for automatic record management
 dns_providers:
   - alias: cf-main

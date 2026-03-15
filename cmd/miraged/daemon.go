@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -10,6 +11,12 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 	"github.com/travisbale/mirage/internal/store/sqlite"
 )
+
+// scriptObfuscator is satisfied by both obfuscator.NodeObfuscator and obfuscator.NoOpObfuscator.
+type scriptObfuscator interface {
+	Obfuscate(ctx context.Context, html []byte) ([]byte, error)
+	Shutdown(ctx context.Context) error
+}
 
 // Daemon is the fully-wired daemon. One instance per process.
 // Fields are populated by Init() in dependency order and consumed by Run(),
@@ -30,6 +37,9 @@ type Daemon struct {
 
 	// Proxy.
 	proxy *proxy.AITMProxy
+
+	// JS obfuscator — always non-nil after Init (no-op when disabled).
+	obfuscator scriptObfuscator
 
 	// Services needed by health check and reload.
 	phishletStore aitm.PhishletStore

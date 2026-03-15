@@ -8,11 +8,9 @@ import (
 	"strings"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/obfuscator"
 	"github.com/travisbale/mirage/internal/proxy"
 )
-
-const mirageMarkerStart = "/* __mirage_injected_start__ */"
-const mirageMarkerEnd = "/* __mirage_injected_end__ */"
 
 //go:embed dist/telemetry.min.js
 var telemetryScript string
@@ -50,7 +48,7 @@ func (h *JSInjector) Handle(ctx *aitm.ProxyContext, resp *http.Response) error {
 	}
 
 	scriptBlock := fmt.Sprintf("<script>%s\n%s\n%s</script>",
-		mirageMarkerStart, scriptContent.String(), mirageMarkerEnd)
+		obfuscator.MarkerStart, scriptContent.String(), obfuscator.MarkerEnd)
 	bodyBytes = bytes.Replace(bodyBytes, []byte("</body>"), []byte(scriptBlock+"\n</body>"), 1)
 	replaceBody(resp, bodyBytes)
 	return nil

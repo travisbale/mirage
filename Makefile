@@ -1,11 +1,15 @@
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
 
-.PHONY: build build-daemon scripts clean test fmt lint docker
+.PHONY: build build-daemon scripts sidecar-install clean test fmt lint docker
 
 scripts:
 	@echo "Minifying injected JavaScript..."
 	@go run ./tools/minify
+
+sidecar-install:
+	@echo "Installing obfuscator sidecar dependencies..."
+	@cd internal/obfuscator/sidecar && npm ci --omit=dev
 
 build: scripts
 	@echo "Building production binaries..."
