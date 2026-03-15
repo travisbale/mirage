@@ -208,7 +208,12 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 		writeError(w, status, err.Error(), code)
 		return
 	}
-	lure, _ := r.lures.Get(id)
+	lure, err := r.lures.Get(id)
+	if err != nil {
+		status, code := errStatus(err)
+		writeError(w, status, err.Error(), code)
+		return
+	}
 	writeJSON(w, http.StatusOK, lureToResponse(lure))
 }
 
@@ -219,7 +224,12 @@ func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 		writeError(w, status, err.Error(), code)
 		return
 	}
-	lure, _ := r.lures.Get(id)
+	lure, err := r.lures.Get(id)
+	if err != nil {
+		status, code := errStatus(err)
+		writeError(w, status, err.Error(), code)
+		return
+	}
 	writeJSON(w, http.StatusOK, lureToResponse(lure))
 }
 
