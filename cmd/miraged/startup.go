@@ -123,6 +123,9 @@ func (d *Daemon) Init(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		if err := issueOperatorCert(clientCA, cfg.API.ClientCACertPath, d.log); err != nil {
+			return err
+		}
 		aitmProxy.SecretHostname = cfg.API.SecretHostname
 		aitmProxy.ClientCAs = clientCA.CertPool()
 		d.log.Info("API enabled", "hostname", cfg.API.SecretHostname, "ca_cert", cfg.API.ClientCACertPath)
@@ -234,6 +237,32 @@ func newBotGuardService(bus aitm.EventBus, botStore aitm.BotStore, logger *slog.
 	}
 	scorer := &botguard.Scorer{Cfg: bgCfg, SigDB: sigDB, Logger: logger}
 	return &aitm.BotGuardService{Scorer: scorer, Store: botStore, Bus: bus}, sigDB, nil
+}
+
+// issueOperatorCert issues a client certificate for the default operator if
+// one does not already exist. The cert and key are written alongside the CA
+// cert, using the same base path with an "operator" stem.
+func issueOperatorCert(ca *api.CA, caCertPath string, logger *slog.Logger) error {
+	dir := filepath.Dir(caCertPath)
+	certPath := filepath.Join(dir, "operator.crt")
+	keyPath := filepath.Join(dir, "operator.key")
+
+	if _, err := os.Stat(certPath); err == nil {
+		return nil // already exists
+	}
+
+	certPEM, keyPEM, err := ca.IssueClientCert("operator")
+	if err != nil {
+		return fmt.Errorf("issuing operator client cert: %w", err)
+	}
+	if err := os.WriteFile(certPath, certPEM, 0644); err != nil {
+		return fmt.Errorf("writing operator cert: %w", err)
+	}
+	if err := os.WriteFile(keyPath, keyPEM, 0600); err != nil {
+		return fmt.Errorf("writing operator key: %w", err)
+	}
+	logger.Info("issued operator client certificate", "cert", certPath, "key", keyPath)
+	return nil
 }
 
 func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
