@@ -19,19 +19,7 @@ type Sessions struct{ db *DB }
 func NewSessionStore(db *DB) *Sessions { return &Sessions{db: db} }
 
 func (s *Sessions) CreateSession(session *aitm.Session) error {
-	custom, err := marshalJSON(session.Custom)
-	if err != nil {
-		return err
-	}
-	cookies, err := marshalJSON(session.CookieTokens)
-	if err != nil {
-		return err
-	}
-	body, err := marshalJSON(session.BodyTokens)
-	if err != nil {
-		return err
-	}
-	httpTok, err := marshalJSON(session.HTTPTokens)
+	custom, cookies, body, httpTok, err := marshalSessionFields(session)
 	if err != nil {
 		return err
 	}
@@ -71,10 +59,10 @@ func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
 }
 
 func (s *Sessions) UpdateSession(session *aitm.Session) error {
-	custom, _ := marshalJSON(session.Custom)
-	cookies, _ := marshalJSON(session.CookieTokens)
-	body, _ := marshalJSON(session.BodyTokens)
-	httpTok, _ := marshalJSON(session.HTTPTokens)
+	custom, cookies, body, httpTok, err := marshalSessionFields(session)
+	if err != nil {
+		return err
+	}
 	var completedAt *int64
 	if session.CompletedAt != nil {
 		t := session.CompletedAt.Unix()
@@ -210,9 +198,42 @@ func scanSession(row scanner) (*aitm.Session, error) {
 		t := time.Unix(*completedAt, 0)
 		session.CompletedAt = &t
 	}
-	_ = unmarshalJSON(custom, &session.Custom)
-	_ = unmarshalJSON(cookies, &session.CookieTokens)
-	_ = unmarshalJSON(body, &session.BodyTokens)
-	_ = unmarshalJSON(httpTok, &session.HTTPTokens)
+	if err := unmarshalSessionFields(&session, custom, cookies, body, httpTok); err != nil {
+		return nil, err
+	}
 	return &session, nil
+}
+
+// marshalSessionFields marshals the four JSON-serialized fields of a session.
+func marshalSessionFields(s *aitm.Session) (custom, cookies, body, httpTok string, err error) {
+	if custom, err = marshalJSON(s.Custom); err != nil {
+		return "", "", "", "", fmt.Errorf("marshaling custom fields for session %s: %w", s.ID, err)
+	}
+	if cookies, err = marshalJSON(s.CookieTokens); err != nil {
+		return "", "", "", "", fmt.Errorf("marshaling cookie tokens for session %s: %w", s.ID, err)
+	}
+	if body, err = marshalJSON(s.BodyTokens); err != nil {
+		return "", "", "", "", fmt.Errorf("marshaling body tokens for session %s: %w", s.ID, err)
+	}
+	if httpTok, err = marshalJSON(s.HTTPTokens); err != nil {
+		return "", "", "", "", fmt.Errorf("marshaling http tokens for session %s: %w", s.ID, err)
+	}
+	return
+}
+
+// unmarshalSessionFields populates the four JSON-serialized fields of a session.
+func unmarshalSessionFields(s *aitm.Session, custom, cookies, body, httpTok string) error {
+	if err := unmarshalJSON(custom, &s.Custom); err != nil {
+		return fmt.Errorf("unmarshaling custom fields for session %s: %w", s.ID, err)
+	}
+	if err := unmarshalJSON(cookies, &s.CookieTokens); err != nil {
+		return fmt.Errorf("unmarshaling cookie tokens for session %s: %w", s.ID, err)
+	}
+	if err := unmarshalJSON(body, &s.BodyTokens); err != nil {
+		return fmt.Errorf("unmarshaling body tokens for session %s: %w", s.ID, err)
+	}
+	if err := unmarshalJSON(httpTok, &s.HTTPTokens); err != nil {
+		return fmt.Errorf("unmarshaling http tokens for session %s: %w", s.ID, err)
+	}
+	return nil
 }

@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 
@@ -62,6 +64,14 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+	if err := validateURL("redirect_url", body.RedirectURL); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION_ERROR")
+		return
+	}
+	if err := validateURL("spoof_url", body.SpoofURL); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION_ERROR")
+		return
+	}
 
 	path := body.Path
 	if path == "" {
@@ -111,9 +121,17 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 		lure.UAFilter = *body.UAFilter
 	}
 	if body.RedirectURL != nil {
+		if err := validateURL("redirect_url", *body.RedirectURL); err != nil {
+			writeError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION_ERROR")
+			return
+		}
 		lure.RedirectURL = *body.RedirectURL
 	}
 	if body.SpoofURL != nil {
+		if err := validateURL("spoof_url", *body.SpoofURL); err != nil {
+			writeError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION_ERROR")
+			return
+		}
 		lure.SpoofURL = *body.SpoofURL
 	}
 	if body.OGTitle != nil {
@@ -229,6 +247,18 @@ func pausedUntil(l *aitm.Lure) *time.Time {
 		return nil
 	}
 	return &l.PausedUntil
+}
+
+// validateURL returns an error if s is non-empty but not a valid absolute HTTP/HTTPS URL.
+func validateURL(field, s string) error {
+	if s == "" {
+		return nil
+	}
+	u, err := url.ParseRequestURI(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("%s: must be an absolute http or https URL", field)
+	}
+	return nil
 }
 
 func randomPath() string {

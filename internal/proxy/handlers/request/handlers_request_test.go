@@ -1,13 +1,16 @@
 package request_test
 
 import (
+	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/proxy"
@@ -195,6 +198,197 @@ func TestURLRewriter_RewritesHostname(t *testing.T) {
 	}
 }
 
+// ---- IPExtractor ------------------------------------------------------------
+
+func mustCIDR(s string) *net.IPNet {
+	_, cidr, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(err)
+	}
+	return cidr
+}
+
+func TestIPExtractor_DirectConnection(t *testing.T) {
+	h := &request.IPExtractor{}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+	req.RemoteAddr = "1.2.3.4:54321"
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.ClientIP != "1.2.3.4" {
+		t.Errorf("expected 1.2.3.4, got %q", ctx.ClientIP)
+	}
+}
+
+func TestIPExtractor_TrustedProxy_XForwardedFor(t *testing.T) {
+	h := &request.IPExtractor{TrustedCIDRs: []*net.IPNet{mustCIDR("10.0.0.0/8")}}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+	req.RemoteAddr = "10.0.0.1:443"
+	req.Header.Set("X-Forwarded-For", "5.6.7.8, 10.0.0.1")
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.ClientIP != "5.6.7.8" {
+		t.Errorf("expected 5.6.7.8 from XFF, got %q", ctx.ClientIP)
+	}
+}
+
+func TestIPExtractor_UntrustedProxy_IgnoresHeader(t *testing.T) {
+	h := &request.IPExtractor{TrustedCIDRs: []*net.IPNet{mustCIDR("10.0.0.0/8")}}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+	req.RemoteAddr = "1.2.3.4:443" // not in trusted CIDR
+	req.Header.Set("X-Forwarded-For", "9.9.9.9")
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.ClientIP != "1.2.3.4" {
+		t.Errorf("expected socket IP 1.2.3.4, got %q", ctx.ClientIP)
+	}
+}
+
+// ---- LureValidator ----------------------------------------------------------
+
+func TestLureValidator_NoLure_Skips(t *testing.T) {
+	h := &request.LureValidator{Spoof: &stubSpoofer{}}
+	ctx := &aitm.ProxyContext{} // Lure is nil
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLureValidator_PausedLure_Spoofs(t *testing.T) {
+	spoofer := &stubSpoofer{}
+	h := &request.LureValidator{Spoof: spoofer}
+	pausedUntil := time.Now().Add(time.Hour)
+	ctx := &aitm.ProxyContext{
+		Lure:           &aitm.Lure{PausedUntil: pausedUntil},
+		ResponseWriter: httptest.NewRecorder(),
+	}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+	if err := h.Handle(ctx, req); err != proxy.ErrShortCircuit {
+		t.Fatalf("expected ErrShortCircuit, got %v", err)
+	}
+	if !spoofer.called {
+		t.Error("expected spoofer to be called for paused lure")
+	}
+}
+
+func compiledLure(uaFilter string) *aitm.Lure {
+	l := &aitm.Lure{UAFilter: uaFilter}
+	if err := l.CompileUA(); err != nil {
+		panic(err)
+	}
+	return l
+}
+
+func TestLureValidator_UAFilterMatch_Passes(t *testing.T) {
+	h := &request.LureValidator{Spoof: &stubSpoofer{}}
+	ctx := &aitm.ProxyContext{Lure: compiledLure("Mozilla")}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0)")
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLureValidator_UAFilterNoMatch_Spoofs(t *testing.T) {
+	spoofer := &stubSpoofer{}
+	h := &request.LureValidator{Spoof: spoofer}
+	ctx := &aitm.ProxyContext{
+		Lure:           compiledLure("Mozilla"),
+		ResponseWriter: httptest.NewRecorder(),
+	}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+	req.Header.Set("User-Agent", "Googlebot/2.1")
+	if err := h.Handle(ctx, req); err != proxy.ErrShortCircuit {
+		t.Fatalf("expected ErrShortCircuit, got %v", err)
+	}
+	if !spoofer.called {
+		t.Error("expected spoofer for UA filter mismatch")
+	}
+}
+
+// ---- SessionResolver --------------------------------------------------------
+
+type stubSessionStore struct {
+	session *aitm.Session
+	err     error
+}
+
+func (s *stubSessionStore) GetSession(_ string) (*aitm.Session, error) {
+	return s.session, s.err
+}
+
+type stubSessionFactory struct {
+	session *aitm.Session
+	err     error
+}
+
+func (s *stubSessionFactory) NewSession(_ *aitm.ProxyContext) (*aitm.Session, error) {
+	return s.session, s.err
+}
+
+func TestSessionResolver_ExistingSession_FromCookie(t *testing.T) {
+	existing := &aitm.Session{ID: "existing-sess"}
+	h := &request.SessionResolver{
+		Store:   &stubSessionStore{session: existing},
+		Factory: &stubSessionFactory{},
+	}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+	req.AddCookie(&http.Cookie{Name: "__ss", Value: "existing-sess"})
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session != existing {
+		t.Error("expected existing session to be loaded from cookie")
+	}
+	if ctx.IsNewSession {
+		t.Error("expected IsNewSession=false for existing session")
+	}
+}
+
+func TestSessionResolver_NoCookie_CreatesNew(t *testing.T) {
+	newSess := &aitm.Session{ID: "new-sess"}
+	h := &request.SessionResolver{
+		Store:   &stubSessionStore{err: errors.New("not found")},
+		Factory: &stubSessionFactory{session: newSess},
+	}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session != newSess {
+		t.Error("expected new session to be created")
+	}
+	if !ctx.IsNewSession {
+		t.Error("expected IsNewSession=true for new session")
+	}
+}
+
+func TestSessionResolver_FactoryError_ReturnsError(t *testing.T) {
+	h := &request.SessionResolver{
+		Store:   &stubSessionStore{err: errors.New("not found")},
+		Factory: &stubSessionFactory{err: errors.New("db down")},
+	}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+
+	if err := h.Handle(ctx, req); err == nil {
+		t.Fatal("expected error from factory failure, got nil")
+	}
+}
+
 // ---- CredentialExtractor ----------------------------------------------------
 
 type stubCredentialStore struct{}
@@ -204,8 +398,9 @@ func (s *stubCredentialStore) UpdateSession(_ *aitm.Session) error { return nil 
 func TestCredentialExtractor_ExtractsUsername(t *testing.T) {
 	bus := newTestBus()
 	h := &request.CredentialExtractor{
-		Store: &stubCredentialStore{},
-		Bus:   bus,
+		Store:  &stubCredentialStore{},
+		Bus:    bus,
+		Logger: discardLogger(),
 	}
 	ctx := &aitm.ProxyContext{
 		Session: &aitm.Session{ID: "sess-1"},
@@ -234,6 +429,66 @@ func TestCredentialExtractor_ExtractsUsername(t *testing.T) {
 	}
 	if !strings.Contains(ctx.Session.Username, "victim") {
 		t.Errorf("expected username to be extracted, got %q", ctx.Session.Username)
+	}
+}
+
+func TestCredentialExtractor_NonPost_Skips(t *testing.T) {
+	h := &request.CredentialExtractor{
+		Store:  &stubCredentialStore{},
+		Bus:    newTestBus(),
+		Logger: discardLogger(),
+	}
+	ctx := &aitm.ProxyContext{
+		Session:  &aitm.Session{ID: "sess-1"},
+		Phishlet: &aitm.PhishletDef{},
+	}
+	req := newReq(http.MethodGet, "https://login.example.com/", nil)
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session.Username != "" {
+		t.Error("expected no extraction for non-POST request")
+	}
+}
+
+func TestCredentialExtractor_NoPhishlet_Skips(t *testing.T) {
+	h := &request.CredentialExtractor{
+		Store:  &stubCredentialStore{},
+		Bus:    newTestBus(),
+		Logger: discardLogger(),
+	}
+	ctx := &aitm.ProxyContext{Session: &aitm.Session{ID: "sess-1"}} // no Phishlet
+	req := newReq(http.MethodPost, "https://login.example.com/login", strings.NewReader("username=x"))
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCredentialExtractor_NoRuleMatch_NoUpdate(t *testing.T) {
+	bus := newTestBus()
+	h := &request.CredentialExtractor{
+		Store:  &stubCredentialStore{},
+		Bus:    bus,
+		Logger: discardLogger(),
+	}
+	ctx := &aitm.ProxyContext{
+		Session: &aitm.Session{ID: "sess-1"},
+		Phishlet: &aitm.PhishletDef{
+			Credentials: aitm.CredentialRules{
+				Username: aitm.CredentialRule{
+					Key:  regexp.MustCompile(`^user$`),
+					Type: "post",
+				},
+			},
+		},
+	}
+	// Body has "login" key, not "user" — no match.
+	req := newReq(http.MethodPost, "https://login.example.com/login", strings.NewReader("login=victim"))
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session.Username != "" {
+		t.Error("expected no username extracted when key does not match")
 	}
 }
 

@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/sdk"
@@ -24,14 +23,18 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 		filter.IncompleteOnly = true
 	}
 	if s := q.Get("since"); s != "" {
-		if t, err := time.Parse(time.RFC3339, s); err == nil {
-			filter.After = t
+		t, ok := parseRFC3339Param(w, "since", s)
+		if !ok {
+			return
 		}
+		filter.After = t
 	}
 	if s := q.Get("until"); s != "" {
-		if t, err := time.Parse(time.RFC3339, s); err == nil {
-			filter.Before = t
+		t, ok := parseRFC3339Param(w, "until", s)
+		if !ok {
+			return
 		}
+		filter.Before = t
 	}
 
 	sessions, err := r.sessions.List(filter)
@@ -41,13 +44,14 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Total count without pagination.
-	all, _ := r.sessions.List(aitm.SessionFilter{
-		Phishlet:       filter.Phishlet,
-		CompletedOnly:  filter.CompletedOnly,
-		IncompleteOnly: filter.IncompleteOnly,
-		After:          filter.After,
-		Before:         filter.Before,
-	})
+	countFilter := filter
+	countFilter.Limit = 0
+	countFilter.Offset = 0
+	total, err := r.sessions.Count(countFilter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		return
+	}
 
 	items := make([]sdk.SessionResponse, len(sessions))
 	for i, s := range sessions {
@@ -55,7 +59,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.SessionResponse]{
 		Items:  items,
-		Total:  len(all),
+		Total:  total,
 		Limit:  limit,
 		Offset: offset,
 	})

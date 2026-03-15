@@ -1,6 +1,8 @@
 package sqlite
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 func marshalJSON(v any) (string, error) {
 	b, err := json.Marshal(v)
@@ -9,6 +11,7 @@ func marshalJSON(v any) (string, error) {
 	}
 	return string(b), nil
 }
+
 
 func unmarshalJSON[T any](s string, dst *T) error {
 	if s == "" || s == "null" {

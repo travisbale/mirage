@@ -136,6 +136,9 @@ func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 		// Check for WebSocket upgrade to the hub endpoint.
 		if isWebSocketUpgrade(req) && strings.HasPrefix(req.URL.Path, "/ws/") {
 			sessionID := strings.TrimPrefix(req.URL.Path, "/ws/")
+			if sessionID == "" {
+				continue
+			}
 			rec := newHijackableResponseWriter(conn)
 			pctx.ResponseWriter = rec
 			p.WSHub.HandleUpgrade(rec, req, sessionID)

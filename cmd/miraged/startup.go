@@ -319,14 +319,14 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 		&request.SessionResolver{Store: d.sessionStore, Factory: d.sessionSvc},
 		&request.TelemetryScoreCheck{Scorer: d.botGuardSvc, Spoof: d.spoofProxy, Threshold: 0.6},
 		&request.URLRewriter{},
-		&request.CredentialExtractor{Store: d.sessionStore, Bus: d.bus},
+		&request.CredentialExtractor{Store: d.sessionStore, Bus: d.bus, Logger: logger},
 		&request.ForcePostInjector{},
 	}
 	resp := []proxy.ResponseHandler{
 		&response.SecurityHeaderStripper{},
 		&response.CookieRewriter{},
 		&response.SubFilterApplier{},
-		&response.TokenExtractor{Store: d.sessionStore, Bus: d.bus, Completer: d.sessionSvc, Whitelist: d.blacklistSvc},
+		&response.TokenExtractor{Store: d.sessionStore, Bus: d.bus, Completer: d.sessionSvc, Whitelist: d.blacklistSvc, Logger: logger},
 		&response.JSInjector{},
 		&response.JSObfuscator{Obfuscator: d.obfuscator, Logger: logger},
 	}

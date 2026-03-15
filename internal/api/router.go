@@ -16,6 +16,7 @@ import (
 type sessionManager interface {
 	Get(id string) (*aitm.Session, error)
 	List(filter aitm.SessionFilter) ([]*aitm.Session, error)
+	Count(filter aitm.SessionFilter) (int, error)
 	Delete(id string) error
 	ExportCookiesJSON(id string) ([]byte, error)
 }
@@ -196,6 +197,17 @@ func parsePagination(req *http.Request) (limit, offset int) {
 		}
 	}
 	return
+}
+
+// parseRFC3339Param parses an RFC3339 timestamp query parameter. It writes a
+// 400 error and returns false if the value is present but malformed.
+func parseRFC3339Param(w http.ResponseWriter, name, value string) (time.Time, bool) {
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, name+": invalid RFC3339 timestamp", "VALIDATION_ERROR")
+		return time.Time{}, false
+	}
+	return t, true
 }
 
 // errStatus maps store sentinel errors to HTTP status codes and API error codes.

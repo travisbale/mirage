@@ -24,6 +24,7 @@ func (s *stubSessions) Get(_ string) (*aitm.Session, error) { return nil, nil }
 func (s *stubSessions) List(_ aitm.SessionFilter) ([]*aitm.Session, error) {
 	return s.sessions, nil
 }
+func (s *stubSessions) Count(_ aitm.SessionFilter) (int, error)    { return len(s.sessions), nil }
 func (s *stubSessions) Delete(_ string) error                      { return nil }
 func (s *stubSessions) ExportCookiesJSON(_ string) ([]byte, error) { return []byte("[]"), nil }
 
