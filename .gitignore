@@ -1,6 +1,9 @@
 # Build output
 build/
 
+# Generated JS — run `make scripts` to regenerate
+dist/
+
 # Test binary and coverage output
 *.test
 *.out

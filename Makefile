@@ -1,15 +1,19 @@
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
 
-.PHONY: build build-daemon clean test fmt lint docker
+.PHONY: build build-daemon scripts clean test fmt lint docker
 
-build:
+scripts:
+	@echo "Minifying injected JavaScript..."
+	@go run ./tools/minify
+
+build: scripts
 	@echo "Building production binaries..."
 	@mkdir -p build
 	@go build $(LDFLAGS) -o build/miraged ./cmd/miraged
 	@go build $(LDFLAGS) -o build/mirage ./cmd/mirage
 
-build-daemon:
+build-daemon: scripts
 	@echo "Building miraged..."
 	@mkdir -p build
 	@go build $(LDFLAGS) -o build/miraged ./cmd/miraged
@@ -17,6 +21,7 @@ build-daemon:
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf build/
+	@rm -rf internal/proxy/handlers/response/dist/
 
 test:
 	@echo "Running tests..."
