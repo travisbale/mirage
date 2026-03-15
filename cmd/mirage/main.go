@@ -17,16 +17,7 @@ func main() {
 
 	// When invoked with no subcommand, drop into the REPL if a server is configured.
 	root.RunE = func(cmd *cobra.Command, args []string) error {
-		cfg, cfgPath, err := resolveConfig(cmd)
-		if err != nil || len(cfg.Servers) == 0 {
-			return cmd.Help()
-		}
-		alias, _ := cmd.Flags().GetString("server")
-		server, err := cfg.findServer(alias)
-		if err != nil {
-			return err
-		}
-		return runREPL(cmd.Context(), server.Alias, cfgPath)
+		return newREPLCmd().RunE(cmd, args)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
@@ -49,6 +40,7 @@ func newRootCmd() *cobra.Command {
 	root.PersistentFlags().String("config", "", "path to client.json (default: ~/.mirage/client.json)")
 
 	root.AddCommand(
+		newREPLCmd(),
 		newServerCmd(),
 		newSessionsCmd(),
 		newLuresCmd(),

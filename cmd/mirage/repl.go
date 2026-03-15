@@ -12,6 +12,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func newREPLCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "repl",
+		Short: "Start an interactive REPL session (default when no command is given)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, cfgPath, err := resolveConfig(cmd)
+			if err != nil {
+				return err
+			}
+			alias, _ := cmd.Flags().GetString("server")
+			server, err := cfg.findServer(alias)
+			if err != nil {
+				return err
+			}
+			return runREPL(cmd.Context(), server.Alias, cfgPath)
+		},
+	}
+}
+
 func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
 	histPath, err := historyPath()
 	if err != nil {
