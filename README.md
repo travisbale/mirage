@@ -80,19 +80,45 @@ mirage deploy \
 
 This uploads the `miraged` binary, writes the config, installs a systemd unit, and performs a health check.
 
-## Usage
+## First-time setup
 
-Start the daemon:
+**1. Start the daemon.**
 
 ```bash
 miraged --config /etc/mirage/miraged.yaml
 ```
 
-Connect the CLI to a running daemon:
+On first start, `miraged` auto-generates a mutual TLS CA and issues an operator client certificate alongside it:
+
+```txt
+/var/lib/mirage/api-ca.crt      # server CA cert (trust anchor for the CLI)
+/var/lib/mirage/operator.crt    # operator client cert
+/var/lib/mirage/operator.key    # operator client key
+```
+
+**2. Copy the certificate files to your operator machine.**
 
 ```bash
-mirage server add https://api.phish.example.com --alias prod --token <enrollment-token>
+scp root@<server>:/var/lib/mirage/api-ca.crt   ~/.mirage/prod-ca.crt
+scp root@<server>:/var/lib/mirage/operator.crt ~/.mirage/prod-client.crt
+scp root@<server>:/var/lib/mirage/operator.key ~/.mirage/prod-client.key
 ```
+
+**3. Register the server with the CLI.**
+
+```bash
+mirage server add \
+  --alias prod \
+  --address https://<server-ip>:443 \
+  --secret-hostname api.phish.example.com \
+  --ca ~/.mirage/prod-ca.crt \
+  --cert ~/.mirage/prod-client.crt \
+  --key ~/.mirage/prod-client.key
+```
+
+The CLI verifies the connection before saving. You're ready to go.
+
+## Usage
 
 Manage phishlets, lures, and sessions:
 
