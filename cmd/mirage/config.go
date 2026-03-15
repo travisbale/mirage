@@ -26,13 +26,22 @@ type Endpoint struct {
 	ServerCACert   string `json:"server_ca_cert_path"`
 }
 
-// defaultConfigPath returns the path to ~/.mirage/client.json.
-func defaultConfigPath() (string, error) {
+// mirageDir returns the path to ~/.mirage/, creating it if necessary.
+func mirageDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolving home directory: %w", err)
 	}
-	return filepath.Join(home, ".mirage", "client.json"), nil
+	return filepath.Join(home, ".mirage"), nil
+}
+
+// defaultConfigPath returns the path to ~/.mirage/client.json.
+func defaultConfigPath() (string, error) {
+	dir, err := mirageDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "client.json"), nil
 }
 
 // resolveConfig loads the client config for the given command, using the
