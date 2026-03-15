@@ -1,0 +1,201 @@
+package api_test
+
+import (
+	"crypto/tls"
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/api"
+	"github.com/travisbale/mirage/sdk"
+)
+
+// ── stubs ─────────────────────────────────────────────────────────────────────
+
+type stubSessions struct{ sessions []*aitm.Session }
+
+func (s *stubSessions) Get(_ string) (*aitm.Session, error) { return nil, nil }
+func (s *stubSessions) List(_ aitm.SessionFilter) ([]*aitm.Session, error) {
+	return s.sessions, nil
+}
+func (s *stubSessions) Delete(_ string) error                      { return nil }
+func (s *stubSessions) ExportCookiesJSON(_ string) ([]byte, error) { return []byte("[]"), nil }
+
+type stubLures struct{}
+
+func (s *stubLures) Get(_ string) (*aitm.Lure, error)         { return nil, nil }
+func (s *stubLures) Create(_ *aitm.Lure) error                { return nil }
+func (s *stubLures) Update(_ *aitm.Lure) error                { return nil }
+func (s *stubLures) Delete(_ string) error                    { return nil }
+func (s *stubLures) List() ([]*aitm.Lure, error)              { return nil, nil }
+func (s *stubLures) Pause(_ string, _ time.Duration) error    { return nil }
+func (s *stubLures) Unpause(_ string) error                   { return nil }
+
+type stubPhishlets struct{}
+
+func (s *stubPhishlets) GetPhishletConfig(_ string) (*aitm.PhishletConfig, error) {
+	return nil, nil
+}
+func (s *stubPhishlets) SetPhishletConfig(_ *aitm.PhishletConfig) error { return nil }
+func (s *stubPhishlets) ListPhishletConfigs() ([]*aitm.PhishletConfig, error) {
+	return nil, nil
+}
+func (s *stubPhishlets) CreateSubPhishlet(_ *aitm.SubPhishlet) error { return nil }
+func (s *stubPhishlets) DeleteSubPhishlet(_ string) error            { return nil }
+
+type stubBlacklist struct{}
+
+func (s *stubBlacklist) Block(_ string)   {}
+func (s *stubBlacklist) Unblock(_ string) {}
+func (s *stubBlacklist) List() []string   { return nil }
+
+type stubBotguard struct{}
+
+func (s *stubBotguard) List() []aitm.BotSignature { return nil }
+func (s *stubBotguard) Add(_ aitm.BotSignature)   {}
+func (s *stubBotguard) Remove(_ string) bool      { return false }
+func (s *stubBotguard) Save() error               { return nil }
+
+type stubBus struct{}
+
+func (s *stubBus) Subscribe(_ aitm.EventType) <-chan aitm.Event {
+	return make(chan aitm.Event)
+}
+func (s *stubBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+func newTestRouter(sessions *stubSessions) *api.Router {
+	return api.NewRouter(api.RouterDeps{
+		Sessions:  sessions,
+		Lures:     &stubLures{},
+		Phishlets: &stubPhishlets{},
+		Blacklist: &stubBlacklist{},
+		Botguard:  &stubBotguard{},
+		Bus:       &stubBus{},
+		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+}
+
+func newMTLSServer(t *testing.T, handler http.Handler, ca *api.CA) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewUnstartedServer(handler)
+	srv.TLS = &tls.Config{
+		ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientCAs:  ca.CertPool(),
+	}
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func newMTLSClient(t *testing.T, srv *httptest.Server, certPEM, keyPEM []byte) *http.Client {
+	t.Helper()
+	clientCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatalf("X509KeyPair: %v", err)
+	}
+	client := srv.Client()
+	client.Transport.(*http.Transport).TLSClientConfig.Certificates = []tls.Certificate{clientCert}
+	return client
+}
+
+// ── auth middleware unit tests ────────────────────────────────────────────────
+
+func TestAuthMiddleware_RejectsNilTLS(t *testing.T) {
+	router := newTestRouter(&stubSessions{})
+
+	req := httptest.NewRequest(http.MethodGet, sdk.RouteSessions, nil)
+	// req.TLS is nil — simulates a plain HTTP request
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status: got %d, want 401", rec.Code)
+	}
+}
+
+func TestAuthMiddleware_RejectsEmptyVerifiedChains(t *testing.T) {
+	router := newTestRouter(&stubSessions{})
+
+	req := httptest.NewRequest(http.MethodGet, sdk.RouteSessions, nil)
+	req.TLS = &tls.ConnectionState{} // TLS established but no verified chains
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status: got %d, want 401", rec.Code)
+	}
+}
+
+// ── mTLS round-trip ───────────────────────────────────────────────────────────
+
+func TestMTLS_AuthenticatedRequestSucceeds(t *testing.T) {
+	dir := t.TempDir()
+	ca, err := api.GenerateCA(filepath.Join(dir, "ca.crt"))
+	if err != nil {
+		t.Fatalf("GenerateCA: %v", err)
+	}
+
+	certPEM, keyPEM, err := ca.IssueClientCert("operator")
+	if err != nil {
+		t.Fatalf("IssueClientCert: %v", err)
+	}
+
+	sessions := &stubSessions{sessions: []*aitm.Session{
+		{ID: "s1", Phishlet: "microsoft", StartedAt: time.Now()},
+		{ID: "s2", Phishlet: "google", StartedAt: time.Now()},
+	}}
+	srv := newMTLSServer(t, newTestRouter(sessions), ca)
+	client := newMTLSClient(t, srv, certPEM, keyPEM)
+
+	resp, err := client.Get(srv.URL + sdk.RouteSessions)
+	if err != nil {
+		t.Fatalf("GET %s: %v", sdk.RouteSessions, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status: got %d, want 200", resp.StatusCode)
+	}
+
+	var body sdk.PaginatedResponse[sdk.SessionResponse]
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Total != 2 {
+		t.Errorf("total: got %d, want 2", body.Total)
+	}
+}
+
+func TestMTLS_WrongCAIsRejected(t *testing.T) {
+	dir := t.TempDir()
+	serverCA, err := api.GenerateCA(filepath.Join(dir, "server-ca.crt"))
+	if err != nil {
+		t.Fatalf("GenerateCA (server): %v", err)
+	}
+	wrongCA, err := api.GenerateCA(filepath.Join(dir, "wrong-ca.crt"))
+	if err != nil {
+		t.Fatalf("GenerateCA (wrong): %v", err)
+	}
+
+	certPEM, keyPEM, err := wrongCA.IssueClientCert("operator")
+	if err != nil {
+		t.Fatalf("IssueClientCert: %v", err)
+	}
+
+	srv := newMTLSServer(t, newTestRouter(&stubSessions{}), serverCA)
+	client := newMTLSClient(t, srv, certPEM, keyPEM)
+
+	// The TLS handshake itself should fail — the server rejects certs not signed by serverCA.
+	_, err = client.Get(srv.URL + sdk.RouteSessions)
+	if err == nil {
+		t.Error("expected TLS handshake error with cert from wrong CA, got nil")
+	}
+}

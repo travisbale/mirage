@@ -121,6 +121,46 @@ func TestSessions_ListFilter(t *testing.T) {
 	}
 }
 
+func TestSessions_Count(t *testing.T) {
+	s := sqlite.NewSessionStore(openTestDB(t))
+
+	for i, phishlet := range []string{"microsoft", "microsoft", "google"} {
+		_ = s.CreateSession(&aitm.Session{
+			ID:        fmt.Sprintf("s%d", i),
+			Phishlet:  phishlet,
+			StartedAt: time.Now(),
+		})
+	}
+
+	total, err := s.CountSessions(aitm.SessionFilter{})
+	if err != nil {
+		t.Fatalf("CountSessions: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("total: got %d, want 3", total)
+	}
+
+	ms, _ := s.CountSessions(aitm.SessionFilter{Phishlet: "microsoft"})
+	if ms != 2 {
+		t.Errorf("microsoft: got %d, want 2", ms)
+	}
+
+	// Complete one session then count incomplete.
+	sess, _ := s.GetSession("s0")
+	sess.Complete()
+	_ = s.UpdateSession(sess)
+
+	incomplete, _ := s.CountSessions(aitm.SessionFilter{IncompleteOnly: true})
+	if incomplete != 2 {
+		t.Errorf("incomplete: got %d, want 2", incomplete)
+	}
+
+	_, err = s.CountSessions(aitm.SessionFilter{CompletedOnly: true, IncompleteOnly: true})
+	if err != store.ErrInvalidFilter {
+		t.Errorf("contradictory filter: got %v, want ErrInvalidFilter", err)
+	}
+}
+
 // --- Lures ---
 
 func TestLures_RoundTrip(t *testing.T) {
