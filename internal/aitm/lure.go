@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // LureStore is the persistence interface required by LureService.
@@ -149,6 +151,8 @@ type LureService struct {
 }
 
 func (s *LureService) Create(lure *Lure) error {
+	lure.ID = uuid.New().String()
+
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return err

