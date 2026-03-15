@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,10 +26,9 @@ type DeployConfig struct {
 	// miraged config values written to the remote config file
 	Domain       string
 	ExternalIPv4 string
-	BindIPv4     string // default "0.0.0.0"
-	HTTPSPort    int    // default 443
-	DNSPort      int    // default 53
-	AutoCert     bool   // default true
+	HTTPSPort    int  // default 443
+	DNSPort      int  // default 53
+	AutoCert     bool // default true
 
 	// Remote paths
 	RemoteBinaryPath string // default "/usr/local/bin/miraged"
@@ -55,18 +53,13 @@ type DeployResult struct {
 
 // DeployService provisions remote miraged instances over SSH.
 type DeployService struct {
-	// HTTPClient is used for the post-deploy health check.
-	HTTPClient *http.Client
-
 	// Progress is called after each step completes. May be nil.
 	Progress func(step int, total int, name string)
 }
 
-// NewDeployService constructs a DeployService with a default HTTP client.
+// NewDeployService constructs a DeployService.
 func NewDeployService() *DeployService {
-	return &DeployService{
-		HTTPClient: &http.Client{Timeout: 10 * time.Second},
-	}
+	return &DeployService{}
 }
 
 // Deploy executes the full provisioning sequence against the remote host described
@@ -93,10 +86,11 @@ func (s *DeployService) Deploy(ctx context.Context, cfg DeployConfig) (*DeployRe
 		{"check existing installation", func() error { return checkExisting(client, cfg) }},
 		{"upload binary", func() error { return uploadBinary(client, cfg) }},
 		{"create config directory", func() error { return createDir(client, cfg.RemoteConfigDir) }},
+		{"create data directory", func() error { return createDir(client, remoteDataDir) }},
 		{"write config file", func() error { return writeConfig(client, cfg) }},
 		{"write systemd unit", func() error { return writeSystemdUnit(client, cfg) }},
 		{"enable and start service", func() error { return startService(client) }},
-		{"wait for daemon to become healthy", func() error { return s.waitForDaemon(ctx, result.StatusURL) }},
+		{"wait for daemon to become healthy", func() error { return waitForDaemon(ctx, client) }},
 	}
 
 	for i, st := range steps {
@@ -111,22 +105,18 @@ func (s *DeployService) Deploy(ctx context.Context, cfg DeployConfig) (*DeployRe
 	return result, nil
 }
 
-// waitForDaemon polls the /api/status endpoint until it responds 200 or the
-// context deadline is reached. It tolerates connection errors (daemon still
-// starting) but fails on any non-200 HTTP response.
-func (s *DeployService) waitForDaemon(ctx context.Context, statusURL string) error {
+// remoteDataDir is where miraged stores its database and generated certificates.
+const remoteDataDir = "/var/lib/mirage"
+
+// waitForDaemon polls systemctl over SSH until miraged reports active or the
+// context deadline is reached. Using SSH avoids the need for a client
+// certificate to reach the mTLS-protected management API.
+func waitForDaemon(ctx context.Context, client *ssh.Client) error {
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, statusURL, nil)
-		if err != nil {
-			return err
-		}
-		resp, err := s.HTTPClient.Do(req)
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
+		out, _ := runCmd(client, "systemctl is-active miraged 2>/dev/null || true")
+		if strings.TrimSpace(out) == "active" {
+			return nil
 		}
 		select {
 		case <-ctx.Done():
@@ -134,7 +124,7 @@ func (s *DeployService) waitForDaemon(ctx context.Context, statusURL string) err
 		case <-time.After(2 * time.Second):
 		}
 	}
-	return fmt.Errorf("timed out after 30s waiting for %s", statusURL)
+	return fmt.Errorf("timed out after 30s waiting for miraged to become active")
 }
 
 // dialSSH opens an SSH connection using a private key file.
@@ -241,9 +231,6 @@ func startService(client *ssh.Client) error {
 func applyDefaults(cfg DeployConfig) DeployConfig {
 	if cfg.SSHUser == "" {
 		cfg.SSHUser = "root"
-	}
-	if cfg.BindIPv4 == "" {
-		cfg.BindIPv4 = "0.0.0.0"
 	}
 	if cfg.HTTPSPort == 0 {
 		cfg.HTTPSPort = 443

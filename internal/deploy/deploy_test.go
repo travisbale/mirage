@@ -11,9 +11,6 @@ func TestApplyDefaults(t *testing.T) {
 	if cfg.SSHUser != "root" {
 		t.Errorf("SSHUser: got %q, want %q", cfg.SSHUser, "root")
 	}
-	if cfg.BindIPv4 != "0.0.0.0" {
-		t.Errorf("BindIPv4: got %q, want %q", cfg.BindIPv4, "0.0.0.0")
-	}
 	if cfg.HTTPSPort != 443 {
 		t.Errorf("HTTPSPort: got %d, want 443", cfg.HTTPSPort)
 	}
@@ -66,13 +63,12 @@ func TestGenerateSecretHostname(t *testing.T) {
 
 func TestRenderConfig(t *testing.T) {
 	cfg := DeployConfig{
-		Domain:         "attacker.com",
-		ExternalIPv4:   "203.0.113.5",
-		BindIPv4:       "0.0.0.0",
-		HTTPSPort:      443,
-		DNSPort:        53,
-		AutoCert:       true,
-		SecretHostname: "abc123.mgmt.attacker.com",
+		Domain:          "attacker.com",
+		ExternalIPv4:    "203.0.113.5",
+		HTTPSPort:       443,
+		DNSPort:         53,
+		AutoCert:        true,
+		SecretHostname:  "abc123.mgmt.attacker.com",
 		RemoteConfigDir: "/etc/mirage",
 	}
 
@@ -86,11 +82,19 @@ func TestRenderConfig(t *testing.T) {
 		"external_ipv4: 203.0.113.5",
 		"https_port: 443",
 		"secret_hostname: abc123.mgmt.attacker.com",
+		"client_ca_cert_path: /var/lib/mirage/api-ca.crt",
+		"db_path: /var/lib/mirage/data.db",
+		"phishlets_dir: /etc/mirage/phishlets",
 		"autocert: true",
-		"/etc/mirage/client-ca.crt",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("renderConfig output missing %q", want)
+		}
+	}
+
+	for _, bad := range []string{"bind_ipv4", "blacklist", "botguard", "client_ca_cert:"} {
+		if strings.Contains(out, bad) {
+			t.Errorf("renderConfig output contains unexpected field %q", bad)
 		}
 	}
 }
@@ -111,6 +115,7 @@ func TestRenderSystemdUnit(t *testing.T) {
 		"WantedBy=multi-user.target",
 		"AmbientCapabilities=CAP_NET_BIND_SERVICE",
 		"NoNewPrivileges=true",
+		"ReadWritePaths=/etc/mirage /var/lib/mirage",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("renderSystemdUnit output missing %q", want)
