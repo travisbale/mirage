@@ -17,6 +17,7 @@ type SessionStore interface {
 	UpdateSession(session *Session) error
 	DeleteSession(id string) error
 	ListSessions(filter SessionFilter) ([]*Session, error)
+	CountSessions(filter SessionFilter) (int, error)
 }
 
 // SessionFilter scopes a ListSessions call.
@@ -194,6 +195,10 @@ func (s *SessionService) Get(id string) (*Session, error) {
 
 func (s *SessionService) List(f SessionFilter) ([]*Session, error) {
 	return s.Store.ListSessions(f)
+}
+
+func (s *SessionService) Count(f SessionFilter) (int, error) {
+	return s.Store.CountSessions(f)
 }
 
 func (s *SessionService) Delete(id string) error {

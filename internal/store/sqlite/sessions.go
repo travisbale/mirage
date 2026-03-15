@@ -109,28 +109,7 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 	if f.CompletedOnly && f.IncompleteOnly {
 		return nil, store.ErrInvalidFilter
 	}
-
-	var where []string
-	var args []any
-
-	if f.Phishlet != "" {
-		where = append(where, "phishlet = ?")
-		args = append(args, f.Phishlet)
-	}
-	if f.CompletedOnly {
-		where = append(where, "completed_at IS NOT NULL")
-	}
-	if f.IncompleteOnly {
-		where = append(where, "completed_at IS NULL")
-	}
-	if !f.After.IsZero() {
-		where = append(where, "started_at > ?")
-		args = append(args, f.After.Unix())
-	}
-	if !f.Before.IsZero() {
-		where = append(where, "started_at < ?")
-		args = append(args, f.Before.Unix())
-	}
+	where, args := sessionWhere(f)
 
 	q := `SELECT id, phishlet, lure_id, remote_addr, user_agent, ja4_hash,
 		bot_score, username, password, custom, cookie_tokens, body_tokens,
@@ -161,6 +140,50 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 		out = append(out, sess)
 	}
 	return out, rows.Err()
+}
+
+func (s *Sessions) CountSessions(f aitm.SessionFilter) (int, error) {
+	if f.CompletedOnly && f.IncompleteOnly {
+		return 0, store.ErrInvalidFilter
+	}
+	where, args := sessionWhere(f)
+
+	q := "SELECT COUNT(*) FROM sessions"
+	if len(where) > 0 {
+		q += " WHERE " + strings.Join(where, " AND ")
+	}
+
+	var count int
+	if err := s.db.db.QueryRow(q, args...).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// sessionWhere builds the WHERE clause predicates and bind args for a SessionFilter.
+func sessionWhere(f aitm.SessionFilter) ([]string, []any) {
+	var where []string
+	var args []any
+
+	if f.Phishlet != "" {
+		where = append(where, "phishlet = ?")
+		args = append(args, f.Phishlet)
+	}
+	if f.CompletedOnly {
+		where = append(where, "completed_at IS NOT NULL")
+	}
+	if f.IncompleteOnly {
+		where = append(where, "completed_at IS NULL")
+	}
+	if !f.After.IsZero() {
+		where = append(where, "started_at > ?")
+		args = append(args, f.After.Unix())
+	}
+	if !f.Before.IsZero() {
+		where = append(where, "started_at < ?")
+		args = append(args, f.Before.Unix())
+	}
+	return where, args
 }
 
 func scanSession(row scanner) (*aitm.Session, error) {
