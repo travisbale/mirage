@@ -8,15 +8,18 @@ Mirage is an Adversary-in-the-Middle (AiTM) phishing framework for authorized re
 
 Mirage is split into two binaries:
 
-- **`miraged`** — the daemon that runs on the phishing server. Handles DNS, TLS, the reverse proxy, session capture, and bot detection.
+- **`miraged`** — the daemon that runs on the phishing server. Handles DNS, TLS, the reverse proxy, session capture, bot detection, and JS obfuscation.
 - **`mirage`** — a thin CLI client that connects to one or more `miraged` instances over mutual TLS to manage phishlets, lures, and sessions.
 
-The core business logic lives in the `aitm/` package. Infrastructure implementations (SQLite, DNS providers, certificate management, headless browser) are in separate packages and satisfy `aitm` interfaces implicitly via Go structural typing.
+The management API is a REST API served by `miraged` on a secret hostname, authenticated via mutual TLS with operator client certificates. The `mirage` CLI communicates exclusively through this API.
+
+Core domain types and interfaces live in `internal/aitm/`. Infrastructure implementations (SQLite, DNS providers, certificate management) satisfy those interfaces via Go structural typing.
 
 ## Requirements
 
 - Go 1.22+
-- No CGO required — all dependencies are pure Go
+- Node.js (optional — required only for JS obfuscation)
+- No CGO required
 
 ## Building
 
@@ -38,11 +41,23 @@ db_path: /var/lib/mirage/data.db
 autocert: true
 phishlets_dir: /etc/mirage/phishlets
 redirectors_dir: /etc/mirage/redirectors
+
+api:
+  secret_hostname: api.phish.example.com   # routes /api/* to the management API
+  client_ca_cert_path: /var/lib/mirage/api-ca.crt  # auto-generated on first start
+
 dns_providers:
   - alias: cf-main
     provider: cloudflare
     settings:
       api_token: YOUR_TOKEN
+
+obfuscator:
+  enabled: false
+  node_path: ""          # defaults to PATH lookup
+  sidecar_dir: ""        # directory containing the Node obfuscator package
+  request_timeout: 5s
+  max_concurrent: 4
 ```
 
 Validate a config file without starting the daemon:
@@ -50,6 +65,20 @@ Validate a config file without starting the daemon:
 ```bash
 miraged --config /etc/mirage/miraged.yaml validate
 ```
+
+## Deployment
+
+Provision a remote server over SSH in one command:
+
+```bash
+mirage deploy \
+  --host 203.0.113.5 \
+  --ssh-key ~/.ssh/id_ed25519 \
+  --domain phish.example.com \
+  --external-ip 203.0.113.5
+```
+
+This uploads the `miraged` binary, writes the config, installs a systemd unit, and performs a health check.
 
 ## Usage
 
@@ -62,7 +91,7 @@ miraged --config /etc/mirage/miraged.yaml
 Connect the CLI to a running daemon:
 
 ```bash
-mirage server add https://<server-ip>:443 --alias prod --token <enrollment-token>
+mirage server add https://api.phish.example.com --alias prod --token <enrollment-token>
 ```
 
 Manage phishlets, lures, and sessions:
@@ -71,8 +100,9 @@ Manage phishlets, lures, and sessions:
 mirage phishlets list
 mirage phishlets enable microsoft --hostname login.phish.example.com
 mirage lures create microsoft --redirect https://portal.office.com
-mirage lures url 0
+mirage lures url <id>
 mirage sessions list
+mirage sessions list --completed
 mirage sessions export <id> --out cookies.json
 ```
 
@@ -83,6 +113,17 @@ mirage --server prod
 # mirage [prod]>
 ```
 
+## Features
+
+- **Reverse proxy** — transparently proxies HTTPS traffic to the real target, rewriting domains and cookies on the fly
+- **Session capture** — extracts credentials from POST bodies and auth tokens from cookies/headers; marks sessions complete when all required tokens are captured
+- **BotGuard** — JA4 fingerprint-based bot detection with configurable score threshold; suspicious requests are spoofed to a decoy
+- **JS obfuscation** — optionally transforms injected JavaScript via a Node.js sidecar on every request, making static fingerprinting ineffective
+- **Automated DNS** — integrates with DNS providers (Cloudflare, etc.) to manage phishing domain records
+- **mTLS API** — management API authenticated with mutual TLS; the daemon auto-generates a CA and issues operator certificates
+- **SSH deployment** — one-command remote provisioning with systemd unit installation
+- **Blacklist** — IP/CIDR blocking with automatic temporary whitelisting after successful token capture
+
 ## Testing
 
 ```bash
@@ -91,12 +132,22 @@ make test
 
 ## Project Layout
 
-```
-aitm/           Core domain types, interfaces, and service structs
-cmd/miraged/    Daemon entry point
+```txt
+internal/
+  aitm/         Core domain types, interfaces, and service logic
+  api/          Management REST API (router, handlers, mTLS auth)
+  botguard/     JA4 fingerprinting, bot scoring, signature database
+  cert/         TLS certificate lifecycle (ACME + custom certs)
+  config/       Config file parsing and validation
+  deploy/       SSH-based remote provisioning
+  dns/          DNS server and provider integrations
+  events/       In-process event bus
+  obfuscator/   JS obfuscation (Node.js sidecar + no-op fallback)
+  phishlet/     Phishlet YAML loader and compiler
+  proxy/        MITM reverse proxy and handler pipeline
+  store/
+    sqlite/     SQLite implementations of aitm store interfaces
+cmd/miraged/    Daemon entry point and wiring
 cmd/mirage/     CLI client entry point
-config/         Config file parsing and validation
-store/
-  sqlite/       SQLite implementations of aitm store interfaces
-  mem/          In-memory implementations for use in tests
+sdk/            Shared API types and route constants (used by both binaries)
 ```
