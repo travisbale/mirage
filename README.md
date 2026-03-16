@@ -38,13 +38,20 @@ external_ipv4: 1.2.3.4
 https_port: 443
 dns_port: 53
 db_path: /var/lib/mirage/data.db
-autocert: true
 phishlets_dir: /etc/mirage/phishlets
 redirectors_dir: /etc/mirage/redirectors
+
+# Set to true to use self-signed certificates instead of ACME (useful for local testing).
+# When false, acme.email and acme.directory_url are required.
+self_signed: false
 
 api:
   secret_hostname: api.phish.example.com   # all traffic to this hostname is routed to the management API
   client_ca_cert_path: /var/lib/mirage/api-ca.crt  # auto-generated on first start
+
+acme:
+  email: admin@phish.example.com
+  directory_url: https://acme-v02.api.letsencrypt.org/directory  # use staging URL to avoid rate limits during testing
 
 dns_providers:
   - alias: cf-main
