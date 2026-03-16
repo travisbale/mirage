@@ -181,7 +181,7 @@ func TestValidate_HostnameCollision(t *testing.T) {
 	}
 
 	// Simulate an existing active phishlet that owns "login.attacker.com".
-	active := []*aitm.PhishletConfig{
+	active := []*aitm.PhishletDeployment{
 		{
 			Name:       "existing",
 			Hostname:   "login.attacker.com",
@@ -211,7 +211,7 @@ func TestValidate_NoCollisionWithSelf(t *testing.T) {
 	}
 
 	// Simulate the same phishlet already active (updating itself).
-	active := []*aitm.PhishletConfig{
+	active := []*aitm.PhishletDeployment{
 		{
 			Name:       "collider", // same name as the phishlet being validated
 			Hostname:   "login.attacker.com",

@@ -86,17 +86,17 @@ func (e CollisionError) Error() string {
 // A collision occurs when a proxy_host in the new phishlet would resolve to a
 // hostname that is already owned by another enabled phishlet.
 //
-// baseDomain is the global domain (from config) used when a PhishletConfig does
-// not override it. It is needed to construct the full hostname for comparison.
-func Validate(def *aitm.PhishletDef, active []*aitm.PhishletConfig, baseDomain string) []CollisionError {
+// baseDomain is the global domain (from config) used when a PhishletDeployment
+// does not override it. It is needed to construct the full hostname for comparison.
+func Validate(def *aitm.PhishletDef, active []*aitm.PhishletDeployment, baseDomain string) []CollisionError {
 	// Build a map from full hostname → phishlet name for all active, enabled phishlets.
 	owned := make(map[string]string)
-	for _, cfg := range active {
-		if !cfg.Enabled {
+	for _, deployment := range active {
+		if !deployment.Enabled {
 			continue
 		}
-		if cfg.Hostname != "" {
-			owned[cfg.Hostname] = cfg.Name
+		if deployment.Hostname != "" {
+			owned[deployment.Hostname] = deployment.Name
 		}
 	}
 

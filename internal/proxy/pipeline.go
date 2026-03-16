@@ -15,7 +15,7 @@ import (
 // Handlers may read and write any field of ctx. Typical mutations:
 //   - ClientIP, JA4Hash: set by early fingerprinting handlers
 //   - BotVerdict: set by the bot-guard handler
-//   - Phishlet, PhishletCfg, Lure: resolved from the Host header
+//   - Phishlet, Deployment, Lure: resolved from the Host header
 //   - Session, IsNewSession: allocated or retrieved from the store
 //
 // Returning ErrShortCircuit stops the pipeline; the handler must write a complete

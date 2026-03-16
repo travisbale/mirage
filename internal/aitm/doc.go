@@ -14,10 +14,10 @@ There are three distinct phishlet-related types that are easy to confuse:
     have been substituted. It is rebuilt from disk on every reload and is
     never persisted.
 
-  - [PhishletConfig] is the operator's runtime configuration for a
-    phishlet: the hostname it answers on, whether it is enabled/hidden, and
-    which DNS provider manages its records. This is persisted to the database
-    and survives restarts.
+  - [PhishletDeployment] is the operator's runtime state for a phishlet:
+    the hostname it answers on, whether it is enabled/hidden, and which DNS
+    provider manages its records. This is persisted to the database and
+    survives restarts.
 
   - [SubPhishlet] is a named variant of a parent phishlet, created by
     the operator with a specific set of template parameters. Sub-phishlets

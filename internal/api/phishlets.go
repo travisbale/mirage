@@ -12,20 +12,20 @@ import (
 func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
 
-	cfgs, err := r.phishlets.ListConfigs()
+	deployments, err := r.phishlets.ListDeployments()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list phishlets")
 		return
 	}
 
-	total := len(cfgs)
+	total := len(deployments)
 	start := min(offset, total)
 	end := min(start+limit, total)
-	page := cfgs[start:end]
+	page := deployments[start:end]
 
 	items := make([]sdk.PhishletResponse, len(page))
-	for i, cfg := range page {
-		items[i] = phishletConfigToResponse(cfg)
+	for i, deployment := range page {
+		items[i] = phishletDeploymentToResponse(deployment)
 	}
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.PhishletResponse]{
 		Items:  items,
@@ -44,7 +44,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	cfg, err := r.phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
+	deployment, err := r.phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
 	if err != nil {
 		if err.Error() == "hostname: required" {
 			writeError(w, http.StatusUnprocessableEntity, err.Error())
@@ -53,12 +53,12 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
+	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
 }
 
 func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	cfg, err := r.phishlets.Disable(name)
+	deployment, err := r.phishlets.Disable(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -67,12 +67,12 @@ func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
+	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
 }
 
 func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	cfg, err := r.phishlets.Hide(name)
+	deployment, err := r.phishlets.Hide(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -81,12 +81,12 @@ func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
+	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
 }
 
 func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	cfg, err := r.phishlets.Unhide(name)
+	deployment, err := r.phishlets.Unhide(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -95,7 +95,7 @@ func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
+	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
 }
 
 func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
@@ -154,15 +154,15 @@ func (r *Router) getPhishletHosts(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func phishletConfigToResponse(cfg *aitm.PhishletConfig) sdk.PhishletResponse {
+func phishletDeploymentToResponse(deployment *aitm.PhishletDeployment) sdk.PhishletResponse {
 	return sdk.PhishletResponse{
-		Name:        cfg.Name,
-		BaseDomain:  cfg.BaseDomain,
-		Hostname:    cfg.Hostname,
-		DNSProvider: cfg.DNSProvider,
-		UnauthURL:   cfg.UnauthURL,
-		SpoofURL:    cfg.SpoofURL,
-		Enabled:     cfg.Enabled,
-		Hidden:      cfg.Hidden,
+		Name:        deployment.Name,
+		BaseDomain:  deployment.BaseDomain,
+		Hostname:    deployment.Hostname,
+		DNSProvider: deployment.DNSProvider,
+		UnauthURL:   deployment.UnauthURL,
+		SpoofURL:    deployment.SpoofURL,
+		Enabled:     deployment.Enabled,
+		Hidden:      deployment.Hidden,
 	}
 }

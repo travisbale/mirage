@@ -185,7 +185,7 @@ func TestURLRewriter_RewritesHostname(t *testing.T) {
 				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
 			},
 		},
-		PhishletCfg: &aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
 	}
 	req := newReq(http.MethodGet, "https://login.phish.example.com/oauth2", nil)
 	req.Host = "login.phish.example.com"

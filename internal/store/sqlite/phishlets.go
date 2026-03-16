@@ -15,18 +15,18 @@ type Phishlets struct{ db *DB }
 
 func NewPhishletStore(db *DB) *Phishlets { return &Phishlets{db: db} }
 
-func (s *Phishlets) GetPhishletConfig(name string) (*aitm.PhishletConfig, error) {
+func (s *Phishlets) GetPhishletDeployment(name string) (*aitm.PhishletDeployment, error) {
 	row := s.db.db.QueryRow(`SELECT
 		name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden
 		FROM phishlet_configs WHERE name = ?`, name)
-	cfg, err := scanPhishletConfig(row)
+	deployment, err := scanPhishletDeployment(row)
 	if err == sql.ErrNoRows {
 		return nil, aitm.ErrNotFound
 	}
-	return cfg, err
+	return deployment, err
 }
 
-func (s *Phishlets) SetPhishletConfig(cfg *aitm.PhishletConfig) error {
+func (s *Phishlets) SetPhishletDeployment(deployment *aitm.PhishletDeployment) error {
 	_, err := s.db.db.Exec(`
 		INSERT INTO phishlet_configs
 			(name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden)
@@ -39,13 +39,13 @@ func (s *Phishlets) SetPhishletConfig(cfg *aitm.PhishletConfig) error {
 			spoof_url=excluded.spoof_url,
 			enabled=excluded.enabled,
 			hidden=excluded.hidden`,
-		cfg.Name, cfg.BaseDomain, cfg.DNSProvider, cfg.Hostname,
-		cfg.UnauthURL, cfg.SpoofURL, cfg.Enabled, cfg.Hidden,
+		deployment.Name, deployment.BaseDomain, deployment.DNSProvider, deployment.Hostname,
+		deployment.UnauthURL, deployment.SpoofURL, deployment.Enabled, deployment.Hidden,
 	)
 	return err
 }
 
-func (s *Phishlets) ListPhishletConfigs() ([]*aitm.PhishletConfig, error) {
+func (s *Phishlets) ListPhishletDeployments() ([]*aitm.PhishletDeployment, error) {
 	rows, err := s.db.db.Query(`SELECT
 		name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden
 		FROM phishlet_configs ORDER BY name ASC`)
@@ -54,18 +54,18 @@ func (s *Phishlets) ListPhishletConfigs() ([]*aitm.PhishletConfig, error) {
 	}
 	defer rows.Close()
 
-	var out []*aitm.PhishletConfig
+	var out []*aitm.PhishletDeployment
 	for rows.Next() {
-		cfg, err := scanPhishletConfig(rows)
+		deployment, err := scanPhishletDeployment(rows)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, cfg)
+		out = append(out, deployment)
 	}
 	return out, rows.Err()
 }
 
-func (s *Phishlets) DeletePhishletConfig(name string) error {
+func (s *Phishlets) DeletePhishletDeployment(name string) error {
 	res, err := s.db.db.Exec(`DELETE FROM phishlet_configs WHERE name = ?`, name)
 	if err != nil {
 		return err
@@ -134,13 +134,13 @@ func (s *Phishlets) DeleteSubPhishlet(name string) error {
 	return requireOneRow(res)
 }
 
-func scanPhishletConfig(row scanner) (*aitm.PhishletConfig, error) {
-	var cfg aitm.PhishletConfig
+func scanPhishletDeployment(row scanner) (*aitm.PhishletDeployment, error) {
+	var deployment aitm.PhishletDeployment
 	err := row.Scan(
-		&cfg.Name, &cfg.BaseDomain, &cfg.DNSProvider, &cfg.Hostname,
-		&cfg.UnauthURL, &cfg.SpoofURL, &cfg.Enabled, &cfg.Hidden,
+		&deployment.Name, &deployment.BaseDomain, &deployment.DNSProvider, &deployment.Hostname,
+		&deployment.UnauthURL, &deployment.SpoofURL, &deployment.Enabled, &deployment.Hidden,
 	)
-	return &cfg, err
+	return &deployment, err
 }
 
 func scanSubPhishlet(row scanner) (*aitm.SubPhishlet, error) {

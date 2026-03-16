@@ -208,18 +208,18 @@ func TestLures_RoundTrip(t *testing.T) {
 func TestPhishlets_ConfigUpsert(t *testing.T) {
 	s := sqlite.NewPhishletStore(openTestDB(t))
 
-	cfg := &aitm.PhishletConfig{
+	cfg := &aitm.PhishletDeployment{
 		Name:       "microsoft",
 		BaseDomain: "phish.example.com",
 		Enabled:    true,
 	}
 
-	if err := s.SetPhishletConfig(cfg); err != nil {
-		t.Fatalf("SetPhishletConfig: %v", err)
+	if err := s.SetPhishletDeployment(cfg); err != nil {
+		t.Fatalf("SetPhishletDeployment: %v", err)
 	}
-	got, err := s.GetPhishletConfig("microsoft")
+	got, err := s.GetPhishletDeployment("microsoft")
 	if err != nil {
-		t.Fatalf("GetPhishletConfig: %v", err)
+		t.Fatalf("GetPhishletDeployment: %v", err)
 	}
 	if !got.Enabled {
 		t.Error("Enabled should be true")
@@ -227,13 +227,13 @@ func TestPhishlets_ConfigUpsert(t *testing.T) {
 
 	// Upsert
 	cfg.Enabled = false
-	_ = s.SetPhishletConfig(cfg)
-	got, _ = s.GetPhishletConfig("microsoft")
+	_ = s.SetPhishletDeployment(cfg)
+	got, _ = s.GetPhishletDeployment("microsoft")
 	if got.Enabled {
 		t.Error("Enabled should be false after upsert")
 	}
 
-	if _, err := s.GetPhishletConfig("missing"); err != aitm.ErrNotFound {
+	if _, err := s.GetPhishletDeployment("missing"); err != aitm.ErrNotFound {
 		t.Errorf("missing: got %v, want ErrNotFound", err)
 	}
 }

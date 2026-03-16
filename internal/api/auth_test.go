@@ -40,12 +40,12 @@ func (s *stubLures) Unpause(_ string) error                   { return nil }
 
 type stubPhishlets struct{}
 
-func (s *stubPhishlets) Enable(_, _, _, _ string) (*aitm.PhishletConfig, error) { return nil, nil }
-func (s *stubPhishlets) Disable(_ string) (*aitm.PhishletConfig, error)          { return nil, nil }
-func (s *stubPhishlets) Hide(_ string) (*aitm.PhishletConfig, error)             { return nil, nil }
-func (s *stubPhishlets) Unhide(_ string) (*aitm.PhishletConfig, error)           { return nil, nil }
-func (s *stubPhishlets) GetConfig(_ string) (*aitm.PhishletConfig, error)        { return nil, nil }
-func (s *stubPhishlets) ListConfigs() ([]*aitm.PhishletConfig, error)            { return nil, nil }
+func (s *stubPhishlets) Enable(_, _, _, _ string) (*aitm.PhishletDeployment, error) { return nil, nil }
+func (s *stubPhishlets) Disable(_ string) (*aitm.PhishletDeployment, error)          { return nil, nil }
+func (s *stubPhishlets) Hide(_ string) (*aitm.PhishletDeployment, error)             { return nil, nil }
+func (s *stubPhishlets) Unhide(_ string) (*aitm.PhishletDeployment, error)           { return nil, nil }
+func (s *stubPhishlets) GetDeployment(_ string) (*aitm.PhishletDeployment, error)    { return nil, nil }
+func (s *stubPhishlets) ListDeployments() ([]*aitm.PhishletDeployment, error)        { return nil, nil }
 func (s *stubPhishlets) CreateSubPhishlet(_ *aitm.SubPhishlet) error             { return nil }
 func (s *stubPhishlets) DeleteSubPhishlet(_ string) error                        { return nil }
 
