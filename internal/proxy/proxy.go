@@ -172,30 +172,36 @@ func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 			return
 		}
 
-		// Forward to upstream.
-		resp, err := p.forwardRequest(req)
-		if err != nil {
-			p.Logger.Error("aitm: forwarding request", "error", err)
-			rec.writeError(http.StatusBadGateway, "bad gateway")
-			continue
-		}
-
-		// Run the response pipeline.
-		if err := p.Pipeline.RunResponse(pctx, resp); err != nil && !errors.Is(err, ErrShortCircuit) {
-			p.Logger.Error("aitm: response pipeline", "error", err)
-		}
-
-		// Write response back to client.
-		if err := resp.Write(conn); err != nil {
-			p.Logger.Debug("aitm: writing response", "error", err)
-			return
-		}
-		resp.Body.Close()
-
-		if req.Close || resp.Close {
+		// Forward to upstream, run response pipeline, write back.
+		// Returns false when the connection should be closed.
+		if !p.serveOneRequest(pctx, req, conn, rec) {
 			return
 		}
 	}
+}
+
+// serveOneRequest forwards req upstream, runs the response pipeline, and writes
+// the response back to the client. Returns true if the connection should stay
+// alive for the next request.
+func (p *AITMProxy) serveOneRequest(pctx *aitm.ProxyContext, req *http.Request, conn net.Conn, rec *bufferedResponseWriter) bool {
+	resp, err := p.forwardRequest(req)
+	if err != nil {
+		p.Logger.Error("aitm: forwarding request", "error", err)
+		rec.writeError(http.StatusBadGateway, "bad gateway")
+		return true // write error and keep connection alive
+	}
+	defer resp.Body.Close()
+
+	if err := p.Pipeline.RunResponse(pctx, resp); err != nil && !errors.Is(err, ErrShortCircuit) {
+		p.Logger.Error("aitm: response pipeline", "error", err)
+	}
+
+	if err := resp.Write(conn); err != nil {
+		p.Logger.Debug("aitm: writing response", "error", err)
+		return false
+	}
+
+	return !req.Close && !resp.Close
 }
 
 // forwardRequest sends req to the upstream origin and returns the response.

