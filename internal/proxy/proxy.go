@@ -31,13 +31,14 @@ type certSource interface {
 // the SNI hostname to select the right certificate, then routes all decrypted
 // HTTP traffic through the configured Pipeline.
 type AITMProxy struct {
-	CertSource     certSource
-	Pipeline       *Pipeline
-	WSHub          *WSHub
-	Spoof          *SpoofProxy
-	Logger         *slog.Logger
-	SecretHostname string         // SNI hostname that triggers mTLS; empty disables mTLS
-	ClientCAs      *x509.CertPool // required client CA pool when SecretHostname is set
+	CertSource        certSource
+	Pipeline          *Pipeline
+	WSHub             *WSHub
+	Spoof             *SpoofProxy
+	Logger            *slog.Logger
+	SecretHostname    string             // SNI hostname that triggers mTLS; empty disables mTLS
+	ClientCAs         *x509.CertPool    // required client CA pool when SecretHostname is set
+	UpstreamTransport http.RoundTripper // if non-nil, used instead of a default transport; intended for testing
 }
 
 // Start begins listening on addr (e.g. ":443") and blocks until ctx is cancelled.
@@ -190,13 +191,16 @@ func (p *AITMProxy) serveOneRequest(pctx *aitm.ProxyContext, req *http.Request, 
 }
 
 func (p *AITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
-		DialContext: (&net.Dialer{
-			Timeout:   upstreamTimeout,
-			KeepAlive: upstreamTimeout,
-		}).DialContext,
-		ResponseHeaderTimeout: upstreamTimeout,
+	transport := p.UpstreamTransport
+	if transport == nil {
+		transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+			DialContext: (&net.Dialer{
+				Timeout:   upstreamTimeout,
+				KeepAlive: upstreamTimeout,
+			}).DialContext,
+			ResponseHeaderTimeout: upstreamTimeout,
+		}
 	}
 
 	client := &http.Client{

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/travisbale/mirage/internal/config"
+	"github.com/travisbale/mirage/internal/daemon"
 )
 
 var Version = "dev"
@@ -40,7 +41,7 @@ func main() {
 			return runServe(cmd.Context(), configPath, debug, developer)
 		},
 	}
-	root.RunE = serveCmd.RunE // serve is the default when no subcommand is given
+	root.RunE = serveCmd.RunE
 
 	validateCmd := &cobra.Command{
 		Use:   "validate",
@@ -85,13 +86,13 @@ func runServe(ctx context.Context, configPath string, debug, developer bool) err
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 
-	daemon, err := NewDaemon(ctx, configPath, developer, logger)
+	d, err := daemon.New(ctx, configPath, developer, Version, logger)
 	if err != nil {
 		return err
 	}
 
-	daemon.Run(ctx)
-	daemon.Shutdown()
+	d.Run(ctx)
+	d.Shutdown()
 
 	return nil
 }

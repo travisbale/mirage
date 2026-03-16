@@ -6,6 +6,8 @@ db_path: /var/lib/mirage/data.db
 autocert: true
 phishlets_dir: /etc/mirage/phishlets
 redirectors_dir: /etc/mirage/redirectors
+api:
+  secret_hostname: api.phish.example.com
 dns_providers:
   - alias: cf-main
     provider: cloudflare

