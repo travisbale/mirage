@@ -5,7 +5,7 @@ The Mirage daemon. Runs on the phishing server and handles all traffic intercept
 ## Usage
 
 ```txt
-miraged [--config <path>] [--debug] [--developer]
+miraged [--config <path>] [--debug]
 miraged <command>
 ```
 
@@ -15,7 +15,6 @@ miraged <command>
 |------|---------|-------------|
 | `--config` | `/etc/mirage/miraged.yaml` | Path to the YAML config file |
 | `--debug` | false | Enable debug-level logging |
-| `--developer` | false | Use self-signed TLS certs instead of ACME (safe for local testing) |
 
 ### Subcommands
 
@@ -32,7 +31,7 @@ On startup, `miraged` initializes these subsystems:
 1. **SQLite store** — sessions, lures, and phishlet configs persist in `db_path`
 2. **Phishlet loader** — reads YAML phishlet definitions from `phishlets_dir`
 3. **DNS server** — authoritative nameserver that answers A queries for phishing domains with `external_ipv4`
-4. **Certificate manager** — provisions TLS certificates via ACME (Let's Encrypt) or custom certs in `--developer` mode
+4. **Certificate manager** — provisions TLS certificates via ACME (Let's Encrypt) or a locally generated CA when `self_signed: true`
 5. **Proxy pipeline** — MITM reverse proxy that intercepts victim HTTPS traffic, rewrites responses, captures credentials and auth tokens
 6. **BotGuard** — computes JA4 TLS fingerprints and scores requests against a signature database; suspicious clients are spoofed
 7. **JS obfuscator** (optional) — Node.js sidecar that transforms injected JavaScript on every request to defeat static fingerprinting
@@ -65,4 +64,4 @@ Each victim request flows through a handler chain:
 
 ## Configuration reference
 
-See the top-level [README](../../README.md#configuration) for the full config file format.
+See the top-level [README](../README.md#configuration) for the full config file format.
