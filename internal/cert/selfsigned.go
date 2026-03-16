@@ -18,11 +18,8 @@ import (
 )
 
 // SelfSignedCertSource generates and signs TLS certificates using a local CA.
-// Used in developer mode (--developer flag) only. The CA is created once and
-// reused for all subsequent leaf cert requests.
-//
-// The CA certificate is written to caDir/mirage-ca.crt so developers can
-// import it into their browser trust store.
+// The CA is created once and reused for all subsequent leaf cert requests.
+// The CA certificate is written to caDir/mirage-ca.crt for browser import.
 type SelfSignedCertSource struct {
 	caDir string
 

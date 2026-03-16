@@ -133,6 +133,7 @@ func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 		}
 		req.TLS = tlsState
 		req.URL.Scheme = "https"
+		req.RemoteAddr = conn.RemoteAddr().String()
 
 		if isWebSocketUpgrade(req) && strings.HasPrefix(req.URL.Path, "/ws/") {
 			sessionID := strings.TrimPrefix(req.URL.Path, "/ws/")

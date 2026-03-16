@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +75,7 @@ type initializer struct {
 
 // New constructs and fully wires a Daemon. Returns an error if any
 // subsystem fails to initialise — no partial startup.
-func New(ctx context.Context, configPath string, developer bool, version string, logger *slog.Logger) (*Daemon, error) {
+func New(configPath string, selfSigned bool, version string, logger *slog.Logger) (*Daemon, error) {
 	cfg, err := loadConfig(configPath)
 	if err != nil {
 		return nil, err
@@ -98,7 +99,7 @@ func New(ctx context.Context, configPath string, developer bool, version string,
 	if err := ini.initDNS(); err != nil {
 		return nil, err
 	}
-	if err := ini.initCerts(developer); err != nil {
+	if err := ini.initCerts(selfSigned); err != nil {
 		return nil, err
 	}
 	if err := ini.initServices(); err != nil {
@@ -179,10 +180,10 @@ func (ini *initializer) initDNS() error {
 	return nil
 }
 
-func (ini *initializer) initCerts(developer bool) error {
+func (ini *initializer) initCerts(selfSigned bool) error {
 	caDir := filepath.Join(filepath.Dir(ini.cfg.DBPath), "ca")
 
-	src, err := cert.NewSource(developer, caDir, ini.logger)
+	src, err := cert.NewSource(selfSigned, caDir, ini.logger)
 	if err != nil {
 		return err
 	}
@@ -317,6 +318,13 @@ func (ini *initializer) countActive() int {
 		}
 	}
 	return n
+}
+
+// SetUpstreamTransport replaces the transport used to forward requests to the
+// upstream origin. Intended for testing only — inject a transport that dials a
+// local httptest.Server so tests don't need real DNS or internet access.
+func (d *Daemon) SetUpstreamTransport(rt http.RoundTripper) {
+	d.proxy.UpstreamTransport = rt
 }
 
 // ---- helpers ----------------------------------------------------------------
