@@ -4,7 +4,7 @@ The Mirage daemon. Runs on the phishing server and handles all traffic intercept
 
 ## Usage
 
-```
+```txt
 miraged [--config <path>] [--debug] [--developer]
 miraged <command>
 ```
@@ -43,6 +43,7 @@ On startup, `miraged` initializes these subsystems:
 Each victim request flows through a handler chain:
 
 **Request handlers** (in order):
+
 1. `IPExtractor` — resolves the real client IP (honours trusted proxy headers)
 2. `BlacklistCheck` — drops requests from blacklisted IPs
 3. `LureRouter` — matches the request path to a configured lure
@@ -54,6 +55,7 @@ Each victim request flows through a handler chain:
 9. `ForcePostInjector` — injects form fields required by some phishlets
 
 **Response handlers** (in order):
+
 1. `SecurityHeaderStripper` — removes security headers that would break the proxy
 2. `CookieRewriter` — rewrites Set-Cookie domains to the phishing domain
 3. `SubFilterApplier` — runs phishlet regex substitutions on the response body

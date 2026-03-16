@@ -43,7 +43,7 @@ phishlets_dir: /etc/mirage/phishlets
 redirectors_dir: /etc/mirage/redirectors
 
 api:
-  secret_hostname: api.phish.example.com   # routes /api/* to the management API
+  secret_hostname: api.phish.example.com   # all traffic to this hostname is routed to the management API
   client_ca_cert_path: /var/lib/mirage/api-ca.crt  # auto-generated on first start
 
 dns_providers:
@@ -176,4 +176,5 @@ internal/
 cmd/miraged/    Daemon entry point and wiring
 cmd/mirage/     CLI client entry point
 sdk/            Shared API types and route constants (used by both binaries)
+test/           Integration tests (full daemon in-process, no browser required)
 ```

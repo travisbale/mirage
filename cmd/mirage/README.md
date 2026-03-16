@@ -4,7 +4,7 @@ The Mirage CLI client. Connects to one or more `miraged` instances over mutual T
 
 ## Usage
 
-```
+```txt
 mirage [--server <alias>] [--config <path>] [--json] [<command>]
 ```
 
@@ -117,7 +117,7 @@ The client config is stored at `~/.mirage/client.json` and tracks server connect
 
 Running `mirage` with no subcommand (or `mirage repl`) opens an interactive prompt:
 
-```
+```txt
 mirage [prod]> sessions list
 mirage [prod]> lures create microsoft --redirect https://portal.office.com
 mirage [prod]> sessions export abc123 --out cookies.json
