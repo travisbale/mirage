@@ -17,15 +17,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-type ObfuscatorConfig struct {
-	Enabled        bool          `yaml:"enabled"`
-	NodePath       string        `yaml:"node_path"`       // path to node binary; empty = search PATH
-	SidecarDir     string        `yaml:"sidecar_dir"`     // dir containing package.json and index.js
-	RequestTimeout time.Duration `yaml:"request_timeout"` // per-call timeout (default: 5s)
-	MaxConcurrent  int           `yaml:"max_concurrent"`  // max parallel obfuscations (default: 4)
-}
+	"github.com/travisbale/mirage/internal/config"
+)
 
 // NoOpObfuscator is the identity transform. Used when obfuscation is disabled
 // or as a fallback when the Node sidecar is unavailable.
@@ -61,7 +55,7 @@ type sidecarProcess struct {
 }
 
 type NodeObfuscator struct {
-	cfg          ObfuscatorConfig
+	cfg          config.ObfuscatorConfig
 	logger       *slog.Logger
 	pool         chan *sidecarProcess
 	shutdown     chan struct{}
@@ -79,7 +73,7 @@ func newRequestID() string {
 // NewNodeObfuscator starts cfg.MaxConcurrent sidecar processes.
 // Returns an error if any process fails to start (e.g. node not in PATH,
 // sidecar/node_modules not installed). Callers should fall back to NoOpObfuscator on error.
-func NewNodeObfuscator(cfg ObfuscatorConfig, logger *slog.Logger) (*NodeObfuscator, error) {
+func NewNodeObfuscator(cfg config.ObfuscatorConfig, logger *slog.Logger) (*NodeObfuscator, error) {
 	if cfg.MaxConcurrent <= 0 {
 		cfg.MaxConcurrent = 4
 	}

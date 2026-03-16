@@ -6,8 +6,8 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/travisbale/mirage/internal/obfuscator"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,7 +24,7 @@ type Config struct {
 	DNSProviders   []DNSProviderConfig         `yaml:"dns_providers"`
 	API            APIConfig                   `yaml:"api"`
 	ACME           ACMEConfig                  `yaml:"acme"`
-	Obfuscator     obfuscator.ObfuscatorConfig `yaml:"obfuscator"`
+	Obfuscator     ObfuscatorConfig            `yaml:"obfuscator"`
 }
 
 // ACMEConfig holds settings for automatic certificate provisioning via ACME
@@ -44,6 +44,15 @@ type APIConfig struct {
 	// ClientCACertPath is the path to the CA certificate (and .key sidecar)
 	// used to verify operator client certificates. Generated on first start if absent.
 	ClientCACertPath string `yaml:"client_ca_cert_path"`
+}
+
+// ObfuscatorConfig holds settings for the JavaScript obfuscation sidecar.
+type ObfuscatorConfig struct {
+	Enabled        bool          `yaml:"enabled"`
+	NodePath       string        `yaml:"node_path"`       // path to node binary; empty = search PATH
+	SidecarDir     string        `yaml:"sidecar_dir"`     // dir containing package.json and index.js
+	RequestTimeout time.Duration `yaml:"request_timeout"` // per-call timeout (default: 5s)
+	MaxConcurrent  int           `yaml:"max_concurrent"`  // max parallel obfuscations (default: 4)
 }
 
 // DNSProviderConfig holds the settings for one DNS provider integration.

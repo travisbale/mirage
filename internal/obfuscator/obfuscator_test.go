@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/travisbale/mirage/internal/config"
 )
 
 func discardLogger() *slog.Logger {
@@ -111,7 +113,7 @@ func skipIfNoNode(t *testing.T) {
 func newTestNodeObfuscator(t *testing.T) *NodeObfuscator {
 	t.Helper()
 	skipIfNoNode(t)
-	ob, err := NewNodeObfuscator(ObfuscatorConfig{
+	ob, err := NewNodeObfuscator(config.ObfuscatorConfig{
 		SidecarDir:     "sidecar",
 		MaxConcurrent:  1,
 		RequestTimeout: 30 * time.Second,
@@ -160,7 +162,7 @@ func TestNodeObfuscator_Timeout(t *testing.T) {
 	skipIfNoNode(t)
 
 	ob := &NodeObfuscator{
-		cfg: ObfuscatorConfig{
+		cfg: config.ObfuscatorConfig{
 			RequestTimeout: 100 * time.Millisecond,
 			MaxConcurrent:  1,
 		},
