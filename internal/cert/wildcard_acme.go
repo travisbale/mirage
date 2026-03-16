@@ -205,7 +205,11 @@ func (s *WildcardACMECertSource) saveToStorage(wildcard string, cert *tls.Certif
 		return err
 	}
 
-	keyPEM, err := encodeECPrivateKey(cert.PrivateKey.(*ecdsa.PrivateKey))
+	ecKey, ok := cert.PrivateKey.(*ecdsa.PrivateKey)
+	if !ok {
+		return fmt.Errorf("cert: unexpected private key type %T", cert.PrivateKey)
+	}
+	keyPEM, err := encodeECPrivateKey(ecKey)
 	if err != nil {
 		return err
 	}
