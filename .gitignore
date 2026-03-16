@@ -1,5 +1,7 @@
 # Build output
 build/
+miraged
+mirage
 
 # Generated JS — run `make scripts` to regenerate
 dist/
