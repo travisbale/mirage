@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -39,7 +40,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 
 	sessions, err := r.sessions.List(filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to list sessions")
 		return
 	}
 
@@ -49,7 +50,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 	countFilter.Offset = 0
 	total, err := r.sessions.Count(countFilter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to count sessions")
 		return
 	}
 
@@ -69,8 +70,11 @@ func (r *Router) getSession(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	sess, err := r.sessions.Get(id)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, "session not found")
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "session does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to get session")
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, sessionToResponse(sess))
@@ -79,8 +83,11 @@ func (r *Router) getSession(w http.ResponseWriter, req *http.Request) {
 func (r *Router) deleteSession(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	if err := r.sessions.Delete(id); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "session does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to delete session")
+		}
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -90,8 +97,11 @@ func (r *Router) exportSessionCookies(w http.ResponseWriter, req *http.Request) 
 	id := req.PathValue("id")
 	data, err := r.sessions.ExportCookiesJSON(id)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "session does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to export session")
+		}
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

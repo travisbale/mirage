@@ -4,7 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/store"
+	
 )
 
 // Compile-time check: Phishlets satisfies aitm.PhishletStore.
@@ -21,7 +21,7 @@ func (s *Phishlets) GetPhishletConfig(name string) (*aitm.PhishletConfig, error)
 		FROM phishlet_configs WHERE name = ?`, name)
 	cfg, err := scanPhishletConfig(row)
 	if err == sql.ErrNoRows {
-		return nil, store.ErrNotFound
+		return nil, aitm.ErrNotFound
 	}
 	return cfg, err
 }
@@ -83,7 +83,7 @@ func (s *Phishlets) CreateSubPhishlet(sp *aitm.SubPhishlet) error {
 		sp.Name, sp.ParentName, params,
 	)
 	if isConflict(err) {
-		return store.ErrConflict
+		return aitm.ErrConflict
 	}
 	return err
 }
@@ -93,7 +93,7 @@ func (s *Phishlets) GetSubPhishlet(name string) (*aitm.SubPhishlet, error) {
 		`SELECT name, parent, params FROM sub_phishlets WHERE name = ?`, name)
 	sp, err := scanSubPhishlet(row)
 	if err == sql.ErrNoRows {
-		return nil, store.ErrNotFound
+		return nil, aitm.ErrNotFound
 	}
 	return sp, err
 }

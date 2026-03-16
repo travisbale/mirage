@@ -8,15 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/travisbale/mirage/internal/store"
+	"github.com/travisbale/mirage/internal/aitm"
 	_ "modernc.org/sqlite"
-)
-
-// Re-export shared sentinels so callers only need to import one package.
-var (
-	ErrNotFound     = store.ErrNotFound
-	ErrConflict     = store.ErrConflict
-	ErrInvalidFilter = store.ErrInvalidFilter
 )
 
 // DB is the shared SQLite connection. Open once; pass to each domain store constructor.
@@ -85,7 +78,7 @@ func requireOneRow(res sql.Result) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return store.ErrNotFound
+		return aitm.ErrNotFound
 	}
 	return nil
 }

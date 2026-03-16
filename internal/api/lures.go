@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -17,7 +18,7 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 
 	all, err := r.lures.List()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to list lures")
 		return
 	}
 
@@ -70,8 +71,11 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 		Redirector:  body.Redirector,
 	}
 	if err := r.lures.Create(lure); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrConflict) {
+			writeError(w, http.StatusConflict, "lure already exists")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to create lure")
+		}
 		return
 	}
 	writeJSON(w, http.StatusCreated, lureToResponse(lure))
@@ -81,8 +85,11 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	lure, err := r.lures.Get(id)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, "lure not found")
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "lure does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to get lure")
+		}
 		return
 	}
 
@@ -116,8 +123,7 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := r.lures.Update(lure); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to update lure")
 		return
 	}
 	writeJSON(w, http.StatusOK, lureToResponse(lure))
@@ -126,8 +132,11 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 func (r *Router) deleteLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	if err := r.lures.Delete(id); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "lure does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to delete lure")
+		}
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -137,8 +146,11 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	lure, err := r.lures.Get(id)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, "lure not found")
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "lure does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to get lure")
+		}
 		return
 	}
 
@@ -148,7 +160,7 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 
 	url, err := lure.GenerateURL(r.domain, body.Params)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to generate lure URL")
 		return
 	}
 	writeJSON(w, http.StatusOK, sdk.GenerateURLResponse{URL: url})
@@ -164,14 +176,16 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 	d, _ := time.ParseDuration(body.Duration)
 
 	if err := r.lures.Pause(id, d); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "lure does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to pause lure")
+		}
 		return
 	}
 	lure, err := r.lures.Get(id)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to get lure")
 		return
 	}
 	writeJSON(w, http.StatusOK, lureToResponse(lure))
@@ -180,14 +194,16 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	if err := r.lures.Unpause(id); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "lure does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to unpause lure")
+		}
 		return
 	}
 	lure, err := r.lures.Get(id)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to get lure")
 		return
 	}
 	writeJSON(w, http.StatusOK, lureToResponse(lure))

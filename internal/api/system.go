@@ -38,7 +38,7 @@ func (r *Router) reload(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if err := proc.Signal(syscall.SIGHUP); err != nil {
-		writeError(w, http.StatusInternalServerError, "signal failed: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to send reload signal")
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"message": "reload signal sent"})

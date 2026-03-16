@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/store"
+	
 )
 
 // Bots implements bot telemetry and signature persistence backed by SQLite.
@@ -25,7 +25,7 @@ func (s *Bots) StoreBotTelemetry(t *aitm.BotTelemetry) error {
 		t.ID, t.SessionID, t.CollectedAt.Unix(), raw,
 	)
 	if isConflict(err) {
-		return store.ErrConflict
+		return aitm.ErrConflict
 	}
 	return err
 }
@@ -70,7 +70,7 @@ func (s *Bots) CreateBotSignature(sig aitm.BotSignature) error {
 		sig.JA4Hash, sig.Description, sig.AddedAt.Unix(),
 	)
 	if isConflict(err) {
-		return store.ErrConflict
+		return aitm.ErrConflict
 	}
 	return err
 }
@@ -79,7 +79,7 @@ func (s *Bots) LookupBotSignature(ja4Hash string) (aitm.BotSignature, error) {
 	row := s.db.db.QueryRow(`SELECT ja4_hash, description, added_at FROM bot_signatures WHERE ja4_hash = ?`, ja4Hash)
 	sig, err := scanBotSignature(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		return aitm.BotSignature{}, store.ErrNotFound
+		return aitm.BotSignature{}, aitm.ErrNotFound
 	}
 	return sig, err
 }

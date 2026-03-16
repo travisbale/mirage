@@ -68,33 +68,33 @@ type RouterDeps struct {
 // Router is the top-level handler for the management API. It implements
 // http.Handler and is passed to the APIRouter pipeline step.
 type Router struct {
-	mux       *http.ServeMux
-	sessions  sessionManager
-	lures     lureManager
-	phishlets phishletManager
-	blacklist blacklistManager
-	botguard  botguardManager
-	bus       eventBus
-	domain    string
-	version   string
-	startedAt time.Time
-	logger    *slog.Logger
+	mux        *http.ServeMux
+	sessions   sessionManager
+	lures      lureManager
+	phishlets  phishletManager
+	blacklists blacklistManager
+	botguard   botguardManager
+	bus        eventBus
+	domain     string
+	version    string
+	startedAt  time.Time
+	logger     *slog.Logger
 }
 
 // NewRouter wires all dependencies into the ServeMux and returns a ready Router.
 func NewRouter(deps RouterDeps) *Router {
 	r := &Router{
-		mux:       http.NewServeMux(),
-		sessions:  deps.Sessions,
-		lures:     deps.Lures,
-		phishlets: deps.Phishlets,
-		blacklist: deps.Blacklist,
-		botguard:  deps.Botguard,
-		bus:       deps.Bus,
-		domain:    deps.Domain,
-		version:   deps.Version,
-		startedAt: time.Now(),
-		logger:    deps.Logger,
+		mux:        http.NewServeMux(),
+		sessions:   deps.Sessions,
+		lures:      deps.Lures,
+		phishlets:  deps.Phishlets,
+		blacklists: deps.Blacklist,
+		botguard:   deps.Botguard,
+		bus:        deps.Bus,
+		domain:     deps.Domain,
+		version:    deps.Version,
+		startedAt:  time.Now(),
+		logger:     deps.Logger,
 	}
 
 	r.registerRoutes()
@@ -161,4 +161,3 @@ func (r *Router) registerRoutes() {
 	h("GET", sdk.RouteCampaigns, r.listCampaignMappings)
 	h("POST", sdk.RouteCampaignSync, r.syncCampaign)
 }
-

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/store"
+	
 )
 
 // Compile-time check: Sessions satisfies aitm.SessionStore.
@@ -40,7 +40,7 @@ func (s *Sessions) CreateSession(session *aitm.Session) error {
 		session.StartedAt.Unix(), completedAt,
 	)
 	if isConflict(err) {
-		return store.ErrConflict
+		return aitm.ErrConflict
 	}
 	return err
 }
@@ -53,7 +53,7 @@ func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
 		FROM sessions WHERE id = ?`, id)
 	sess, err := scanSession(row)
 	if err == sql.ErrNoRows {
-		return nil, store.ErrNotFound
+		return nil, aitm.ErrNotFound
 	}
 	return sess, err
 }
@@ -95,7 +95,7 @@ func (s *Sessions) DeleteSession(id string) error {
 
 func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 	if f.CompletedOnly && f.IncompleteOnly {
-		return nil, store.ErrInvalidFilter
+		return nil, aitm.ErrInvalidFilter
 	}
 	where, args := sessionWhere(f)
 
@@ -132,7 +132,7 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 
 func (s *Sessions) CountSessions(f aitm.SessionFilter) (int, error) {
 	if f.CompletedOnly && f.IncompleteOnly {
-		return 0, store.ErrInvalidFilter
+		return 0, aitm.ErrInvalidFilter
 	}
 	where, args := sessionWhere(f)
 

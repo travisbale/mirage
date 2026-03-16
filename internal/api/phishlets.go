@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -13,7 +14,7 @@ func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 
 	cfgs, err := r.phishlets.ListPhishletConfigs()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to list phishlets")
 		return
 	}
 
@@ -64,8 +65,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 
 	cfg.Enabled = true
 	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to enable phishlet")
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -75,14 +75,16 @@ func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 	cfg, err := r.phishlets.GetPhishletConfig(name)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, "phishlet not found")
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "phishlet does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+		}
 		return
 	}
 	cfg.Enabled = false
 	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to disable phishlet")
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -92,14 +94,16 @@ func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 	cfg, err := r.phishlets.GetPhishletConfig(name)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, "phishlet not found")
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "phishlet does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+		}
 		return
 	}
 	cfg.Hidden = true
 	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to hide phishlet")
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -109,14 +113,16 @@ func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 	cfg, err := r.phishlets.GetPhishletConfig(name)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, "phishlet not found")
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "phishlet does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+		}
 		return
 	}
 	cfg.Hidden = false
 	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to unhide phishlet")
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -134,8 +140,11 @@ func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
 		Params:     body.Params,
 	}
 	if err := r.phishlets.CreateSubPhishlet(sp); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrConflict) {
+			writeError(w, http.StatusConflict, "phishlet already exists")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to create phishlet")
+		}
 		return
 	}
 	writeJSON(w, http.StatusCreated, sdk.PhishletResponse{
@@ -147,8 +156,11 @@ func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
 func (r *Router) deleteSubPhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 	if err := r.phishlets.DeleteSubPhishlet(name); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "phishlet does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to delete phishlet")
+		}
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

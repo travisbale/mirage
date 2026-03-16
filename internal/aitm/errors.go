@@ -1,5 +1,4 @@
-// Package store contains shared error sentinels used by all storage implementations.
-package store
+package aitm
 
 import "errors"
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -50,8 +51,11 @@ func (r *Router) addBotSignature(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := r.botguard.CreateBotSignature(signature); err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		if errors.Is(err, aitm.ErrConflict) {
+			writeError(w, http.StatusConflict, "signature already exists")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to add signature")
+		}
 		return
 	}
 
@@ -66,12 +70,11 @@ func (r *Router) removeBotSignature(w http.ResponseWriter, req *http.Request) {
 	hash := req.PathValue("hash")
 	found, err := r.botguard.DeleteBotSignature(hash)
 	if err != nil {
-		status, _ := errStatus(err)
-		writeError(w, status, err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to remove signature")
 		return
 	}
 	if !found {
-		writeError(w, http.StatusNotFound, "signature not found")
+		writeError(w, http.StatusNotFound, "signature does not exist")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

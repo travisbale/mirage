@@ -9,7 +9,7 @@ import (
 
 func (r *Router) listBlacklist(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
-	entries := r.blacklist.List()
+	entries := r.blacklists.List()
 
 	total := len(entries)
 	start := min(offset, total)
@@ -34,7 +34,7 @@ func (r *Router) addBlacklistEntry(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	r.blacklist.Block(body.Value)
+	r.blacklists.Block(body.Value)
 	writeJSON(w, http.StatusCreated, sdk.BlacklistEntryResponse{Value: body.Value})
 }
 
@@ -44,7 +44,7 @@ func (r *Router) removeBlacklistEntry(w http.ResponseWriter, req *http.Request) 
 		writeError(w, http.StatusUnprocessableEntity, "invalid entry")
 		return
 	}
-	r.blacklist.Unblock(entry)
+	r.blacklists.Unblock(entry)
 	w.WriteHeader(http.StatusNoContent)
 }
 

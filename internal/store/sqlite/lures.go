@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/store"
+	
 )
 
 // Compile-time check: Lures satisfies aitm.LureStore.
@@ -28,7 +28,7 @@ func (s *Lures) CreateLure(l *aitm.Lure) error {
 		l.OGTitle, l.OGDesc, l.OGImage, l.OGURL, l.Redirector, l.ParamsKey,
 	)
 	if isConflict(err) {
-		return store.ErrConflict
+		return aitm.ErrConflict
 	}
 	return err
 }
@@ -40,7 +40,7 @@ func (s *Lures) GetLure(id string) (*aitm.Lure, error) {
 		redirector, params_key FROM lures WHERE id = ?`, id)
 	l, err := scanLure(row)
 	if err == sql.ErrNoRows {
-		return nil, store.ErrNotFound
+		return nil, aitm.ErrNotFound
 	}
 	return l, err
 }
