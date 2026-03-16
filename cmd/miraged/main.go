@@ -85,13 +85,8 @@ func runServe(ctx context.Context, configPath string, debug, developer bool) err
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 
-	daemon := &Daemon{
-		configPath: configPath,
-		developer:  developer,
-		logger:     logger,
-	}
-
-	if err := daemon.Init(ctx); err != nil {
+	daemon, err := NewDaemon(ctx, configPath, developer, logger)
+	if err != nil {
 		return err
 	}
 

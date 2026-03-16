@@ -19,11 +19,9 @@ type scriptObfuscator interface {
 }
 
 // Daemon is the fully-wired daemon. One instance per process.
-// Fields are populated by Init() in dependency order and consumed by Run(),
-// Reload(), and Shutdown(). No field is accessed before its initialisation step.
+// Construct with NewDaemon; consume with Run and Shutdown.
 type Daemon struct {
 	configPath string
-	developer  bool
 	logger     *slog.Logger
 
 	cfg *config.Config
