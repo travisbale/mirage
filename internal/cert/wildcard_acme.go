@@ -32,27 +32,28 @@ var propDelay = 10 * time.Second
 // logs show only the wildcard, not individual phishing subdomains, which
 // prevents scanner enumeration.
 type WildcardACMECertSource struct {
-	provider   aitm.DNSProvider
+	providers  map[string]aitm.DNSProvider // base domain → provider
 	acmeDir    string
 	email      string
 	storageDir string
 
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	certs  map[string]*tls.Certificate // key: "*.base_domain"
 	logger *slog.Logger
 }
 
 // NewWildcardACMECertSource constructs the source.
+// providers maps each base domain to its DNS provider for DNS-01 challenges.
 // acmeDir should be acme.LetsEncryptURL for production or the staging URL for testing.
 func NewWildcardACMECertSource(
-	provider aitm.DNSProvider,
+	providers map[string]aitm.DNSProvider,
 	acmeDir string,
 	email string,
 	storageDir string,
 	logger *slog.Logger,
 ) *WildcardACMECertSource {
 	return &WildcardACMECertSource{
-		provider:   provider,
+		providers:  providers,
 		acmeDir:    acmeDir,
 		email:      email,
 		storageDir: storageDir,
@@ -63,18 +64,19 @@ func NewWildcardACMECertSource(
 
 // GetCertificate returns the wildcard cert for hello.ServerName's base domain,
 // issuing one via DNS-01 ACME if not already held. Returns (nil, nil) if
-// no DNS provider is configured.
+// no DNS provider is registered for this base domain.
 func (s *WildcardACMECertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	if s.provider == nil {
-		return nil, nil
-	}
 	hostname := strings.ToLower(hello.ServerName)
 	baseDomain := extractBaseDomain(hostname)
+	provider, ok := s.providers[baseDomain]
+	if !ok {
+		return nil, nil
+	}
 	wildcard := "*." + baseDomain
 
-	s.mu.Lock()
+	s.mu.RLock()
 	cert, ok := s.certs[wildcard]
-	s.mu.Unlock()
+	s.mu.RUnlock()
 
 	if ok && !certExpiresSoon(cert) {
 		return cert, nil
@@ -88,7 +90,7 @@ func (s *WildcardACMECertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tl
 		return diskCert, nil
 	}
 
-	issued, err := s.issue(context.Background(), baseDomain)
+	issued, err := s.issue(context.Background(), baseDomain, provider)
 	if err != nil {
 		return nil, fmt.Errorf("wildcard acme: issue *.%s: %w", baseDomain, err)
 	}
@@ -101,8 +103,8 @@ func (s *WildcardACMECertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tl
 	return issued, nil
 }
 
-// issue runs the full ACME DNS-01 flow for *.baseDomain.
-func (s *WildcardACMECertSource) issue(ctx context.Context, baseDomain string) (*tls.Certificate, error) {
+// issue runs the full ACME DNS-01 flow for *.baseDomain using the given provider.
+func (s *WildcardACMECertSource) issue(ctx context.Context, baseDomain string, provider aitm.DNSProvider) (*tls.Certificate, error) {
 	accountKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("generating account key: %w", err)
@@ -147,10 +149,10 @@ func (s *WildcardACMECertSource) issue(ctx context.Context, baseDomain string) (
 		}
 
 		s.logger.Info("acme: presenting DNS-01 challenge", "domain", auth.Identifier.Value)
-		if err := s.provider.Present(auth.Identifier.Value, challenge.Token, keyAuth); err != nil {
+		if err := provider.Present(auth.Identifier.Value, challenge.Token, keyAuth); err != nil {
 			return nil, fmt.Errorf("acme: dns present: %w", err)
 		}
-		defer s.provider.CleanUp(auth.Identifier.Value, challenge.Token, keyAuth)
+		defer provider.CleanUp(auth.Identifier.Value, challenge.Token, keyAuth)
 
 		time.Sleep(propDelay)
 

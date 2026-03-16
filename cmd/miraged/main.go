@@ -20,7 +20,6 @@ func main() {
 	var (
 		configPath string
 		debug      bool
-		selfSigned bool
 	)
 
 	root := &cobra.Command{
@@ -32,13 +31,12 @@ func main() {
 
 	root.PersistentFlags().StringVar(&configPath, "config", "/etc/mirage/miraged.yaml", "path to config file")
 	root.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
-	root.PersistentFlags().BoolVar(&selfSigned, "self-signed", false, "use self-signed certs instead of ACME")
 
 	serveCmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Start the miraged daemon (default)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(cmd.Context(), configPath, debug, selfSigned)
+			return runServe(cmd.Context(), configPath, debug)
 		},
 	}
 	root.RunE = serveCmd.RunE
@@ -77,7 +75,7 @@ func main() {
 	}
 }
 
-func runServe(ctx context.Context, configPath string, debug, selfSigned bool) error {
+func runServe(ctx context.Context, configPath string, debug bool) error {
 	level := slog.LevelInfo
 	if debug {
 		level = slog.LevelDebug
@@ -86,7 +84,7 @@ func runServe(ctx context.Context, configPath string, debug, selfSigned bool) er
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 
-	d, err := daemon.New(configPath, selfSigned, Version, logger)
+	d, err := daemon.New(configPath, Version, logger)
 	if err != nil {
 		return err
 	}

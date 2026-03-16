@@ -13,17 +13,25 @@ import (
 
 // Config is the top-level configuration for miraged.
 type Config struct {
-	Domain         string              `yaml:"domain"`
-	ExternalIPv4   string              `yaml:"external_ipv4"`
-	HTTPSPort      int                 `yaml:"https_port"`
-	DNSPort        int                 `yaml:"dns_port"`
-	DBPath         string              `yaml:"db_path"`
-	Autocert       bool                `yaml:"autocert"`
-	PhishletsDir   string              `yaml:"phishlets_dir"`
-	RedirectorsDir string              `yaml:"redirectors_dir"`
-	DNSProviders   []DNSProviderConfig `yaml:"dns_providers"`
-	API            APIConfig                    `yaml:"api"`
-	Obfuscator     obfuscator.ObfuscatorConfig  `yaml:"obfuscator"`
+	Domain         string                      `yaml:"domain"`
+	ExternalIPv4   string                      `yaml:"external_ipv4"`
+	HTTPSPort      int                         `yaml:"https_port"`
+	DNSPort        int                         `yaml:"dns_port"`
+	DBPath         string                      `yaml:"db_path"`
+	PhishletsDir   string                      `yaml:"phishlets_dir"`
+	RedirectorsDir string                      `yaml:"redirectors_dir"`
+	SelfSigned     bool                        `yaml:"self_signed"`
+	DNSProviders   []DNSProviderConfig         `yaml:"dns_providers"`
+	API            APIConfig                   `yaml:"api"`
+	ACME           ACMEConfig                  `yaml:"acme"`
+	Obfuscator     obfuscator.ObfuscatorConfig `yaml:"obfuscator"`
+}
+
+// ACMEConfig holds settings for automatic certificate provisioning via ACME
+// (Let's Encrypt). Required when not using self-signed certificates.
+type ACMEConfig struct {
+	Email        string `yaml:"email"`         // contact address for ACME account registration
+	DirectoryURL string `yaml:"directory_url"` // ACME directory URL; defaults to Let's Encrypt production
 }
 
 // APIConfig holds settings for the management REST API.
@@ -110,6 +118,17 @@ func (c *Config) Validate() error {
 
 	if c.API.SecretHostname == "" {
 		errs = append(errs, "api.secret_hostname: required")
+	}
+
+	if !c.SelfSigned {
+		if c.ACME.Email == "" {
+			errs = append(errs, "acme.email: required when self_signed is false")
+		}
+		if c.ACME.DirectoryURL == "" {
+			errs = append(errs, "acme.directory_url: required when self_signed is false"+
+				" (production: https://acme-v02.api.letsencrypt.org/directory,"+
+				" staging: https://acme-staging-v02.api.letsencrypt.org/directory)")
+		}
 	}
 
 	for i, p := range c.DNSProviders {

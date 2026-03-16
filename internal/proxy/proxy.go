@@ -274,14 +274,15 @@ func (w *bufferedResponseWriter) Write(b []byte) (int, error) {
 
 func (w *bufferedResponseWriter) flush() {
 	resp := &http.Response{
-		StatusCode: w.code,
-		Header:     w.header,
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Body:       io.NopCloser(strings.NewReader(string(w.buf))),
+		StatusCode:    w.code,
+		Header:        w.header,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          io.NopCloser(strings.NewReader(string(w.buf))),
+		ContentLength: int64(len(w.buf)),
+		Close:         !w.keepAlive,
 	}
-	resp.ContentLength = int64(len(w.buf))
 	resp.Write(w.conn)
 }
 

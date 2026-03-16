@@ -78,7 +78,7 @@ func NewHarness(t *testing.T) *Harness {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	d, err := daemon.New(cfgPath, true, "test", discardLogger())
+	d, err := daemon.New(cfgPath, "test", discardLogger())
 	if err != nil {
 		t.Fatalf("daemon.New: %v", err)
 	}
@@ -218,6 +218,7 @@ func writeConfig(t *testing.T, tmpDir string, httpsPort, dnsPort int) string {
 		DNSPort:      dnsPort,
 		DBPath:       filepath.Join(tmpDir, "data.db"),
 		PhishletsDir: filepath.Join(tmpDir, "phishlets"),
+		SelfSigned:   true,
 		API: config.APIConfig{
 			SecretHostname:   testAPIHostname,
 			ClientCACertPath: filepath.Join(tmpDir, "api", "api-ca.crt"),
