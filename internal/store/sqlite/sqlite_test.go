@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	
+
 	"github.com/travisbale/mirage/internal/store/sqlite"
 )
 
@@ -235,36 +235,6 @@ func TestPhishlets_ConfigUpsert(t *testing.T) {
 
 	if _, err := s.GetPhishletDeployment("missing"); err != aitm.ErrNotFound {
 		t.Errorf("missing: got %v, want ErrNotFound", err)
-	}
-}
-
-func TestPhishlets_SubPhishlets(t *testing.T) {
-	s := sqlite.NewPhishletStore(openTestDB(t))
-
-	sp := &aitm.SubPhishlet{
-		Name:       "ms-corp",
-		ParentName: "microsoft",
-		Params:     map[string]string{"tenant": "corp.onmicrosoft.com"},
-	}
-
-	if err := s.CreateSubPhishlet(sp); err != nil {
-		t.Fatalf("CreateSubPhishlet: %v", err)
-	}
-	got, err := s.GetSubPhishlet("ms-corp")
-	if err != nil {
-		t.Fatalf("GetSubPhishlet: %v", err)
-	}
-	if got.Params["tenant"] != "corp.onmicrosoft.com" {
-		t.Errorf("params not round-tripped: got %v", got.Params)
-	}
-
-	list, _ := s.ListSubPhishlets("microsoft")
-	if len(list) != 1 {
-		t.Errorf("ListSubPhishlets: got %d, want 1", len(list))
-	}
-
-	if err := s.CreateSubPhishlet(sp); err != aitm.ErrConflict {
-		t.Errorf("duplicate: got %v, want ErrConflict", err)
 	}
 }
 

@@ -110,7 +110,6 @@ func TestHelloConn_CapturesFirstRecord(t *testing.T) {
 	}
 }
 
-
 // ── Scorer (verdict) ──────────────────────────────────────────────────────────
 
 func TestScorer_DisabledAlwaysAllows(t *testing.T) {
@@ -264,8 +263,8 @@ func buildTestClientHello(t *testing.T, params clientHelloParams) []byte {
 
 	// TLS record header: type(1) + version(2) + length(2)
 	var record []byte
-	record = append(record, 0x16)                                   // ContentType: Handshake
-	record = append(record, 0x03, 0x01)                             // record version (TLS 1.0)
+	record = append(record, 0x16)                                  // ContentType: Handshake
+	record = append(record, 0x03, 0x01)                            // record version (TLS 1.0)
 	record = append(record, byte(len(hsMsg)>>8), byte(len(hsMsg))) // length
 	record = append(record, hsMsg...)
 	return record
@@ -315,4 +314,3 @@ func buildExtension(extType uint16, data []byte) []byte {
 	ext = append(ext, data...)
 	return ext
 }
-

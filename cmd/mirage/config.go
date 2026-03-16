@@ -12,7 +12,7 @@ import (
 
 // Client is the top-level structure of ~/.mirage/client.json.
 type Client struct {
-	DefaultServer string     `json:"default_server"`
+	DefaultServer string   `json:"default_server"`
 	Servers       []Server `json:"servers"`
 }
 

@@ -15,7 +15,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-
 // DeployConfig holds all parameters needed to provision a remote miraged instance.
 type DeployConfig struct {
 	// SSH connection

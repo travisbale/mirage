@@ -13,18 +13,18 @@ import (
 
 // Config is the top-level configuration for miraged.
 type Config struct {
-	Domain         string                      `yaml:"domain"`
-	ExternalIPv4   string                      `yaml:"external_ipv4"`
-	HTTPSPort      int                         `yaml:"https_port"`
-	DNSPort        int                         `yaml:"dns_port"`
-	DBPath         string                      `yaml:"db_path"`
-	PhishletsDir   string                      `yaml:"phishlets_dir"`
-	RedirectorsDir string                      `yaml:"redirectors_dir"`
-	SelfSigned     bool                        `yaml:"self_signed"`
-	DNSProviders   []DNSProviderConfig         `yaml:"dns_providers"`
-	API            APIConfig                   `yaml:"api"`
-	ACME           ACMEConfig                  `yaml:"acme"`
-	Obfuscator     ObfuscatorConfig            `yaml:"obfuscator"`
+	Domain         string              `yaml:"domain"`
+	ExternalIPv4   string              `yaml:"external_ipv4"`
+	HTTPSPort      int                 `yaml:"https_port"`
+	DNSPort        int                 `yaml:"dns_port"`
+	DBPath         string              `yaml:"db_path"`
+	PhishletsDir   string              `yaml:"phishlets_dir"`
+	RedirectorsDir string              `yaml:"redirectors_dir"`
+	SelfSigned     bool                `yaml:"self_signed"`
+	DNSProviders   []DNSProviderConfig `yaml:"dns_providers"`
+	API            APIConfig           `yaml:"api"`
+	ACME           ACMEConfig          `yaml:"acme"`
+	Obfuscator     ObfuscatorConfig    `yaml:"obfuscator"`
 }
 
 // ACMEConfig holds settings for automatic certificate provisioning via ACME

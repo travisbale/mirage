@@ -34,8 +34,6 @@ type phishletManager interface {
 	Unhide(name string) (*aitm.PhishletDeployment, error)
 	GetDeployment(name string) (*aitm.PhishletDeployment, error)
 	ListDeployments() ([]*aitm.PhishletDeployment, error)
-	CreateSubPhishlet(sp *aitm.SubPhishlet) error
-	DeleteSubPhishlet(name string) error
 }
 
 type blacklistManager interface {
@@ -137,9 +135,7 @@ func (r *Router) registerRoutes() {
 	h("POST", sdk.RoutePhishletDisable, r.disablePhishlet)
 	h("POST", sdk.RoutePhishletHide, r.hidePhishlet)
 	h("POST", sdk.RoutePhishletUnhide, r.unhidePhishlet)
-	h("DELETE", sdk.RoutePhishlet, r.deleteSubPhishlet)
 	h("GET", sdk.RoutePhishlets, r.listPhishlets)
-	h("POST", sdk.RoutePhishlets, r.createSubPhishlet)
 
 	// Blacklist
 	h("GET", sdk.RouteBlacklist, r.listBlacklist)

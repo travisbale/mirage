@@ -1,7 +1,6 @@
 package phishlet
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -51,20 +50,6 @@ func (p ParseErrors) Is(target error) bool {
 // ErrParseError is a sentinel that can be used with errors.Is to check
 // whether an error came from phishlet parsing.
 var ErrParseError = ParseErrors{}
-
-// ErrTemplateRequired is returned by Load (non-template path) when the
-// phishlet YAML declares template params — it must be loaded via LoadWithParams.
-var ErrTemplateRequired = errors.New("phishlet is a template: use LoadWithParams and supply required params")
-
-// ErrMissingParams is returned by LoadWithParams when one or more required
-// template parameters are absent from the supplied map.
-type ErrMissingParams struct {
-	Missing []string
-}
-
-func (e ErrMissingParams) Error() string {
-	return fmt.Sprintf("missing template params: %s", strings.Join(e.Missing, ", "))
-}
 
 // CollisionError describes a hostname collision detected by PhishletDef.Validate.
 type CollisionError struct {

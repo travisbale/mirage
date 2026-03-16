@@ -63,16 +63,6 @@ func (r UpdateBotThresholdRequest) Validate() error {
 	return nil
 }
 
-func (r CreateSubPhishletRequest) Validate() error {
-	if r.ParentName == "" {
-		return fmt.Errorf("parent_name: required")
-	}
-	if r.Name == "" {
-		return fmt.Errorf("name: required")
-	}
-	return nil
-}
-
 func (r AddBlacklistEntryRequest) Validate() error {
 	if r.Value == "" {
 		return fmt.Errorf("value: required")

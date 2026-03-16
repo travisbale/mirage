@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	
 )
 
 // Bots implements bot telemetry and signature persistence backed by SQLite.

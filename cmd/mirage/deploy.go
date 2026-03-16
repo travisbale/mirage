@@ -11,15 +11,15 @@ import (
 
 func newDeployCmd() *cobra.Command {
 	var (
-		domain      string
-		externalIP  string
-		sshKey      string
-		sshUser     string
-		binary      string
-		configDir   string
-		secretHost  string
-		alias       string
-		force       bool
+		domain     string
+		externalIP string
+		sshKey     string
+		sshUser    string
+		binary     string
+		configDir  string
+		secretHost string
+		alias      string
+		force      bool
 	)
 
 	cmd := &cobra.Command{

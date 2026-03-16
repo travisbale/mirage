@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	
 )
 
 // Compile-time check: Sessions satisfies aitm.SessionStore.

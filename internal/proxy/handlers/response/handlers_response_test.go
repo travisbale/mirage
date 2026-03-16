@@ -359,7 +359,7 @@ func TestCookieRewriter_NoDomain_PassesThrough(t *testing.T) {
 	resp.Header.Set("Set-Cookie", "tok=xyz; Path=/; HttpOnly")
 
 	ctx := &aitm.ProxyContext{
-		Phishlet:    &aitm.PhishletDef{},
+		Phishlet:   &aitm.PhishletDef{},
 		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
 	}
 
@@ -476,8 +476,8 @@ func TestTokenExtractor_SessionCompleted_PublishesEvent(t *testing.T) {
 // stubBus is a minimal event bus for tests that need to inspect published events.
 type stubBus struct{ events []aitm.Event }
 
-func (b *stubBus) Publish(e aitm.Event)                               { b.events = append(b.events, e) }
-func (b *stubBus) Subscribe(_ aitm.EventType) <-chan aitm.Event       { return make(chan aitm.Event, 1) }
+func (b *stubBus) Publish(e aitm.Event)                              { b.events = append(b.events, e) }
+func (b *stubBus) Subscribe(_ aitm.EventType) <-chan aitm.Event      { return make(chan aitm.Event, 1) }
 func (b *stubBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
 func (b *stubBus) published(t aitm.EventType) bool {
 	for _, e := range b.events {

@@ -13,15 +13,10 @@ type PhishletStore interface {
 	SetPhishletDeployment(deployment *PhishletDeployment) error
 	ListPhishletDeployments() ([]*PhishletDeployment, error)
 	DeletePhishletDeployment(name string) error
-
-	CreateSubPhishlet(sp *SubPhishlet) error
-	GetSubPhishlet(name string) (*SubPhishlet, error)
-	ListSubPhishlets(parent string) ([]*SubPhishlet, error)
-	DeleteSubPhishlet(name string) error
 }
 
 // PhishletDef is the compiled, fully-resolved form of a phishlet YAML file.
-// All regex fields are pre-compiled. Template parameters have been substituted.
+// All regex fields are pre-compiled.
 type PhishletDef struct {
 	Name        string
 	Author      string
@@ -79,13 +74,6 @@ type PhishletDeployment struct {
 	Hidden      bool
 }
 
-// SubPhishlet is a named instantiation of a template PhishletDef with resolved params.
-type SubPhishlet struct {
-	Name       string
-	ParentName string
-	Params     map[string]string
-}
-
 // ProxyHost maps a phishing subdomain to a real upstream host.
 type ProxyHost struct {
 	PhishSubdomain string
@@ -98,11 +86,10 @@ type ProxyHost struct {
 
 // SubFilter is a compiled search/replace rule applied to proxied response bodies.
 type SubFilter struct {
-	Hostname   string
-	MimeTypes  []string
-	Search     *regexp.Regexp
-	Replace    string
-	WithParams []string
+	Hostname  string
+	MimeTypes []string
+	Search    *regexp.Regexp
+	Replace   string
 }
 
 func (s *SubFilter) MatchesMIME(mimeType string) bool {
@@ -309,14 +296,4 @@ func (s *PhishletService) GetDeployment(name string) (*PhishletDeployment, error
 // ListDeployments returns all stored phishlet deployments.
 func (s *PhishletService) ListDeployments() ([]*PhishletDeployment, error) {
 	return s.store.ListPhishletDeployments()
-}
-
-// CreateSubPhishlet persists a sub-phishlet instantiation.
-func (s *PhishletService) CreateSubPhishlet(sp *SubPhishlet) error {
-	return s.store.CreateSubPhishlet(sp)
-}
-
-// DeleteSubPhishlet removes a sub-phishlet by name.
-func (s *PhishletService) DeleteSubPhishlet(name string) error {
-	return s.store.DeleteSubPhishlet(name)
 }

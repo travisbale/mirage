@@ -47,4 +47,3 @@ func (r *Router) removeBlacklistEntry(w http.ResponseWriter, req *http.Request) 
 	r.blacklists.Unblock(entry)
 	w.WriteHeader(http.StatusNoContent)
 }
-

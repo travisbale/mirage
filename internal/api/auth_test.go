@@ -30,24 +30,22 @@ func (s *stubSessions) ExportCookiesJSON(_ string) ([]byte, error) { return []by
 
 type stubLures struct{}
 
-func (s *stubLures) Get(_ string) (*aitm.Lure, error)         { return nil, nil }
-func (s *stubLures) Create(_ *aitm.Lure) error                { return nil }
-func (s *stubLures) Update(_ *aitm.Lure) error                { return nil }
-func (s *stubLures) Delete(_ string) error                    { return nil }
-func (s *stubLures) List() ([]*aitm.Lure, error)              { return nil, nil }
-func (s *stubLures) Pause(_ string, _ time.Duration) error    { return nil }
-func (s *stubLures) Unpause(_ string) error                   { return nil }
+func (s *stubLures) Get(_ string) (*aitm.Lure, error)      { return nil, nil }
+func (s *stubLures) Create(_ *aitm.Lure) error             { return nil }
+func (s *stubLures) Update(_ *aitm.Lure) error             { return nil }
+func (s *stubLures) Delete(_ string) error                 { return nil }
+func (s *stubLures) List() ([]*aitm.Lure, error)           { return nil, nil }
+func (s *stubLures) Pause(_ string, _ time.Duration) error { return nil }
+func (s *stubLures) Unpause(_ string) error                { return nil }
 
 type stubPhishlets struct{}
 
 func (s *stubPhishlets) Enable(_, _, _, _ string) (*aitm.PhishletDeployment, error) { return nil, nil }
-func (s *stubPhishlets) Disable(_ string) (*aitm.PhishletDeployment, error)          { return nil, nil }
-func (s *stubPhishlets) Hide(_ string) (*aitm.PhishletDeployment, error)             { return nil, nil }
-func (s *stubPhishlets) Unhide(_ string) (*aitm.PhishletDeployment, error)           { return nil, nil }
-func (s *stubPhishlets) GetDeployment(_ string) (*aitm.PhishletDeployment, error)    { return nil, nil }
-func (s *stubPhishlets) ListDeployments() ([]*aitm.PhishletDeployment, error)        { return nil, nil }
-func (s *stubPhishlets) CreateSubPhishlet(_ *aitm.SubPhishlet) error             { return nil }
-func (s *stubPhishlets) DeleteSubPhishlet(_ string) error                        { return nil }
+func (s *stubPhishlets) Disable(_ string) (*aitm.PhishletDeployment, error)         { return nil, nil }
+func (s *stubPhishlets) Hide(_ string) (*aitm.PhishletDeployment, error)            { return nil, nil }
+func (s *stubPhishlets) Unhide(_ string) (*aitm.PhishletDeployment, error)          { return nil, nil }
+func (s *stubPhishlets) GetDeployment(_ string) (*aitm.PhishletDeployment, error)   { return nil, nil }
+func (s *stubPhishlets) ListDeployments() ([]*aitm.PhishletDeployment, error)       { return nil, nil }
 
 type stubBlacklist struct{}
 

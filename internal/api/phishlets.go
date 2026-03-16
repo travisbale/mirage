@@ -98,44 +98,6 @@ func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
 }
 
-func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
-	body, ok := decodeAndValidate[sdk.CreateSubPhishletRequest](w, req)
-	if !ok {
-		return
-	}
-
-	sp := &aitm.SubPhishlet{
-		Name:       body.Name,
-		ParentName: body.ParentName,
-		Params:     body.Params,
-	}
-	if err := r.phishlets.CreateSubPhishlet(sp); err != nil {
-		if errors.Is(err, aitm.ErrConflict) {
-			writeError(w, http.StatusConflict, "phishlet already exists")
-		} else {
-			writeError(w, http.StatusInternalServerError, "failed to create phishlet")
-		}
-		return
-	}
-	writeJSON(w, http.StatusCreated, sdk.PhishletResponse{
-		Name:       sp.Name,
-		ParentName: sp.ParentName,
-	})
-}
-
-func (r *Router) deleteSubPhishlet(w http.ResponseWriter, req *http.Request) {
-	name := req.PathValue("name")
-	if err := r.phishlets.DeleteSubPhishlet(name); err != nil {
-		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "phishlet does not exist")
-		} else {
-			writeError(w, http.StatusInternalServerError, "failed to delete phishlet")
-		}
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
 // listRegistry stubs the phishlet registry — not implemented until Phase 15.
 func (r *Router) listRegistry(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)

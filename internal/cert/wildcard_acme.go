@@ -42,7 +42,6 @@ type WildcardACMECertSource struct {
 	logger *slog.Logger
 }
 
-
 // GetCertificate returns the wildcard cert for hello.ServerName's base domain,
 // issuing one via DNS-01 ACME if not already held. Returns (nil, nil) if
 // no DNS provider is registered for this base domain.

@@ -190,7 +190,7 @@ func TestCloudflareDNSProvider_CreateRecord(t *testing.T) {
 		switch {
 		case strings.Contains(r.URL.Path, "zones") && r.URL.Query().Get("name") != "":
 			json.NewEncoder(w).Encode(map[string]any{
-				"result": []map[string]string{{"id": "zone123"}},
+				"result":  []map[string]string{{"id": "zone123"}},
 				"success": true,
 			})
 		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "dns_records"):

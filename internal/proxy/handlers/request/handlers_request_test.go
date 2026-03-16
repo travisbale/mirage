@@ -498,8 +498,8 @@ type testBus struct{}
 
 func newTestBus() *testBus { return &testBus{} }
 
-func (b *testBus) Publish(_ aitm.Event)                               {}
-func (b *testBus) Subscribe(_ aitm.EventType) <-chan aitm.Event       { return make(chan aitm.Event, 1) }
+func (b *testBus) Publish(_ aitm.Event)                              {}
+func (b *testBus) Subscribe(_ aitm.EventType) <-chan aitm.Event      { return make(chan aitm.Event, 1) }
 func (b *testBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
 
 var _ aitm.EventBus = (*testBus)(nil)

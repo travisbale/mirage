@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/travisbale/mirage/test"
 	"github.com/travisbale/mirage/sdk"
+	"github.com/travisbale/mirage/test"
 )
 
 // TestSessions_CredentialExtraction verifies that a POST to the login path

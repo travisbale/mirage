@@ -3,19 +3,17 @@ package phishlet
 // rawPhishlet is the top-level YAML structure for a phishlet file.
 // All fields use yaml tags. Unknown fields cause an error (KnownFields mode).
 type rawPhishlet struct {
-	Name    string            `yaml:"name"`
-	Author  string            `yaml:"author"`
-	Version string            `yaml:"version"`
-	Params  map[string]string `yaml:"params"` // nil if not a template
-
-	ProxyHosts  []rawProxyHost    `yaml:"proxy_hosts"`
-	SubFilters  []rawSubFilter    `yaml:"sub_filters"`
-	AuthTokens  []rawAuthToken    `yaml:"auth_tokens"`
-	Credentials rawCredentials    `yaml:"credentials"`
-	Login       rawLogin          `yaml:"login"`
-	ForcePosts  []rawForcePost    `yaml:"force_post"`
-	Intercepts  []rawIntercept    `yaml:"intercept"`
-	JSInjects   []rawJSInject     `yaml:"js_inject"`
+	Name        string         `yaml:"name"`
+	Author      string         `yaml:"author"`
+	Version     string         `yaml:"version"`
+	ProxyHosts  []rawProxyHost `yaml:"proxy_hosts"`
+	SubFilters  []rawSubFilter `yaml:"sub_filters"`
+	AuthTokens  []rawAuthToken `yaml:"auth_tokens"`
+	Credentials rawCredentials `yaml:"credentials"`
+	Login       rawLogin       `yaml:"login"`
+	ForcePosts  []rawForcePost `yaml:"force_post"`
+	Intercepts  []rawIntercept `yaml:"intercept"`
+	JSInjects   []rawJSInject  `yaml:"js_inject"`
 }
 
 type rawProxyHost struct {
@@ -28,11 +26,10 @@ type rawProxyHost struct {
 }
 
 type rawSubFilter struct {
-	Hostname   string   `yaml:"hostname"`
-	MimeTypes  []string `yaml:"mime_types"`
-	Search     string   `yaml:"search"`
-	Replace    string   `yaml:"replace"`
-	WithParams []string `yaml:"with_params"`
+	Hostname  string   `yaml:"hostname"`
+	MimeTypes []string `yaml:"mime_types"`
+	Search    string   `yaml:"search"`
+	Replace   string   `yaml:"replace"`
 }
 
 type rawAuthToken struct {
@@ -50,8 +47,8 @@ type rawTokenKey struct {
 }
 
 type rawCredentials struct {
-	Username rawCredRule    `yaml:"username"`
-	Password rawCredRule    `yaml:"password"`
+	Username rawCredRule     `yaml:"username"`
+	Password rawCredRule     `yaml:"password"`
 	Custom   []rawCustomCred `yaml:"custom"`
 }
 
@@ -62,7 +59,7 @@ type rawCredRule struct {
 }
 
 type rawCustomCred struct {
-	Name string `yaml:"name"`
+	Name        string `yaml:"name"`
 	rawCredRule `yaml:",inline"`
 }
 

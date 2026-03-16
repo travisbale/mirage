@@ -35,16 +35,16 @@ and the handler is responsible for writing a complete response to
  4. BlacklistChecker  — spoofs blocked IPs
  5. APIRouter         — routes management-hostname requests to the REST API handler
  6. PhishletRouter    — matches hostname against active phishlets; sets ctx.Phishlet,
-                        ctx.Deployment, ctx.Lure; spoofs unrecognised hostnames
+    ctx.Deployment, ctx.Lure; spoofs unrecognised hostnames
  7. LureValidator     — spoofs paused lures or requests from filtered user-agents
  8. SessionResolver   — loads or creates the session from the tracking cookie;
-                        sets ctx.Session, ctx.IsNewSession
+    sets ctx.Session, ctx.IsNewSession
  9. TelemetryScoreCheck — L2 bot score; spoofs sessions that exceed the threshold
-10. URLRewriter       — rewrites Host and URL back to the real upstream domain
-                        and strips the session tracking cookie before forwarding
-11. CredentialExtractor — captures username/password from POST bodies matching
-                          the phishlet login spec; persists and publishes an event
-12. ForcePostInjector — injects or overrides POST parameters on matching paths
+ 10. URLRewriter       — rewrites Host and URL back to the real upstream domain
+    and strips the session tracking cookie before forwarding
+ 11. CredentialExtractor — captures username/password from POST bodies matching
+    the phishlet login spec; persists and publishes an event
+ 12. ForcePostInjector — injects or overrides POST parameters on matching paths
 
 # Response pipeline
 
@@ -53,19 +53,19 @@ handlers, a short-circuit does not prevent the response from being forwarded to
 the client — it only stops subsequent handlers from running.
 
  1. SecurityHeaderStripper — removes CSP, HSTS, X-Frame-Options, and related
-                             headers that would interfere with the proxy
+    headers that would interfere with the proxy
  2. CookieRewriter         — rewrites upstream Set-Cookie domains to the
-                             phishing domain; injects the session tracking cookie
-                             on the first response
+    phishing domain; injects the session tracking cookie
+    on the first response
  3. SubFilterApplier       — applies the phishlet's search/replace rules to
-                             rewrite domain references in response bodies
+    rewrite domain references in response bodies
  4. TokenExtractor         — captures auth cookies and HTTP headers; marks the
-                             session complete and publishes EventSessionCompleted
-                             when all required tokens are captured
+    session complete and publishes EventSessionCompleted
+    when all required tokens are captured
  5. JSInjector             — injects the telemetry collector and WebSocket
-                             redirect scripts before </body> in HTML responses
+    redirect scripts before </body> in HTML responses
  6. JSObfuscator           — passes injected script blocks through the Node.js
-                             obfuscator sidecar to defeat static fingerprinting
+    obfuscator sidecar to defeat static fingerprinting
 
 # Post-capture redirect flow
 

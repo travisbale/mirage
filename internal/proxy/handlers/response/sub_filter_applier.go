@@ -42,9 +42,6 @@ func (h *SubFilterApplier) Handle(ctx *aitm.ProxyContext, resp *http.Response) e
 			!strings.HasSuffix(strings.ToLower(resp.Request.Host), strings.ToLower(subFilter.Hostname)) {
 			continue
 		}
-		if !sessionHasParams(subFilter.WithParams, ctx.Session) {
-			continue
-		}
 		replacement := expandTemplate(subFilter.Replace, ctx)
 		bodyBytes = subFilter.Search.ReplaceAll(bodyBytes, []byte(replacement))
 	}
@@ -76,21 +73,6 @@ func readBody(resp *http.Response) ([]byte, error) {
 func replaceBody(resp *http.Response, bodyBytes []byte) {
 	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	resp.ContentLength = int64(len(bodyBytes))
-}
-
-func sessionHasParams(withParams []string, sess *aitm.Session) bool {
-	if len(withParams) == 0 {
-		return true
-	}
-	if sess == nil {
-		return false
-	}
-	for _, param := range withParams {
-		if sess.Custom == nil || sess.Custom[param] == "" {
-			return false
-		}
-	}
-	return true
 }
 
 func expandTemplate(tmpl string, ctx *aitm.ProxyContext) string {

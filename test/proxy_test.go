@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/travisbale/mirage/test"
 	"github.com/travisbale/mirage/sdk"
+	"github.com/travisbale/mirage/test"
 )
 
 // TestProxy_UnknownHostnameSpoofed verifies that requests to a hostname not

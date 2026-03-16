@@ -226,14 +226,6 @@ func (c *Client) UnhidePhishlet(name string) (*PhishletResponse, error) {
 	return send[PhishletResponse](c, http.MethodPost, ResolveRoute(RoutePhishletUnhide, "name", name), nil)
 }
 
-func (c *Client) CreateSubPhishlet(req CreateSubPhishletRequest) (*PhishletResponse, error) {
-	return send[PhishletResponse](c, http.MethodPost, RoutePhishlets, req)
-}
-
-func (c *Client) DeleteSubPhishlet(name string) error {
-	return discard(c, http.MethodDelete, ResolveRoute(RoutePhishlet, "name", name), nil)
-}
-
 // --- Blacklist ---
 
 func (c *Client) ListBlacklist() (*PaginatedResponse[BlacklistEntryResponse], error) {

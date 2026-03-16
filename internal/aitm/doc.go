@@ -19,10 +19,6 @@ There are three distinct phishlet-related types that are easy to confuse:
     provider manages its records. This is persisted to the database and
     survives restarts.
 
-  - [SubPhishlet] is a named variant of a parent phishlet, created by
-    the operator with a specific set of template parameters. Sub-phishlets
-    are persisted and generate their own [PhishletDef] on load.
-
 # Lures
 
 A [Lure] is a configured phishing URL tied to a phishlet. It carries

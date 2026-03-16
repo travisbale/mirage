@@ -82,7 +82,6 @@ func matchesLoginPath(login aitm.LoginSpec, req *http.Request) bool {
 	return true
 }
 
-
 func extractField(rule aitm.CredentialRule, body []byte, req *http.Request) string {
 	switch rule.Type {
 	case "post":

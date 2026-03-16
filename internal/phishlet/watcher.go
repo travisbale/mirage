@@ -73,12 +73,6 @@ func (w *Watcher) loop() {
 	reload := func(path string) {
 		def, err := w.loader.Load(path)
 		if err != nil {
-			// Template phishlets require params — log but don't treat as an error.
-			if err == ErrTemplateRequired {
-				slog.Debug("phishlet watcher: template phishlet changed (params required, skipping reload)",
-					"path", path)
-				return
-			}
 			slog.Warn("phishlet watcher: re-parse failed",
 				"path", path,
 				"error", err,

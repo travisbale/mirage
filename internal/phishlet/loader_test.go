@@ -18,7 +18,6 @@ func TestLoader(t *testing.T) {
 	tests := []struct {
 		name        string
 		file        string
-		params      map[string]string // nil = call Load, non-nil = call LoadWithParams
 		wantErr     bool
 		errContains string // substring that must appear in the error string
 		wantName    string // if non-empty, assert PhishletDef.Name == wantName
@@ -68,46 +67,6 @@ func TestLoader(t *testing.T) {
 			},
 		},
 		{
-			name:        "template_load_without_params_returns_error",
-			file:        "testdata/template_phishlet.yaml",
-			params:      nil, // call Load(), not LoadWithParams
-			wantErr:     true,
-			errContains: "template",
-		},
-		{
-			name:     "template_with_params_substitutes_correctly",
-			file:     "testdata/template_phishlet.yaml",
-			params:   map[string]string{"tenant_id": "contoso", "region": "eu"},
-			wantErr:  false,
-			wantName: "test-template",
-			assertFn: func(t *testing.T, def *aitm.PhishletDef) {
-				if len(def.ProxyHosts) != 1 {
-					t.Fatalf("expected 1 proxy host, got %d", len(def.ProxyHosts))
-				}
-				ph := def.ProxyHosts[0]
-				if ph.PhishSubdomain != "login-eu" {
-					t.Errorf("PhishSubdomain: got %q, want %q", ph.PhishSubdomain, "login-eu")
-				}
-				if ph.Domain != "contoso.example.com" {
-					t.Errorf("Domain: got %q, want %q", ph.Domain, "contoso.example.com")
-				}
-				if len(def.AuthTokens) != 1 {
-					t.Fatalf("expected 1 auth token, got %d", len(def.AuthTokens))
-				}
-				if def.AuthTokens[0].Domain != ".contoso.example.com" {
-					t.Errorf("AuthToken.Domain: got %q, want %q",
-						def.AuthTokens[0].Domain, ".contoso.example.com")
-				}
-			},
-		},
-		{
-			name:        "template_with_missing_params_returns_error",
-			file:        "testdata/template_phishlet.yaml",
-			params:      map[string]string{"tenant_id": "contoso"}, // missing "region"
-			wantErr:     true,
-			errContains: "region",
-		},
-		{
 			name:        "missing_required_fields",
 			file:        "testdata/missing_required.yaml",
 			wantErr:     true,
@@ -134,15 +93,7 @@ func TestLoader(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var (
-				def *aitm.PhishletDef
-				err error
-			)
-			if tc.params != nil {
-				def, err = loader.LoadWithParams(tc.file, tc.params)
-			} else {
-				def, err = loader.Load(tc.file)
-			}
+			def, err := loader.Load(tc.file)
 
 			if tc.wantErr {
 				if err == nil {

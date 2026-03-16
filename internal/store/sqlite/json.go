@@ -12,7 +12,6 @@ func marshalJSON(v any) (string, error) {
 	return string(b), nil
 }
 
-
 func unmarshalJSON[T any](s string, dst *T) error {
 	if s == "" || s == "null" {
 		return nil

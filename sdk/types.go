@@ -88,20 +88,20 @@ type UpdateLureRequest struct {
 }
 
 type LureResponse struct {
-	ID          string    `json:"id"`
-	Phishlet    string    `json:"phishlet"`
-	BaseDomain  string    `json:"base_domain"`
-	Hostname    string    `json:"hostname"`
-	Path        string    `json:"path"`
-	RedirectURL string    `json:"redirect_url"`
-	SpoofURL    string    `json:"spoof_url"`
-	UAFilter    string    `json:"ua_filter"`
+	ID          string     `json:"id"`
+	Phishlet    string     `json:"phishlet"`
+	BaseDomain  string     `json:"base_domain"`
+	Hostname    string     `json:"hostname"`
+	Path        string     `json:"path"`
+	RedirectURL string     `json:"redirect_url"`
+	SpoofURL    string     `json:"spoof_url"`
+	UAFilter    string     `json:"ua_filter"`
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
-	OGTitle     string    `json:"og_title"`
-	OGDesc      string    `json:"og_desc"`
-	OGImage     string    `json:"og_image"`
-	OGURL       string    `json:"og_url"`
-	Redirector  string    `json:"redirector"`
+	OGTitle     string     `json:"og_title"`
+	OGDesc      string     `json:"og_desc"`
+	OGImage     string     `json:"og_image"`
+	OGURL       string     `json:"og_url"`
+	Redirector  string     `json:"redirector"`
 }
 
 type GenerateURLRequest struct {
@@ -134,12 +134,6 @@ type EnablePhishletRequest struct {
 	Hostname    string `json:"hostname"`
 	BaseDomain  string `json:"base_domain"`
 	DNSProvider string `json:"dns_provider"`
-}
-
-type CreateSubPhishletRequest struct {
-	ParentName string            `json:"parent_name"`
-	Name       string            `json:"name"`
-	Params     map[string]string `json:"params"`
 }
 
 // --- Blacklist ---

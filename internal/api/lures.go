@@ -235,7 +235,6 @@ func pausedUntil(l *aitm.Lure) *time.Time {
 	return &l.PausedUntil
 }
 
-
 func randomPath() string {
 	b := make([]byte, 6)
 	rand.Read(b)

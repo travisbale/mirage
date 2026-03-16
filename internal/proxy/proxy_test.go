@@ -28,8 +28,8 @@ func newCtx() *aitm.ProxyContext {
 
 // stubHandler records calls and optionally returns an error.
 type stubRequestHandler struct {
-	name    string
-	called  bool
+	name      string
+	called    bool
 	returnErr error
 }
 
@@ -40,8 +40,8 @@ func (s *stubRequestHandler) Handle(_ *aitm.ProxyContext, _ *http.Request) error
 }
 
 type stubResponseHandler struct {
-	name    string
-	called  bool
+	name      string
+	called    bool
 	returnErr error
 }
 
@@ -310,11 +310,11 @@ func newFakeConn(data []byte) *fakeConn {
 	return &fakeConn{r: bytes.NewReader(data)}
 }
 
-func (c *fakeConn) Read(b []byte) (int, error) { return c.r.Read(b) }
-func (c *fakeConn) Write(b []byte) (int, error) { return len(b), nil }
-func (c *fakeConn) Close() error                { return nil }
-func (c *fakeConn) LocalAddr() net.Addr         { return dummyAddr{} }
-func (c *fakeConn) RemoteAddr() net.Addr        { return dummyAddr{} }
+func (c *fakeConn) Read(b []byte) (int, error)         { return c.r.Read(b) }
+func (c *fakeConn) Write(b []byte) (int, error)        { return len(b), nil }
+func (c *fakeConn) Close() error                       { return nil }
+func (c *fakeConn) LocalAddr() net.Addr                { return dummyAddr{} }
+func (c *fakeConn) RemoteAddr() net.Addr               { return dummyAddr{} }
 func (c *fakeConn) SetDeadline(_ time.Time) error      { return nil }
 func (c *fakeConn) SetReadDeadline(_ time.Time) error  { return nil }
 func (c *fakeConn) SetWriteDeadline(_ time.Time) error { return nil }

@@ -36,7 +36,7 @@ type AITMProxy struct {
 	WSHub             *WSHub
 	Spoof             *SpoofProxy
 	Logger            *slog.Logger
-	SecretHostname    string             // SNI hostname that triggers mTLS; empty disables mTLS
+	SecretHostname    string            // SNI hostname that triggers mTLS; empty disables mTLS
 	ClientCAs         *x509.CertPool    // required client CA pool when SecretHostname is set
 	UpstreamTransport http.RoundTripper // if non-nil, used instead of a default transport; intended for testing
 }

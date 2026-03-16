@@ -65,12 +65,12 @@ type initializer struct {
 	zones         map[string]aitm.ZoneConfig
 	dnsProviders  map[string]aitm.DNSProvider
 	botStore      *sqlite.Bots
-	botGuardSvc  *aitm.BotGuardService
-	sessionStore aitm.SessionStore
-	lureSvc      *aitm.LureService
-	blacklistSvc *aitm.BlacklistService
-	spoofProxy   *proxy.SpoofProxy
-	wsHub        *proxy.WSHub
+	botGuardSvc   *aitm.BotGuardService
+	sessionStore  aitm.SessionStore
+	lureSvc       *aitm.LureService
+	blacklistSvc  *aitm.BlacklistService
+	spoofProxy    *proxy.SpoofProxy
+	wsHub         *proxy.WSHub
 }
 
 // New constructs and fully wires a Daemon. Returns an error if any
@@ -193,13 +193,13 @@ func (ini *initializer) initCerts() error {
 	}
 
 	src, err := cert.NewSource(cert.SourceConfig{
-		SelfSigned:     ini.cfg.SelfSigned,
-		CADir:          filepath.Join(dataDir, "ca"),
-		CertFileDir:    filepath.Join(dataDir, "certs"),
+		SelfSigned:       ini.cfg.SelfSigned,
+		CADir:            filepath.Join(dataDir, "ca"),
+		CertFileDir:      filepath.Join(dataDir, "certs"),
 		ACMEEmail:        ini.cfg.ACME.Email,
 		ACMEDirectoryURL: ini.cfg.ACME.DirectoryURL,
-		ACMEStorageDir: filepath.Join(dataDir, "acme"),
-		Providers:      zonedProviders,
+		ACMEStorageDir:   filepath.Join(dataDir, "acme"),
+		Providers:        zonedProviders,
 	}, ini.logger)
 	if err != nil {
 		return err
@@ -220,9 +220,9 @@ func (ini *initializer) initServices() error {
 			},
 			Logger: ini.logger,
 		},
-		Store:         ini.botStore,
+		Store:          ini.botStore,
 		SignatureStore: ini.botStore,
-		Bus:           ini.bus,
+		Bus:            ini.bus,
 	}
 	if err := ini.botGuardSvc.LoadSignaturesFromDB(); err != nil {
 		return fmt.Errorf("loading bot signatures: %w", err)

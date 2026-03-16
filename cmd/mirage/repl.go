@@ -188,4 +188,3 @@ func cobraItems(cmd *cobra.Command) []readline.PrefixCompleterInterface {
 	}
 	return items
 }
-

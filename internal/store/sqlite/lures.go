@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	
 )
 
 // Compile-time check: Lures satisfies aitm.LureStore.

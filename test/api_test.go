@@ -18,8 +18,8 @@ func TestAPI_UnauthenticatedRequestRejected(t *testing.T) {
 	unauthClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,            //nolint:gosec // test only
-				ServerName:        "api.phish.test", // triggers mTLS requirement
+				InsecureSkipVerify: true,             //nolint:gosec // test only
+				ServerName:         "api.phish.test", // triggers mTLS requirement
 			},
 		},
 	}

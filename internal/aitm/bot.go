@@ -35,9 +35,9 @@ type ProxyContext struct {
 	JA4Hash          string
 	ClientHelloBytes []byte // raw TLS ClientHello record, set before pipeline runs
 	BotVerdict       BotVerdict
-	Phishlet    *PhishletDef
-	Deployment  *PhishletDeployment
-	Lure        *Lure
+	Phishlet         *PhishletDef
+	Deployment       *PhishletDeployment
+	Lure             *Lure
 	Session          *Session
 	IsNewSession     bool
 
@@ -73,7 +73,7 @@ type botScorer interface {
 type BotGuardService struct {
 	Scorer         botScorer
 	Store          botTelemetryStore
-	SignatureStore  botSignatureStore
+	SignatureStore botSignatureStore
 	Bus            EventBus
 	signatures     sync.Map // ja4hash → struct{}
 }

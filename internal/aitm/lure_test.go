@@ -13,10 +13,10 @@ func (s *stubLureStore) CreateLure(l *aitm.Lure) error {
 	s.lures = append(s.lures, l)
 	return nil
 }
-func (s *stubLureStore) GetLure(_ string) (*aitm.Lure, error)  { return nil, nil }
-func (s *stubLureStore) UpdateLure(_ *aitm.Lure) error         { return nil }
-func (s *stubLureStore) DeleteLure(_ string) error             { return nil }
-func (s *stubLureStore) ListLures() ([]*aitm.Lure, error)      { return s.lures, nil }
+func (s *stubLureStore) GetLure(_ string) (*aitm.Lure, error) { return nil, nil }
+func (s *stubLureStore) UpdateLure(_ *aitm.Lure) error        { return nil }
+func (s *stubLureStore) DeleteLure(_ string) error            { return nil }
+func (s *stubLureStore) ListLures() ([]*aitm.Lure, error)     { return s.lures, nil }
 
 func TestLureService_Create_AssignsID(t *testing.T) {
 	svc := &aitm.LureService{Store: &stubLureStore{}}

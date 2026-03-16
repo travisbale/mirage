@@ -53,14 +53,6 @@ CREATE TABLE IF NOT EXISTS phishlet_configs (
     hidden          INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS sub_phishlets (
-    name            TEXT    PRIMARY KEY,
-    parent          TEXT    NOT NULL,
-    params          TEXT    NOT NULL DEFAULT '{}'
-);
-
-CREATE INDEX IF NOT EXISTS idx_sub_phishlets_parent ON sub_phishlets(parent);
-
 CREATE TABLE IF NOT EXISTS bot_signatures (
     ja4_hash    TEXT    PRIMARY KEY,
     description TEXT    NOT NULL DEFAULT '',

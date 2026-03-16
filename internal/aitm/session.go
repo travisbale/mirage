@@ -227,7 +227,6 @@ func (s *SessionService) IsComplete(sess *Session, def *PhishletDef) bool {
 	return sess.HasRequiredTokens(def)
 }
 
-
 func (s *SessionService) ExportCookiesJSON(id string) ([]byte, error) {
 	session, err := s.Store.GetSession(id)
 	if err != nil {
