@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/x509"
 	"net/http"
 	"time"
 )
@@ -22,20 +21,9 @@ func (r *Router) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		leaf := req.TLS.VerifiedChains[0][0]
-		if r.isRevoked(leaf) {
-			writeError(w, http.StatusUnauthorized, "client certificate revoked")
-			return
-		}
-
 		ctx := context.WithValue(req.Context(), operatorKey{}, leaf.Subject.CommonName)
 		next(w, req.WithContext(ctx))
 	}
-}
-
-// isRevoked consults the in-memory revocation set. Always returns false until
-// a revocation endpoint is added in a future phase.
-func (r *Router) isRevoked(_ *x509.Certificate) bool {
-	return false
 }
 
 // operatorFromCtx returns the operator common name stored by authMiddleware.

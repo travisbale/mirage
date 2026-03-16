@@ -205,9 +205,9 @@ func (s *SessionService) Delete(id string) error {
 	return s.Store.DeleteSession(id)
 }
 
-// NewSessionFromContext creates and persists a new session seeded from the
-// proxy context. Satisfies the request.SessionFactory interface.
-func (s *SessionService) NewSessionFromContext(ctx *ProxyContext) (*Session, error) {
+// NewSession creates and persists a new session seeded from the proxy context.
+// Satisfies the request.SessionFactory interface.
+func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
 	sess := &Session{
 		ID:         uuid.New().String(),
 		RemoteAddr: ctx.ClientIP,
@@ -226,11 +226,6 @@ func (s *SessionService) NewSessionFromContext(ctx *ProxyContext) (*Session, err
 	}
 	s.Bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
 	return sess, nil
-}
-
-// NewSession satisfies the request.SessionFactory interface (calls NewSessionFromContext).
-func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
-	return s.NewSessionFromContext(ctx)
 }
 
 // IsComplete reports whether all required auth tokens have been captured.

