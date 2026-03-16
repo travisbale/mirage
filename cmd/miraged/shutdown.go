@@ -9,7 +9,7 @@ import (
 // Shutdown tears down all subsystems in reverse dependency order.
 // Called after Run returns.
 func (d *Daemon) Shutdown() {
-	d.log.Info("shutting down")
+	d.logger.Info("shutting down")
 
 	// Unsubscribe phishlet reload handler (closes goroutine started by SubscribeFunc).
 	if d.phishletReloadSub != nil {
@@ -19,22 +19,22 @@ func (d *Daemon) Shutdown() {
 	// Stop phishlet file watcher.
 	if d.watcher != nil {
 		if err := d.watcher.Close(); err != nil {
-			d.log.Error("watcher close error", "error", err)
+			d.logger.Error("watcher close error", "error", err)
 		}
 	}
 
 	// Close the store (flushes WAL, closes SQLite connection).
-	d.log.Info("closing store")
+	d.logger.Info("closing store")
 	if err := d.db.Close(); err != nil {
-		d.log.Error("store close error", "error", err)
+		d.logger.Error("store close error", "error", err)
 	}
 
 	// Shut down JS obfuscator sidecar processes if running.
 	if d.obfuscator != nil {
 		if err := d.obfuscator.Shutdown(context.Background()); err != nil {
-			d.log.Error("obfuscator shutdown error", "error", err)
+			d.logger.Error("obfuscator shutdown error", "error", err)
 		}
 	}
 
-	d.log.Info("shutdown complete")
+	d.logger.Info("shutdown complete")
 }

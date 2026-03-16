@@ -12,16 +12,16 @@ func (d *Daemon) Reload() error {
 
 	// Settings that require restart — warn and skip.
 	if newCfg.HTTPSPort != d.cfg.HTTPSPort {
-		d.log.Warn("https_port change requires restart")
+		d.logger.Warn("https_port change requires restart")
 	}
 	if newCfg.DNSPort != d.cfg.DNSPort {
-		d.log.Warn("dns_port change requires restart")
+		d.logger.Warn("dns_port change requires restart")
 	}
 	if newCfg.API.SecretHostname != d.cfg.API.SecretHostname {
-		d.log.Warn("api.secret_hostname change requires restart")
+		d.logger.Warn("api.secret_hostname change requires restart")
 	}
 
 	d.cfg = newCfg
-	d.log.Info("config reloaded")
+	d.logger.Info("config reloaded")
 	return nil
 }

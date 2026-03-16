@@ -24,7 +24,7 @@ type scriptObfuscator interface {
 type Daemon struct {
 	configPath string
 	developer  bool
-	log        *slog.Logger
+	logger     *slog.Logger
 
 	cfg *config.Config
 

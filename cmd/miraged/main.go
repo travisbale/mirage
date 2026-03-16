@@ -77,26 +77,26 @@ func main() {
 }
 
 func runServe(ctx context.Context, configPath string, debug, developer bool) error {
-	logger := newLogger(debug)
-	daemon := &Daemon{
-		configPath: configPath,
-		developer:  developer,
-		log:        logger,
-	}
-	if err := daemon.Init(ctx); err != nil {
-		return err
-	}
-	daemon.Run(ctx)
-	daemon.Shutdown()
-	return nil
-}
-
-func newLogger(debug bool) *slog.Logger {
 	level := slog.LevelInfo
 	if debug {
 		level = slog.LevelDebug
 	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
-	return logger
+
+	daemon := &Daemon{
+		configPath: configPath,
+		developer:  developer,
+		logger:     logger,
+	}
+
+	if err := daemon.Init(ctx); err != nil {
+		return err
+	}
+
+	daemon.Run(ctx)
+	daemon.Shutdown()
+
+	return nil
 }
