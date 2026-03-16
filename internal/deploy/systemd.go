@@ -3,8 +3,10 @@ package deploy
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"text/template"
 
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -69,10 +71,19 @@ func renderSystemdUnit(cfg DeployConfig) (string, error) {
 	return render("unit", systemdUnitTemplate, cfg)
 }
 
-// writeRemoteFile writes content to path on the remote host via SSH heredoc.
+// writeRemoteFile writes content to path on the remote host using SFTP.
 func writeRemoteFile(client *ssh.Client, path, content string) error {
-	cmd := fmt.Sprintf("cat > %s << 'MIRAGE_EOF'\n%sMIRAGE_EOF", path, content)
-	_, err := runCmd(client, cmd)
+	sftpClient, err := sftp.NewClient(client)
+	if err != nil {
+		return fmt.Errorf("opening SFTP session: %w", err)
+	}
+	defer sftpClient.Close()
+	f, err := sftpClient.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		return fmt.Errorf("opening remote file %s: %w", path, err)
+	}
+	defer f.Close()
+	_, err = f.Write([]byte(content))
 	return err
 }
 

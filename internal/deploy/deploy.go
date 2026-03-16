@@ -171,10 +171,17 @@ func checkExisting(client *ssh.Client, cfg DeployConfig) error {
 	return nil
 }
 
-// createDir creates a directory on the remote host with mode 0700.
+// createDir creates a directory on the remote host with mode 0700 using SFTP.
 func createDir(client *ssh.Client, path string) error {
-	_, err := runCmd(client, fmt.Sprintf("mkdir -p %s && chmod 700 %s", path, path))
-	return err
+	sftpClient, err := sftp.NewClient(client)
+	if err != nil {
+		return fmt.Errorf("opening SFTP session: %w", err)
+	}
+	defer sftpClient.Close()
+	if err := sftpClient.MkdirAll(path); err != nil {
+		return fmt.Errorf("creating directory %s: %w", path, err)
+	}
+	return sftpClient.Chmod(path, 0700)
 }
 
 // uploadBinary copies the local miraged binary to the remote host using SFTP.
