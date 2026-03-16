@@ -39,7 +39,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 
 	sessions, err := r.sessions.List(filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -49,7 +49,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 	countFilter.Offset = 0
 	total, err := r.sessions.Count(countFilter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -69,8 +69,8 @@ func (r *Router) getSession(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	sess, err := r.sessions.Get(id)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, "session not found", code)
+		status, _ := errStatus(err)
+		writeError(w, status, "session not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, sessionToResponse(sess))
@@ -79,8 +79,8 @@ func (r *Router) getSession(w http.ResponseWriter, req *http.Request) {
 func (r *Router) deleteSession(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	if err := r.sessions.Delete(id); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -90,8 +90,8 @@ func (r *Router) exportSessionCookies(w http.ResponseWriter, req *http.Request) 
 	id := req.PathValue("id")
 	data, err := r.sessions.ExportCookiesJSON(id)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -102,7 +102,7 @@ func (r *Router) exportSessionCookies(w http.ResponseWriter, req *http.Request) 
 func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 	sse, ok := newSSEWriter(w)
 	if !ok {
-		writeError(w, http.StatusInternalServerError, "streaming not supported", "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, "streaming not supported")
 		return
 	}
 

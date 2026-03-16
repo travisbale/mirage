@@ -1,15 +1,11 @@
 package api
 
 import (
-	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/store"
 	"github.com/travisbale/mirage/sdk"
 )
 
@@ -166,52 +162,3 @@ func (r *Router) registerRoutes() {
 	h("POST", sdk.RouteCampaignSync, r.syncCampaign)
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
-}
-
-func writeError(w http.ResponseWriter, status int, message, code string) {
-	writeJSON(w, status, sdk.ErrorResponse{Error: message, Code: code})
-}
-
-func parsePagination(req *http.Request) (limit, offset int) {
-	limit = 50
-	if v := req.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			limit = n
-		}
-	}
-	if limit > 500 {
-		limit = 500
-	}
-	if v := req.URL.Query().Get("offset"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			offset = n
-		}
-	}
-	return
-}
-
-// parseRFC3339Param parses an RFC3339 timestamp query parameter. It writes a
-// 400 error and returns false if the value is present but malformed.
-func parseRFC3339Param(w http.ResponseWriter, name, value string) (time.Time, bool) {
-	t, err := time.Parse(time.RFC3339, value)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, name+": invalid RFC3339 timestamp", "VALIDATION_ERROR")
-		return time.Time{}, false
-	}
-	return t, true
-}
-
-// errStatus maps store sentinel errors to HTTP status codes and API error codes.
-func errStatus(err error) (int, string) {
-	if errors.Is(err, store.ErrNotFound) {
-		return http.StatusNotFound, "NOT_FOUND"
-	}
-	if errors.Is(err, store.ErrConflict) {
-		return http.StatusConflict, "CONFLICT"
-	}
-	return http.StatusInternalServerError, "INTERNAL_ERROR"
-}

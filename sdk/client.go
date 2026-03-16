@@ -312,8 +312,8 @@ func checkStatus(resp *http.Response) error {
 
 	var e ErrorResponse
 	_ = json.NewDecoder(resp.Body).Decode(&e)
-	if e.Code != "" {
-		return fmt.Errorf("api error %d [%s]: %s", resp.StatusCode, e.Code, e.Error)
+	if e.Error != "" {
+		return fmt.Errorf("api error %d: %s", resp.StatusCode, e.Error)
 	}
 
 	return fmt.Errorf("api error %d", resp.StatusCode)

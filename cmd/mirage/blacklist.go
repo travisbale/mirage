@@ -56,7 +56,11 @@ func newBlacklistAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			entry, err := client.AddBlacklistEntry(sdk.AddBlacklistEntryRequest{Value: args[0]})
+			req := sdk.AddBlacklistEntryRequest{Value: args[0]}
+			if err := req.Validate(); err != nil {
+				return err
+			}
+			entry, err := client.AddBlacklistEntry(req)
 			if err != nil {
 				return err
 			}

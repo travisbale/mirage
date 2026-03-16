@@ -57,10 +57,14 @@ func newBotguardAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sig, err := client.AddBotSignature(sdk.AddBotSignatureRequest{
+			req := sdk.AddBotSignatureRequest{
 				JA4Hash:     args[0],
 				Description: desc,
-			})
+			}
+			if err := req.Validate(); err != nil {
+				return err
+			}
+			sig, err := client.AddBotSignature(req)
 			if err != nil {
 				return err
 			}

@@ -4,10 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/url"
-	"regexp"
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -20,7 +17,7 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 
 	all, err := r.lures.List()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -49,27 +46,8 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
-	var body sdk.CreateLureRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
-		return
-	}
-	if body.Phishlet == "" {
-		writeError(w, http.StatusUnprocessableEntity, "phishlet: required", "VALIDATION_ERROR")
-		return
-	}
-	if body.UAFilter != "" {
-		if _, err := regexp.Compile(body.UAFilter); err != nil {
-			writeError(w, http.StatusUnprocessableEntity, "ua_filter: invalid regex: "+err.Error(), "VALIDATION_ERROR")
-			return
-		}
-	}
-	if err := validateURL("redirect_url", body.RedirectURL); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION_ERROR")
-		return
-	}
-	if err := validateURL("spoof_url", body.SpoofURL); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION_ERROR")
+	body, ok := decodeAndValidate[sdk.CreateLureRequest](w, req)
+	if !ok {
 		return
 	}
 
@@ -92,8 +70,8 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 		Redirector:  body.Redirector,
 	}
 	if err := r.lures.Create(lure); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, lureToResponse(lure))
@@ -103,35 +81,22 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	lure, err := r.lures.Get(id)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, "lure not found", code)
+		status, _ := errStatus(err)
+		writeError(w, status, "lure not found")
 		return
 	}
 
-	var body sdk.UpdateLureRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
+	body, ok := decodeAndValidate[sdk.UpdateLureRequest](w, req)
+	if !ok {
 		return
 	}
 	if body.UAFilter != nil {
-		if _, err := regexp.Compile(*body.UAFilter); err != nil {
-			writeError(w, http.StatusUnprocessableEntity, "ua_filter: invalid regex: "+err.Error(), "VALIDATION_ERROR")
-			return
-		}
 		lure.UAFilter = *body.UAFilter
 	}
 	if body.RedirectURL != nil {
-		if err := validateURL("redirect_url", *body.RedirectURL); err != nil {
-			writeError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION_ERROR")
-			return
-		}
 		lure.RedirectURL = *body.RedirectURL
 	}
 	if body.SpoofURL != nil {
-		if err := validateURL("spoof_url", *body.SpoofURL); err != nil {
-			writeError(w, http.StatusUnprocessableEntity, err.Error(), "VALIDATION_ERROR")
-			return
-		}
 		lure.SpoofURL = *body.SpoofURL
 	}
 	if body.OGTitle != nil {
@@ -151,8 +116,8 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := r.lures.Update(lure); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, lureToResponse(lure))
@@ -161,8 +126,8 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 func (r *Router) deleteLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	if err := r.lures.Delete(id); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -172,8 +137,8 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	lure, err := r.lures.Get(id)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, "lure not found", code)
+		status, _ := errStatus(err)
+		writeError(w, status, "lure not found")
 		return
 	}
 
@@ -183,7 +148,7 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 
 	url, err := lure.GenerateURL(r.domain, body.Params)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, sdk.GenerateURLResponse{URL: url})
@@ -192,26 +157,21 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 
-	var body sdk.PauseLureRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
+	body, ok := decodeAndValidate[sdk.PauseLureRequest](w, req)
+	if !ok {
 		return
 	}
-	d, err := time.ParseDuration(body.Duration)
-	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "duration: invalid Go duration string", "VALIDATION_ERROR")
-		return
-	}
+	d, _ := time.ParseDuration(body.Duration)
 
 	if err := r.lures.Pause(id, d); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	lure, err := r.lures.Get(id)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, lureToResponse(lure))
@@ -220,14 +180,14 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	if err := r.lures.Unpause(id); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	lure, err := r.lures.Get(id)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, lureToResponse(lure))
@@ -259,17 +219,6 @@ func pausedUntil(l *aitm.Lure) *time.Time {
 	return &l.PausedUntil
 }
 
-// validateURL returns an error if s is non-empty but not a valid absolute HTTP/HTTPS URL.
-func validateURL(field, s string) error {
-	if s == "" {
-		return nil
-	}
-	u, err := url.ParseRequestURI(s)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		return fmt.Errorf("%s: must be an absolute http or https URL", field)
-	}
-	return nil
-}
 
 func randomPath() string {
 	b := make([]byte, 6)

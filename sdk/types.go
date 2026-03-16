@@ -5,8 +5,7 @@ import "time"
 
 // ErrorResponse is returned by the API for all error responses.
 type ErrorResponse struct {
-	Error string `json:"error"` // human-readable message
-	Code  string `json:"code"`  // machine-readable code
+	Error string `json:"error"`
 }
 
 // PaginatedResponse wraps all list endpoint responses.

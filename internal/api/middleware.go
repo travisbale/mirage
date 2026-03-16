@@ -17,13 +17,13 @@ type operatorKey struct{}
 func (r *Router) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.TLS == nil || len(req.TLS.VerifiedChains) == 0 {
-			writeError(w, http.StatusUnauthorized, "client certificate required", "UNAUTHORIZED")
+			writeError(w, http.StatusUnauthorized, "client certificate required")
 			return
 		}
 
 		leaf := req.TLS.VerifiedChains[0][0]
 		if r.isRevoked(leaf) {
-			writeError(w, http.StatusUnauthorized, "client certificate revoked", "UNAUTHORIZED")
+			writeError(w, http.StatusUnauthorized, "client certificate revoked")
 			return
 		}
 

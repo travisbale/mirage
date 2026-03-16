@@ -34,11 +34,11 @@ func (r *Router) getStatus(w http.ResponseWriter, req *http.Request) {
 func (r *Router) reload(w http.ResponseWriter, req *http.Request) {
 	proc, err := os.FindProcess(os.Getpid())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "process not found", "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, "process not found")
 		return
 	}
 	if err := proc.Signal(syscall.SIGHUP); err != nil {
-		writeError(w, http.StatusInternalServerError, "signal failed: "+err.Error(), "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, "signal failed: "+err.Error())
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"message": "reload signal sent"})

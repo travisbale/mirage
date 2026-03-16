@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -13,7 +12,7 @@ func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
 	sigs, err := r.botguard.ListBotSignatures()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list signatures", "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, "failed to list signatures")
 		return
 	}
 
@@ -39,13 +38,8 @@ func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) addBotSignature(w http.ResponseWriter, req *http.Request) {
-	var body sdk.AddBotSignatureRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
-		return
-	}
-	if body.JA4Hash == "" {
-		writeError(w, http.StatusUnprocessableEntity, "ja4_hash: required", "VALIDATION_ERROR")
+	body, ok := decodeAndValidate[sdk.AddBotSignatureRequest](w, req)
+	if !ok {
 		return
 	}
 
@@ -56,8 +50,8 @@ func (r *Router) addBotSignature(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := r.botguard.CreateBotSignature(signature); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 
@@ -72,25 +66,20 @@ func (r *Router) removeBotSignature(w http.ResponseWriter, req *http.Request) {
 	hash := req.PathValue("hash")
 	found, err := r.botguard.DeleteBotSignature(hash)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	if !found {
-		writeError(w, http.StatusNotFound, "signature not found", "NOT_FOUND")
+		writeError(w, http.StatusNotFound, "signature not found")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (r *Router) updateBotThreshold(w http.ResponseWriter, req *http.Request) {
-	var body sdk.UpdateBotThresholdRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
-		return
-	}
-	if body.Threshold < 0.0 || body.Threshold > 1.0 {
-		writeError(w, http.StatusUnprocessableEntity, "threshold: must be between 0.0 and 1.0", "VALIDATION_ERROR")
+	body, ok := decodeAndValidate[sdk.UpdateBotThresholdRequest](w, req)
+	if !ok {
 		return
 	}
 	// Runtime threshold updates are not yet supported — accepted but not applied.

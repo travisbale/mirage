@@ -13,7 +13,7 @@ func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 
 	cfgs, err := r.phishlets.ListPhishletConfigs()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error(), "INTERNAL_ERROR")
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -39,7 +39,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 
 	var body sdk.EnablePhishletRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
+		writeError(w, http.StatusUnprocessableEntity, "invalid request body")
 		return
 	}
 
@@ -58,14 +58,14 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		cfg.DNSProvider = body.DNSProvider
 	}
 	if cfg.Hostname == "" {
-		writeError(w, http.StatusUnprocessableEntity, "hostname: required", "VALIDATION_ERROR")
+		writeError(w, http.StatusUnprocessableEntity, "hostname: required")
 		return
 	}
 
 	cfg.Enabled = true
 	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -75,14 +75,14 @@ func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 	cfg, err := r.phishlets.GetPhishletConfig(name)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, "phishlet not found", code)
+		status, _ := errStatus(err)
+		writeError(w, status, "phishlet not found")
 		return
 	}
 	cfg.Enabled = false
 	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -92,14 +92,14 @@ func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 	cfg, err := r.phishlets.GetPhishletConfig(name)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, "phishlet not found", code)
+		status, _ := errStatus(err)
+		writeError(w, status, "phishlet not found")
 		return
 	}
 	cfg.Hidden = true
 	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -109,31 +109,22 @@ func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 	cfg, err := r.phishlets.GetPhishletConfig(name)
 	if err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, "phishlet not found", code)
+		status, _ := errStatus(err)
+		writeError(w, status, "phishlet not found")
 		return
 	}
 	cfg.Hidden = false
 	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
 }
 
 func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
-	var body sdk.CreateSubPhishletRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
-		return
-	}
-	if body.ParentName == "" {
-		writeError(w, http.StatusUnprocessableEntity, "parent_name: required", "VALIDATION_ERROR")
-		return
-	}
-	if body.Name == "" {
-		writeError(w, http.StatusUnprocessableEntity, "name: required", "VALIDATION_ERROR")
+	body, ok := decodeAndValidate[sdk.CreateSubPhishletRequest](w, req)
+	if !ok {
 		return
 	}
 
@@ -143,8 +134,8 @@ func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
 		Params:     body.Params,
 	}
 	if err := r.phishlets.CreateSubPhishlet(sp); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, sdk.PhishletResponse{
@@ -156,8 +147,8 @@ func (r *Router) createSubPhishlet(w http.ResponseWriter, req *http.Request) {
 func (r *Router) deleteSubPhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 	if err := r.phishlets.DeleteSubPhishlet(name); err != nil {
-		status, code := errStatus(err)
-		writeError(w, status, err.Error(), code)
+		status, _ := errStatus(err)
+		writeError(w, status, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

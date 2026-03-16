@@ -85,7 +85,7 @@ func newLuresCreateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			lure, err := client.CreateLure(sdk.CreateLureRequest{
+			req := sdk.CreateLureRequest{
 				Phishlet:    args[0],
 				BaseDomain:  baseDomain,
 				Path:        path,
@@ -93,7 +93,11 @@ func newLuresCreateCmd() *cobra.Command {
 				SpoofURL:    spoofURL,
 				UAFilter:    uaFilter,
 				Redirector:  redirector,
-			})
+			}
+			if err := req.Validate(); err != nil {
+				return err
+			}
+			lure, err := client.CreateLure(req)
 			if err != nil {
 				return err
 			}
@@ -157,6 +161,9 @@ func newLuresUpdateCmd() *cobra.Command {
 			}
 			if cmd.Flags().Changed("og-url") {
 				req.OGURL = &ogURL
+			}
+			if err := req.Validate(); err != nil {
+				return err
 			}
 			lure, err := client.UpdateLure(args[0], req)
 			if err != nil {
@@ -244,7 +251,11 @@ func newLuresPauseCmd() *cobra.Command {
 				}
 				duration = d.String()
 			}
-			if err := client.PauseLure(args[0], sdk.PauseLureRequest{Duration: duration}); err != nil {
+			req := sdk.PauseLureRequest{Duration: duration}
+			if err := req.Validate(); err != nil {
+				return err
+			}
+			if err := client.PauseLure(args[0], req); err != nil {
 				return err
 			}
 			fmt.Printf("Lure %s paused for %s\n", truncate(args[0], 8), args[1])

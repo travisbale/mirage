@@ -1,8 +1,6 @@
 package api
 
 import (
-	"encoding/json"
-	"net"
 	"net/http"
 	"net/url"
 
@@ -31,17 +29,8 @@ func (r *Router) listBlacklist(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) addBlacklistEntry(w http.ResponseWriter, req *http.Request) {
-	var body sdk.AddBlacklistEntryRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body", "VALIDATION_ERROR")
-		return
-	}
-	if body.Value == "" {
-		writeError(w, http.StatusUnprocessableEntity, "value: required", "VALIDATION_ERROR")
-		return
-	}
-	if !isValidIPOrCIDR(body.Value) {
-		writeError(w, http.StatusUnprocessableEntity, "value: must be a valid IP or CIDR", "VALIDATION_ERROR")
+	body, ok := decodeAndValidate[sdk.AddBlacklistEntryRequest](w, req)
+	if !ok {
 		return
 	}
 
@@ -52,17 +41,10 @@ func (r *Router) addBlacklistEntry(w http.ResponseWriter, req *http.Request) {
 func (r *Router) removeBlacklistEntry(w http.ResponseWriter, req *http.Request) {
 	entry, err := url.PathUnescape(req.PathValue("entry"))
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid entry", "VALIDATION_ERROR")
+		writeError(w, http.StatusUnprocessableEntity, "invalid entry")
 		return
 	}
 	r.blacklist.Unblock(entry)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func isValidIPOrCIDR(s string) bool {
-	if net.ParseIP(s) != nil {
-		return true
-	}
-	_, _, err := net.ParseCIDR(s)
-	return err == nil
-}
