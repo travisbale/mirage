@@ -42,25 +42,6 @@ type WildcardACMECertSource struct {
 	logger *slog.Logger
 }
 
-// NewWildcardACMECertSource constructs the source.
-// providers maps each base domain to its DNS provider for DNS-01 challenges.
-// acmeDir should be acme.LetsEncryptURL for production or the staging URL for testing.
-func NewWildcardACMECertSource(
-	providers map[string]aitm.DNSProvider,
-	acmeDir string,
-	email string,
-	storageDir string,
-	logger *slog.Logger,
-) *WildcardACMECertSource {
-	return &WildcardACMECertSource{
-		providers:  providers,
-		acmeDir:    acmeDir,
-		email:      email,
-		storageDir: storageDir,
-		certs:      make(map[string]*tls.Certificate),
-		logger:     logger,
-	}
-}
 
 // GetCertificate returns the wildcard cert for hello.ServerName's base domain,
 // issuing one via DNS-01 ACME if not already held. Returns (nil, nil) if

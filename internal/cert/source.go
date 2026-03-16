@@ -1,6 +1,7 @@
 package cert
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -41,7 +42,7 @@ type SourceConfig struct {
 // In self-signed mode: FileCertSource → SelfSignedCertSource.
 // In production mode:  FileCertSource → WildcardACMECertSource → PerHostACMECertSource.
 func NewSource(cfg SourceConfig, logger *slog.Logger) (aitm.CertSource, error) {
-	fileSrc := NewFileCertSource(cfg.CertFileDir)
+	fileSrc := &FileCertSource{BaseDir: cfg.CertFileDir}
 
 	if cfg.SelfSigned {
 		selfSigned := NewSelfSignedCertSource(cfg.CADir)
@@ -55,12 +56,17 @@ func NewSource(cfg SourceConfig, logger *slog.Logger) (aitm.CertSource, error) {
 		return NewChainedCertSource(logger, fileSrc, selfSigned), nil
 	}
 
-	acmeDir := cfg.ACMEDirectoryURL
+	wildcardSrc := &WildcardACMECertSource{
+		providers:  cfg.Providers,
+		acmeDir:    cfg.ACMEDirectoryURL,
+		email:      cfg.ACMEEmail,
+		storageDir: cfg.ACMEStorageDir,
+		certs:      make(map[string]*tls.Certificate),
+		logger:     logger,
+	}
+	perHostSrc := NewPerHostACMECertSource(cfg.ACMEEmail, cfg.ACMEDirectoryURL, cfg.ACMEStorageDir, logger)
 
-	wildcardSrc := NewWildcardACMECertSource(cfg.Providers, acmeDir, cfg.ACMEEmail, cfg.ACMEStorageDir, logger)
-	perHostSrc := NewPerHostACMECertSource(cfg.ACMEEmail, acmeDir, cfg.ACMEStorageDir, logger)
-
-	logger.Info("using ACME certificates", "directory", acmeDir, "email", cfg.ACMEEmail)
+	logger.Info("using ACME certificates", "directory", cfg.ACMEDirectoryURL, "email", cfg.ACMEEmail)
 
 	return NewChainedCertSource(logger, fileSrc, wildcardSrc, perHostSrc), nil
 }

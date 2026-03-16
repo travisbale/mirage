@@ -23,16 +23,10 @@ import (
 // FileCertSource checks the exact hostname first, then falls back to a wildcard
 // entry ("*.base_domain") if present.
 type FileCertSource struct {
-	baseDir string // e.g. "/home/operator/.mirage/crt"
-}
-
-// NewFileCertSource constructs a FileCertSource; baseDir need not exist yet.
-func NewFileCertSource(baseDir string) *FileCertSource {
-	return &FileCertSource{baseDir: baseDir}
+	BaseDir string // e.g. "/home/operator/.mirage/crt"
 }
 
 // GetCertificate returns the PEM-loaded certificate for hello.ServerName,
-// or (nil, nil) if no PEM files are found for that hostname.
 func (s *FileCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	hostname := strings.ToLower(hello.ServerName)
 
@@ -49,11 +43,12 @@ func (s *FileCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certif
 		}
 	}
 
+	// No PEM files were found for that hostname
 	return nil, nil
 }
 
 func (s *FileCertSource) loadFromDir(dirName string) (*tls.Certificate, error) {
-	dir := filepath.Join(s.baseDir, "sites", dirName)
+	dir := filepath.Join(s.BaseDir, "sites", dirName)
 	chainPath := filepath.Join(dir, "fullchain.pem")
 	keyPath := filepath.Join(dir, "privkey.pem")
 

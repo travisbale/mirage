@@ -32,7 +32,7 @@ func TestFileCertSource_LoadsRealPEM(t *testing.T) {
 	tlsCert := generateTestCert(t, hostname)
 	writePEMPair(t, certDir, tlsCert)
 
-	source := cert.NewFileCertSource(dir)
+	source := &cert.FileCertSource{BaseDir: dir}
 	hello := &tls.ClientHelloInfo{ServerName: hostname}
 	got, err := source.GetCertificate(hello)
 	if err != nil {
@@ -52,7 +52,7 @@ func TestFileCertSource_LoadsRealPEM(t *testing.T) {
 }
 
 func TestFileCertSource_MissDirReturnsNil(t *testing.T) {
-	source := cert.NewFileCertSource(t.TempDir())
+	source := &cert.FileCertSource{BaseDir: t.TempDir()}
 	hello := &tls.ClientHelloInfo{ServerName: "notconfigured.attacker.com"}
 	got, err := source.GetCertificate(hello)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestFileCertSource_WildcardFallback(t *testing.T) {
 	tlsCert := generateTestCert(t, "*.attacker.com")
 	writePEMPair(t, certDir, tlsCert)
 
-	source := cert.NewFileCertSource(dir)
+	source := &cert.FileCertSource{BaseDir: dir}
 	hello := &tls.ClientHelloInfo{ServerName: "mail.attacker.com"}
 	got, err := source.GetCertificate(hello)
 	if err != nil {
