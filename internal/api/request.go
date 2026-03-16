@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// validatable is implemented by SDK request types that expose a Validate method.
 type validatable interface {
 	Validate() error
 }

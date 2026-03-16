@@ -22,7 +22,6 @@ type SpoofProxy struct {
 	logger *slog.Logger
 }
 
-// NewSpoofProxy constructs a SpoofProxy.
 func NewSpoofProxy(logger *slog.Logger) *SpoofProxy {
 	return &SpoofProxy{logger: logger}
 }
@@ -49,7 +48,6 @@ func (sp *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request, spoofURL
 		IdleConnTimeout:       30 * time.Second,
 	}
 
-	// Rewrite the request before forwarding.
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
@@ -62,7 +60,6 @@ func (sp *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request, spoofURL
 		removeCookie(req, "_msess")
 	}
 
-	// Rewrite the response: strip security headers, replace domain references.
 	proxy.ModifyResponse = func(resp *http.Response) error {
 		resp.Header.Del("Content-Security-Policy")
 		resp.Header.Del("Content-Security-Policy-Report-Only")
@@ -89,8 +86,6 @@ func (sp *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request, spoofURL
 	)
 }
 
-// rewriteDomainsInBody replaces all occurrences of fromHost with toHost in
-// the response body stream.
 func rewriteDomainsInBody(body io.ReadCloser, fromHost, toHost string) io.ReadCloser {
 	return &rewriteReader{
 		r:    body,
@@ -99,7 +94,6 @@ func rewriteDomainsInBody(body io.ReadCloser, fromHost, toHost string) io.ReadCl
 	}
 }
 
-// rewriteReader is an io.ReadCloser that replaces from with to in the byte stream.
 type rewriteReader struct {
 	r    io.ReadCloser
 	from []byte
@@ -118,8 +112,6 @@ func (rr *rewriteReader) Read(p []byte) (int, error) {
 
 func (rr *rewriteReader) Close() error { return rr.r.Close() }
 
-// isRewritableContentType returns true for MIME types that may contain
-// domain references that need rewriting.
 func isRewritableContentType(ct string) bool {
 	for _, rewritable := range []string{
 		"text/html", "text/css", "text/javascript",

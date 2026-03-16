@@ -67,7 +67,6 @@ type BotGuardService struct {
 	Bus    EventBus
 }
 
-// Evaluate delegates to the injected BotScorer.
 func (s *BotGuardService) Evaluate(ja4 string, telemetry *BotTelemetry) BotVerdict {
 	return s.Scorer.ScoreConnection(ja4, telemetry)
 }

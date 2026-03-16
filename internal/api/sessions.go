@@ -44,7 +44,6 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Total count without pagination.
 	countFilter := filter
 	countFilter.Limit = 0
 	countFilter.Offset = 0

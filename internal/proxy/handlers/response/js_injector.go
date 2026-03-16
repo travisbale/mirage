@@ -54,7 +54,6 @@ func (h *JSInjector) Handle(ctx *aitm.ProxyContext, resp *http.Response) error {
 	return nil
 }
 
-// injectSID replaces the __MIRAGE_SID__ placeholder with a quoted session ID.
 func injectSID(script, quotedSID string) string {
 	return strings.ReplaceAll(script, `"__MIRAGE_SID__"`, quotedSID)
 }

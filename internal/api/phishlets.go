@@ -46,7 +46,6 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 
 	cfg, err := r.phishlets.GetPhishletConfig(name)
 	if err != nil {
-		// No existing config — create a new one.
 		cfg = &aitm.PhishletConfig{Name: name}
 	}
 	if body.Hostname != "" {

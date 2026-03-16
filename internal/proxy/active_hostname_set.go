@@ -12,17 +12,14 @@ type ActiveHostnameSet struct {
 	m sync.Map // key: lowercase hostname, value: struct{}
 }
 
-// Add marks hostname as active.
 func (a *ActiveHostnameSet) Add(hostname string) {
 	a.m.Store(strings.ToLower(hostname), struct{}{})
 }
 
-// Remove marks hostname as inactive.
 func (a *ActiveHostnameSet) Remove(hostname string) {
 	a.m.Delete(strings.ToLower(hostname))
 }
 
-// Contains returns true if hostname is currently active.
 func (a *ActiveHostnameSet) Contains(hostname string) bool {
 	_, ok := a.m.Load(strings.ToLower(hostname))
 	return ok

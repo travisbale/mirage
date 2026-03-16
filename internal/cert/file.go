@@ -26,8 +26,7 @@ type FileCertSource struct {
 	baseDir string // e.g. "/home/operator/.mirage/crt"
 }
 
-// NewFileCertSource constructs a FileCertSource rooted at baseDir.
-// baseDir does not need to exist at construction time.
+// NewFileCertSource constructs a FileCertSource; baseDir need not exist yet.
 func NewFileCertSource(baseDir string) *FileCertSource {
 	return &FileCertSource{baseDir: baseDir}
 }
@@ -37,7 +36,6 @@ func NewFileCertSource(baseDir string) *FileCertSource {
 func (s *FileCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	hostname := strings.ToLower(hello.ServerName)
 
-	// Try exact hostname first.
 	if cert, err := s.loadFromDir(hostname); cert != nil || err != nil {
 		return cert, err
 	}
@@ -54,8 +52,6 @@ func (s *FileCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certif
 	return nil, nil
 }
 
-// loadFromDir attempts to load fullchain.pem + privkey.pem from
-// baseDir/sites/<dirName>/. Returns (nil, nil) if the directory does not exist.
 func (s *FileCertSource) loadFromDir(dirName string) (*tls.Certificate, error) {
 	dir := filepath.Join(s.baseDir, "sites", dirName)
 	chainPath := filepath.Join(dir, "fullchain.pem")

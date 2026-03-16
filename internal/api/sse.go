@@ -5,7 +5,6 @@ import (
 	"net/http"
 )
 
-// sseWriter wraps an http.ResponseWriter with helper methods for SSE formatting.
 type sseWriter struct {
 	w       http.ResponseWriter
 	flusher http.Flusher

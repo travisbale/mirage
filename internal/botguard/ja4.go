@@ -80,7 +80,6 @@ func ComputeJA4(helloBytes []byte) (string, error) {
 	partA := fmt.Sprintf("t%s%s%02d%02d%s", tlsVer, sniChar, cipherCount, extCount, alpnLabel)
 
 	// --- Part B: cipher suite hash ---
-	// Filter GREASE, sort numerically, join as comma-separated decimal, SHA-256, take 12 hex chars.
 	var ciphers []uint16
 	for _, cipherSuite := range parsed.CipherSuites {
 		if !greaseValues[cipherSuite] {
@@ -91,8 +90,6 @@ func ComputeJA4(helloBytes []byte) (string, error) {
 	partB := truncHash(joinUint16s(ciphers, ","))
 
 	// --- Part C: extension + curve hash ---
-	// Filter GREASE from extensions and supported groups, sort each, concatenate,
-	// SHA-256, take 12 hex chars.
 	var filteredExts []uint16
 	for _, extType := range parsed.Extensions {
 		if !greaseValues[extType] {
@@ -227,13 +224,11 @@ func parseClientHello(b []byte) (*ParsedHello, error) {
 	return parsed, nil
 }
 
-// truncHash computes SHA-256(input) and returns the first 12 hex characters.
 func truncHash(input string) string {
 	sum := sha256.Sum256([]byte(input))
 	return hex.EncodeToString(sum[:])[:12]
 }
 
-// joinUint16s formats a slice of uint16 as sep-separated decimal strings.
 func joinUint16s(vals []uint16, sep string) string {
 	parts := make([]string, len(vals))
 	for i, val := range vals {

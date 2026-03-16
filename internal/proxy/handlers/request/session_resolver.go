@@ -10,12 +10,10 @@ import (
 
 const sessionCookieName = "__ss"
 
-// SessionLookup retrieves an existing session by ID.
 type SessionLookup interface {
 	GetSession(id string) (*aitm.Session, error)
 }
 
-// SessionFactory creates new sessions for first-time visitors.
 type SessionFactory interface {
 	NewSession(ctx *aitm.ProxyContext) (*aitm.Session, error)
 }

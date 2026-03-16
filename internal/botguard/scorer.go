@@ -28,9 +28,7 @@ type Scorer struct {
 	Logger          *slog.Logger
 }
 
-// ScoreConnection implements aitm.BotScorer.
-//
-// Verdict logic:
+// ScoreConnection verdict logic:
 //   - !Cfg.Enabled                → VerdictAllow
 //   - ja4 in SigDB                → VerdictSpoof (L1 match)
 //   - telemetry score ≥ threshold → VerdictSpoof (L2 score)
@@ -58,7 +56,7 @@ func (s *Scorer) scoreTelemetry(telemetry *aitm.BotTelemetry) float64 {
 	raw := telemetry.Raw
 	score := 0.0
 
-	// Headless renderer strings.
+	// SwiftShader/llvmpipe/Mesa are software renderers used by headless Chrome.
 	renderer, _ := raw["webgl_renderer"].(string)
 	rendererLower := strings.ToLower(renderer)
 	if strings.Contains(rendererLower, "swiftshader") ||
@@ -67,36 +65,32 @@ func (s *Scorer) scoreTelemetry(telemetry *aitm.BotTelemetry) float64 {
 		score += 0.4
 	}
 
-	// Empty plugins list.
 	if pluginsHash, ok := raw["plugins_hash"].(string); ok && pluginsHash == "" {
-		score += 0.2
+		score += 0.2 // no browser plugins — typical of headless
 	}
 
-	// Zero mouse movement.
 	if moves, ok := raw["mouse_move_count"].(float64); ok && moves == 0 {
-		score += 0.15
+		score += 0.15 // no mouse activity
 	}
 
-	// Pixel ratio of exactly 1.0 (headless Chrome default).
+	// Headless Chrome defaults to devicePixelRatio=1.
 	if ratio, ok := raw["pixel_ratio"].(float64); ok && ratio == 1.0 {
 		score += 0.1
 	}
 
-	// device_memory is 0 (headless).
 	if mem, ok := raw["device_memory"].(float64); ok && mem == 0 {
-		score += 0.15
+		score += 0.15 // deviceMemory=0 in headless
 	}
 
-	// Timezone string vs offset mismatch.
+	// UTC timezone with non-zero offset indicates a spoofed/misconfigured environment.
 	tz, _ := raw["timezone"].(string)
 	offset, _ := raw["timezone_offset"].(float64)
 	if tz == "UTC" && offset != 0 {
 		score += 0.2
 	}
 
-	// Fewer than 3 fonts detected.
 	if fonts, ok := raw["fonts_detected"].(float64); ok && fonts < 3 {
-		score += 0.1
+		score += 0.1 // minimal font set — headless doesn't install system fonts
 	}
 
 	if score > 1.0 {

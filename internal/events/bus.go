@@ -35,8 +35,6 @@ type subEntry struct {
 	closed bool
 }
 
-// NewBus creates a new Bus with the given channel buffer size.
-// Pass DefaultBufferSize (64) if you have no specific requirement.
 func NewBus(bufSize int) *Bus {
 	if bufSize <= 0 {
 		bufSize = DefaultBufferSize
@@ -73,8 +71,7 @@ func (b *Bus) Publish(event aitm.Event) {
 	}
 }
 
-// Subscribe creates and registers a new channel for events of type t.
-// The returned channel is buffered with the size set at bus construction.
+// Subscribe returns a buffered channel for the given event type.
 func (b *Bus) Subscribe(eventType aitm.EventType) <-chan aitm.Event {
 	ch := make(chan aitm.Event, b.bufSize)
 	b.mu.Lock()
@@ -116,12 +113,10 @@ func (b *Bus) Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event) {
 			entries[i].closed = true
 			close(entry.ch)
 
-			// Fast delete: swap with last element, shrink slice.
 			last := len(entries) - 1
 			entries[i] = entries[last]
 			b.subs[eventType] = entries[:last]
 			return
 		}
 	}
-	// ch not found — no-op.
 }

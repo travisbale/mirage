@@ -19,7 +19,6 @@ import (
 	"time"
 )
 
-// ObfuscatorConfig holds settings for the JS obfuscator subsystem.
 type ObfuscatorConfig struct {
 	Enabled        bool          `yaml:"enabled"`
 	NodePath       string        `yaml:"node_path"`       // path to node binary; empty = search PATH
@@ -53,7 +52,6 @@ type nodeResponse struct {
 	Error  string `json:"error"`
 }
 
-// sidecarProcess wraps a single running `node index.js` process.
 type sidecarProcess struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
@@ -62,7 +60,6 @@ type sidecarProcess struct {
 	dead   bool
 }
 
-// NodeObfuscator manages a pool of sidecar Node.js processes.
 type NodeObfuscator struct {
 	cfg          ObfuscatorConfig
 	logger       *slog.Logger
@@ -115,8 +112,6 @@ func (ob *NodeObfuscator) Obfuscate(ctx context.Context, html []byte) ([]byte, e
 	return obfuscateMarkedHTML(ctx, ob.obfuscateJS, html)
 }
 
-// Shutdown sends a graceful shutdown sentinel to each pooled sidecar and waits
-// for the processes to exit.
 func (ob *NodeObfuscator) Shutdown(ctx context.Context) error {
 	ob.shutdownOnce.Do(func() { close(ob.shutdown) })
 	for {

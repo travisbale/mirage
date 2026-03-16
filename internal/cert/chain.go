@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-// certEntry wraps a certificate with an expiry for cache eviction.
 type certEntry struct {
 	cert      *tls.Certificate
 	expiresAt time.Time
@@ -30,7 +29,6 @@ func newCertCache() *certCache {
 	return cache
 }
 
-// Get returns the cached certificate for hostname, or nil if not cached or expired.
 func (c *certCache) Get(hostname string) *tls.Certificate {
 	c.mu.RLock()
 	entry, ok := c.entries[hostname]
@@ -41,23 +39,19 @@ func (c *certCache) Get(hostname string) *tls.Certificate {
 	return entry.cert
 }
 
-// Set stores a certificate in the cache. expiresAt should be set to the
-// certificate's NotAfter minus a renewal buffer (typically 30 days).
+// Set stores a cert. expiresAt should be NotAfter minus a 30-day renewal buffer.
 func (c *certCache) Set(hostname string, cert *tls.Certificate, expiresAt time.Time) {
 	c.mu.Lock()
 	c.entries[hostname] = certEntry{cert: cert, expiresAt: expiresAt}
 	c.mu.Unlock()
 }
 
-// Invalidate removes a hostname from the cache, forcing the next request to
-// re-fetch from the underlying source.
 func (c *certCache) Invalidate(hostname string) {
 	c.mu.Lock()
 	delete(c.entries, hostname)
 	c.mu.Unlock()
 }
 
-// evictLoop removes expired entries every hour.
 func (c *certCache) evictLoop() {
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
@@ -103,20 +97,17 @@ func NewChainedCertSource(logger *slog.Logger, sources ...certSource) *ChainedCe
 	}
 }
 
-// GetCertificate is the tls.Config.GetCertificate callback.
-// It checks the cache first, then walks the source chain.
+// GetCertificate is the tls.Config.GetCertificate callback; checks cache first.
 func (c *ChainedCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	hostname := strings.ToLower(hello.ServerName)
 	if hostname == "" {
 		return nil, fmt.Errorf("cert: TLS ClientHello has no SNI")
 	}
 
-	// Fast path: cache hit.
 	if cert := c.cache.Get(hostname); cert != nil {
 		return cert, nil
 	}
 
-	// Slow path: walk the chain.
 	for _, source := range c.sources {
 		cert, err := source.GetCertificate(hello)
 		if err != nil {
@@ -139,13 +130,11 @@ func (c *ChainedCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Cer
 	return nil, fmt.Errorf("cert: no source provided a certificate for %q", hostname)
 }
 
-// InvalidateCache removes a hostname from the chain's cache.
 func (c *ChainedCertSource) InvalidateCache(hostname string) {
 	c.cache.Invalidate(hostname)
 }
 
-// leafExpiry returns the NotAfter of the leaf certificate minus a 30-day
-// renewal buffer, used as the cache TTL.
+// leafExpiry returns NotAfter minus 30 days, used as the cache TTL.
 func leafExpiry(cert *tls.Certificate) time.Time {
 	if len(cert.Certificate) == 0 {
 		return time.Now().Add(24 * time.Hour)

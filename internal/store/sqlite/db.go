@@ -48,7 +48,6 @@ func Open(path string) (*DB, error) {
 	return db, nil
 }
 
-// Close releases the underlying database connection.
 func (d *DB) Close() error { return d.db.Close() }
 
 // WithTx executes fn inside a transaction. If fn returns an error the transaction
@@ -71,7 +70,6 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-// requireOneRow returns ErrNotFound if the statement affected zero rows.
 func requireOneRow(res sql.Result) error {
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
@@ -83,7 +81,6 @@ func requireOneRow(res sql.Result) error {
 	return nil
 }
 
-// isConflict returns true for SQLite UNIQUE constraint violation errors.
 func isConflict(err error) bool {
 	if err == nil {
 		return false

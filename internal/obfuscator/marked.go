@@ -6,10 +6,8 @@ import (
 )
 
 const (
-	// MarkerStart delimits the beginning of an injected script block.
 	MarkerStart = "/* __mirage_injected_start__ */"
-	// MarkerEnd delimits the end of an injected script block.
-	MarkerEnd = "/* __mirage_injected_end__ */"
+	MarkerEnd   = "/* __mirage_injected_end__ */"
 )
 
 // Pre-allocated byte slices to avoid per-call allocations on the hot path.
@@ -35,7 +33,6 @@ func obfuscateMarkedHTML(ctx context.Context, obfuscate func(context.Context, st
 			out.Write(remaining)
 			break
 		}
-		// Write everything up to and including the start marker.
 		out.Write(remaining[:startIdx+len(startMarker)])
 		remaining = remaining[startIdx+len(startMarker):]
 

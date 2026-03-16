@@ -104,7 +104,6 @@ func extractField(rule aitm.CredentialRule, body []byte, req *http.Request) stri
 			}
 		}
 	case "json":
-		// JSON body parsing: find key matching rule.Key and extract value matching rule.Search.
 		if rule.Key != nil && rule.Search != nil {
 			if matches := rule.Search.FindSubmatch(body); len(matches) > 1 {
 				return string(matches[1])

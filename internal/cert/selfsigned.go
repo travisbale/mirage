@@ -34,8 +34,6 @@ type SelfSignedCertSource struct {
 	leafs map[string]*tls.Certificate
 }
 
-// NewSelfSignedCertSource constructs the source. caDir is where the CA files
-// will be written.
 func NewSelfSignedCertSource(caDir string) *SelfSignedCertSource {
 	return &SelfSignedCertSource{
 		caDir: caDir,
@@ -43,14 +41,12 @@ func NewSelfSignedCertSource(caDir string) *SelfSignedCertSource {
 	}
 }
 
-// GetCertificate returns a signed leaf certificate for hello.ServerName.
-// The CA is initialized on first call. Leaf certs are cached for their
-// full 90-day validity.
-// CACert returns the dev CA certificate. Useful in tests to build a trust pool.
+// CACert returns the dev CA certificate; useful for building a test trust pool.
 func (s *SelfSignedCertSource) CACert() *x509.Certificate {
 	return s.caCert
 }
 
+// GetCertificate signs a leaf cert on first use, then serves from cache.
 func (s *SelfSignedCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	var initErr error
 	s.once.Do(func() {
@@ -81,8 +77,7 @@ func (s *SelfSignedCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.
 	return leaf, nil
 }
 
-// initCA creates the ECDSA P-256 CA key pair and self-signed CA certificate.
-// If a CA already exists in caDir, it is loaded instead.
+// initCA creates or loads the CA key pair in caDir.
 func (s *SelfSignedCertSource) initCA() error {
 	caKeyPath := filepath.Join(s.caDir, "mirage-ca.key")
 	caCertPath := filepath.Join(s.caDir, "mirage-ca.crt")
@@ -146,8 +141,6 @@ func (s *SelfSignedCertSource) loadCA(keyPath, certPath string) error {
 	return nil
 }
 
-// signLeaf generates a fresh ECDSA P-256 key pair and signs a 90-day leaf cert
-// for hostname using the dev CA.
 func (s *SelfSignedCertSource) signLeaf(hostname string) (*tls.Certificate, error) {
 	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -182,7 +175,6 @@ func (s *SelfSignedCertSource) signLeaf(hostname string) (*tls.Certificate, erro
 	return &tlsCert, nil
 }
 
-// certExpiresSoon returns true if the cert's leaf expires within 30 days.
 func certExpiresSoon(cert *tls.Certificate) bool {
 	if len(cert.Certificate) == 0 {
 		return true
@@ -193,8 +185,6 @@ func certExpiresSoon(cert *tls.Certificate) bool {
 	}
 	return time.Until(leaf.NotAfter) < 30*24*time.Hour
 }
-
-// PEM helpers shared across the cert package.
 
 func writePEMFile(path, pemType string, der []byte, mode os.FileMode) error {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)

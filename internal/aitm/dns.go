@@ -24,10 +24,9 @@ type DNSProvider interface {
 	Present(domain, token, keyAuth string) error
 	CleanUp(domain, token, keyAuth string) error
 
-	// Ping verifies the provider is reachable and credentials are valid.
 	Ping() error
 
-	// Name returns the provider type string, e.g. "builtin", "cloudflare".
+	// Name returns a short provider identifier, e.g. "builtin" or "cloudflare".
 	Name() string
 }
 
@@ -192,7 +191,7 @@ func (s *DNSService) Reconcile(ctx context.Context, desiredRecord []PhishletReco
 	return nil
 }
 
-// RemoveRecords deletes DNS records for a phishlet that is being disabled.
+// RemoveRecords cleans up DNS records when a phishlet is disabled.
 func (s *DNSService) RemoveRecords(ctx context.Context, records []PhishletRecord) error {
 	var errs []error
 	for _, record := range records {

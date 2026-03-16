@@ -17,14 +17,12 @@ type PeekedConn struct {
 	helloBytes  []byte // the complete ClientHello record; nil until captured
 }
 
-// NewPeekedConn wraps conn. Begin reading immediately — the TLS stack will
-// call Read during its handshake, which populates helloBytes.
+// NewPeekedConn wraps conn. The TLS stack calls Read during its handshake,
+// which transparently accumulates helloBytes without blocking.
 func NewPeekedConn(conn net.Conn) *PeekedConn {
 	return &PeekedConn{Conn: conn, peeking: true}
 }
 
-// Read intercepts bytes and accumulates them until the first TLS record is
-// complete (5-byte header + length-indicated body), then marks capture done.
 func (c *PeekedConn) Read(b []byte) (int, error) {
 	n, err := c.Conn.Read(b)
 	c.mu.Lock()
@@ -44,8 +42,7 @@ func (c *PeekedConn) Read(b []byte) (int, error) {
 	return n, err
 }
 
-// ClientHelloBytes returns the complete TLS ClientHello record bytes,
-// or nil if capture has not finished yet.
+// ClientHelloBytes returns the captured record, or nil if the handshake isn't complete yet.
 func (c *PeekedConn) ClientHelloBytes() []byte {
 	c.mu.Lock()
 	defer c.mu.Unlock()
