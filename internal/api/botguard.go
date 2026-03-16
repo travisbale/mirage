@@ -11,7 +11,11 @@ import (
 
 func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
-	sigs := r.botguard.List()
+	sigs, err := r.botguard.ListBotSignatures()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list signatures", "INTERNAL_ERROR")
+		return
+	}
 
 	total := len(sigs)
 	start := min(offset, total)
@@ -45,36 +49,37 @@ func (r *Router) addBotSignature(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Check for duplicate.
-	for _, existing := range r.botguard.List() {
-		if existing.JA4Hash == body.JA4Hash {
-			writeError(w, http.StatusConflict, "signature already exists", "CONFLICT")
-			return
-		}
-	}
-
-	sig := aitm.BotSignature{
+	signature := aitm.BotSignature{
 		JA4Hash:     body.JA4Hash,
 		Description: body.Description,
 		AddedAt:     time.Now(),
 	}
-	r.botguard.Add(sig)
-	r.botguard.Save()
+
+	if err := r.botguard.CreateBotSignature(signature); err != nil {
+		status, code := errStatus(err)
+		writeError(w, status, err.Error(), code)
+		return
+	}
 
 	writeJSON(w, http.StatusCreated, sdk.BotSignatureResponse{
-		JA4Hash:     sig.JA4Hash,
-		Description: sig.Description,
-		AddedAt:     sig.AddedAt,
+		JA4Hash:     signature.JA4Hash,
+		Description: signature.Description,
+		AddedAt:     signature.AddedAt,
 	})
 }
 
 func (r *Router) removeBotSignature(w http.ResponseWriter, req *http.Request) {
 	hash := req.PathValue("hash")
-	if !r.botguard.Remove(hash) {
+	found, err := r.botguard.DeleteBotSignature(hash)
+	if err != nil {
+		status, code := errStatus(err)
+		writeError(w, status, err.Error(), code)
+		return
+	}
+	if !found {
 		writeError(w, http.StatusNotFound, "signature not found", "NOT_FOUND")
 		return
 	}
-	r.botguard.Save()
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -1,16 +1,15 @@
 package sqlite
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/store"
 )
 
-// Compile-time check: Bots satisfies aitm.BotStore.
-var _ aitm.BotStore = (*Bots)(nil)
-
-// Bots implements aitm.BotStore backed by SQLite.
+// Bots implements bot telemetry and signature persistence backed by SQLite.
 type Bots struct{ db *DB }
 
 func NewBotStore(db *DB) *Bots { return &Bots{db: db} }
@@ -62,4 +61,62 @@ func (s *Bots) GetBotTelemetry(sessionID string) ([]*aitm.BotTelemetry, error) {
 func (s *Bots) DeleteBotTelemetry(sessionID string) error {
 	_, err := s.db.db.Exec(`DELETE FROM bot_telemetry WHERE session_id = ?`, sessionID)
 	return err
+}
+
+func (s *Bots) CreateBotSignature(sig aitm.BotSignature) error {
+	_, err := s.db.db.Exec(`
+		INSERT INTO bot_signatures (ja4_hash, description, added_at)
+		VALUES (?,?,?)`,
+		sig.JA4Hash, sig.Description, sig.AddedAt.Unix(),
+	)
+	if isConflict(err) {
+		return store.ErrConflict
+	}
+	return err
+}
+
+func (s *Bots) LookupBotSignature(ja4Hash string) (aitm.BotSignature, error) {
+	row := s.db.db.QueryRow(`SELECT ja4_hash, description, added_at FROM bot_signatures WHERE ja4_hash = ?`, ja4Hash)
+	sig, err := scanBotSignature(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return aitm.BotSignature{}, store.ErrNotFound
+	}
+	return sig, err
+}
+
+func (s *Bots) DeleteBotSignature(ja4Hash string) (bool, error) {
+	res, err := s.db.db.Exec(`DELETE FROM bot_signatures WHERE ja4_hash = ?`, ja4Hash)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
+func (s *Bots) ListBotSignatures() ([]aitm.BotSignature, error) {
+	rows, err := s.db.db.Query(`SELECT ja4_hash, description, added_at FROM bot_signatures ORDER BY added_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []aitm.BotSignature
+	for rows.Next() {
+		sig, err := scanBotSignature(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, sig)
+	}
+	return out, rows.Err()
+}
+
+func scanBotSignature(row scanner) (aitm.BotSignature, error) {
+	var sig aitm.BotSignature
+	var addedAt int64
+	if err := row.Scan(&sig.JA4Hash, &sig.Description, &addedAt); err != nil {
+		return aitm.BotSignature{}, err
+	}
+	sig.AddedAt = time.Unix(addedAt, 0)
+	return sig, nil
 }

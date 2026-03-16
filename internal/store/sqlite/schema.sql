@@ -61,6 +61,12 @@ CREATE TABLE IF NOT EXISTS sub_phishlets (
 
 CREATE INDEX IF NOT EXISTS idx_sub_phishlets_parent ON sub_phishlets(parent);
 
+CREATE TABLE IF NOT EXISTS bot_signatures (
+    ja4_hash    TEXT    PRIMARY KEY,
+    description TEXT    NOT NULL DEFAULT '',
+    added_at    INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS bot_telemetry (
     id              TEXT    PRIMARY KEY,
     session_id      TEXT    NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,

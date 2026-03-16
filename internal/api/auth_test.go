@@ -58,10 +58,9 @@ func (s *stubBlacklist) List() []string   { return nil }
 
 type stubBotguard struct{}
 
-func (s *stubBotguard) List() []aitm.BotSignature { return nil }
-func (s *stubBotguard) Add(_ aitm.BotSignature)   {}
-func (s *stubBotguard) Remove(_ string) bool      { return false }
-func (s *stubBotguard) Save() error               { return nil }
+func (s *stubBotguard) ListBotSignatures() ([]aitm.BotSignature, error) { return nil, nil }
+func (s *stubBotguard) CreateBotSignature(_ aitm.BotSignature) error    { return nil }
+func (s *stubBotguard) DeleteBotSignature(_ string) (bool, error)       { return false, nil }
 
 type stubBus struct{}
 

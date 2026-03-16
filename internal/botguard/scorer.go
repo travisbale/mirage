@@ -14,12 +14,18 @@ type BotGuardConfig struct {
 	GlobalSpoofURL     string
 }
 
+// signatureFinder is the minimal interface the Scorer needs for L1 checks.
+// Callers satisfy it implicitly.
+type signatureFinder interface {
+	LookupBotSignature(ja4Hash string) (aitm.BotSignature, error)
+}
+
 // Scorer combines L1 (JA4 signature lookup) and L2 (telemetry heuristic) signals
 // into a BotVerdict. It implicitly satisfies aitm.BotScorer.
 type Scorer struct {
-	Cfg    BotGuardConfig
-	SigDB  *JA4SignatureDB
-	Logger *slog.Logger
+	Config          BotGuardConfig
+	SignatureFinder signatureFinder
+	Logger          *slog.Logger
 }
 
 // ScoreConnection implements aitm.BotScorer.
@@ -30,16 +36,16 @@ type Scorer struct {
 //   - telemetry score ≥ threshold → VerdictSpoof (L2 score)
 //   - otherwise                   → VerdictAllow
 func (s *Scorer) ScoreConnection(ja4 string, telemetry *aitm.BotTelemetry) aitm.BotVerdict {
-	if !s.Cfg.Enabled {
+	if !s.Config.Enabled {
 		return aitm.VerdictAllow
 	}
 	if ja4 != "" {
-		if sig, found := s.SigDB.Lookup(ja4); found {
+		if sig, err := s.SignatureFinder.LookupBotSignature(ja4); err == nil {
 			s.Logger.Info("botguard: L1 match", "ja4", ja4, "description", sig.Description)
 			return aitm.VerdictSpoof
 		}
 	}
-	if telemetry != nil && s.scoreTelemetry(telemetry) >= s.Cfg.TelemetryThreshold {
+	if telemetry != nil && s.scoreTelemetry(telemetry) >= s.Config.TelemetryThreshold {
 		return aitm.VerdictSpoof
 	}
 	return aitm.VerdictAllow
@@ -98,4 +104,3 @@ func (s *Scorer) scoreTelemetry(telemetry *aitm.BotTelemetry) float64 {
 	}
 	return score
 }
-

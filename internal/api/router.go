@@ -46,18 +46,15 @@ type blacklistManager interface {
 }
 
 type botguardManager interface {
-	List() []aitm.BotSignature
-	Add(sig aitm.BotSignature)
-	Remove(ja4Hash string) bool
-	Save() error
+	ListBotSignatures() ([]aitm.BotSignature, error)
+	CreateBotSignature(sig aitm.BotSignature) error
+	DeleteBotSignature(ja4Hash string) (bool, error)
 }
 
 type eventBus interface {
 	Subscribe(eventType aitm.EventType) <-chan aitm.Event
 	Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event)
 }
-
-// --- Router ---
 
 // RouterDeps holds the dependencies required to construct a Router.
 type RouterDeps struct {
@@ -168,8 +165,6 @@ func (r *Router) registerRoutes() {
 	h("GET", sdk.RouteCampaigns, r.listCampaignMappings)
 	h("POST", sdk.RouteCampaignSync, r.syncCampaign)
 }
-
-// --- Helpers ---
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

@@ -1,21 +1,17 @@
 package botguard_test
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/botguard"
-	"github.com/travisbale/mirage/internal/events"
 )
 
 // ── JA4 computation ───────────────────────────────────────────────────────────
@@ -115,65 +111,12 @@ func TestHelloConn_CapturesFirstRecord(t *testing.T) {
 	}
 }
 
-// ── JA4SignatureDB ────────────────────────────────────────────────────────────
-
-func TestJA4SignatureDB_KnownBadHashDetected(t *testing.T) {
-	sigFile := writeSignatureFile(t, []aitm.BotSignature{
-		{JA4Hash: "t13d1516h2_aabbccddeeff_112233445566", Description: "test scanner"},
-	})
-	db, err := botguard.NewJA4SignatureDB(sigFile, &events.NoOpBus{}, slog.Default())
-	if err != nil {
-		t.Fatalf("NewJA4SignatureDB: %v", err)
-	}
-
-	sig, found := db.Lookup("t13d1516h2_aabbccddeeff_112233445566")
-	if !found {
-		t.Error("expected Lookup to find the known-bad hash")
-	}
-	if sig.Description != "test scanner" {
-		t.Errorf("description: got %q, want %q", sig.Description, "test scanner")
-	}
-}
-
-func TestJA4SignatureDB_UnknownHashNotFound(t *testing.T) {
-	sigFile := writeSignatureFile(t, nil)
-	db, _ := botguard.NewJA4SignatureDB(sigFile, &events.NoOpBus{}, slog.Default())
-
-	_, found := db.Lookup("t13d0000h0_000000000000_000000000000")
-	if found {
-		t.Error("expected Lookup to return false for unknown hash")
-	}
-}
-
-func TestJA4SignatureDB_HotReload(t *testing.T) {
-	sigFile := writeSignatureFile(t, nil) // start empty
-	bus := events.NewBus(events.DefaultBufferSize)
-	db, _ := botguard.NewJA4SignatureDB(sigFile, bus, slog.Default())
-	if db.Count() != 0 {
-		t.Fatalf("expected 0 sigs, got %d", db.Count())
-	}
-
-	// Write new sigs to file then fire reload event.
-	writeSignatureFileAt(t, sigFile, []aitm.BotSignature{
-		{JA4Hash: "newhash_111111111111_222222222222"},
-	})
-	bus.Publish(aitm.Event{Type: aitm.EventPhishletReloaded})
-	time.Sleep(50 * time.Millisecond) // allow goroutine to process
-
-	if db.Count() != 1 {
-		t.Errorf("expected 1 sig after reload, got %d", db.Count())
-	}
-	_, found := db.Lookup("newhash_111111111111_222222222222")
-	if !found {
-		t.Error("expected to find newly loaded hash after hot-reload")
-	}
-}
 
 // ── Scorer (verdict) ──────────────────────────────────────────────────────────
 
 func TestScorer_KnownBadJA4ReturnsVerdictSpoof(t *testing.T) {
-	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	scorer := &botguard.Scorer{Cfg: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SigDB: db, Logger: slog.Default()}
+	ss := &stubSigStore{sigs: []aitm.BotSignature{{JA4Hash: "badja4_aabbccddeeff_112233445566", Description: "test"}}}
+	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SignatureFinder: ss, Logger: slog.Default()}
 	verdict := scorer.ScoreConnection("badja4_aabbccddeeff_112233445566", nil)
 	if verdict != aitm.VerdictSpoof {
 		t.Errorf("expected VerdictSpoof, got %v", verdict)
@@ -181,8 +124,8 @@ func TestScorer_KnownBadJA4ReturnsVerdictSpoof(t *testing.T) {
 }
 
 func TestScorer_UnknownHashReturnsVerdictAllow(t *testing.T) {
-	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	scorer := &botguard.Scorer{Cfg: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SigDB: db, Logger: slog.Default()}
+	ss := &stubSigStore{sigs: []aitm.BotSignature{{JA4Hash: "badja4_aabbccddeeff_112233445566", Description: "test"}}}
+	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SignatureFinder: ss, Logger: slog.Default()}
 	verdict := scorer.ScoreConnection("unknownhash_000000000000_000000000000", nil)
 	if verdict != aitm.VerdictAllow {
 		t.Errorf("expected VerdictAllow, got %v", verdict)
@@ -190,8 +133,8 @@ func TestScorer_UnknownHashReturnsVerdictAllow(t *testing.T) {
 }
 
 func TestScorer_DisabledAlwaysAllows(t *testing.T) {
-	db := newDBWithSig(t, "badja4_aabbccddeeff_112233445566")
-	scorer := &botguard.Scorer{Cfg: botguard.BotGuardConfig{Enabled: false}, SigDB: db, Logger: slog.Default()}
+	ss := &stubSigStore{sigs: []aitm.BotSignature{{JA4Hash: "badja4_aabbccddeeff_112233445566", Description: "test"}}}
+	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: false}, SignatureFinder: ss, Logger: slog.Default()}
 	verdict := scorer.ScoreConnection("badja4_aabbccddeeff_112233445566", nil)
 	if verdict != aitm.VerdictAllow {
 		t.Errorf("expected VerdictAllow when disabled, got %v", verdict)
@@ -199,8 +142,7 @@ func TestScorer_DisabledAlwaysAllows(t *testing.T) {
 }
 
 func TestScorer_HighTelemetryScoreReturnsVerdictSpoof(t *testing.T) {
-	db := emptyDB(t)
-	scorer := &botguard.Scorer{Cfg: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SigDB: db, Logger: slog.Default()}
+	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SignatureFinder: &stubSigStore{}, Logger: slog.Default()}
 	// SwiftShader renderer + 0 mouse moves + pixel_ratio 1.0 + device_memory 0 → score > 0.6
 	telem := &aitm.BotTelemetry{Raw: map[string]any{
 		"webgl_renderer":   "ANGLE (SwiftShader)",
@@ -270,6 +212,20 @@ func TestSpoofProxy_StripsCORSHeaders(t *testing.T) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// stubSigStore is an in-memory signatureLookup for testing.
+type stubSigStore struct {
+	sigs []aitm.BotSignature
+}
+
+func (s *stubSigStore) LookupBotSignature(ja4Hash string) (aitm.BotSignature, error) {
+	for _, sig := range s.sigs {
+		if sig.JA4Hash == ja4Hash {
+			return sig, nil
+		}
+	}
+	return aitm.BotSignature{}, errors.New("not found")
+}
 
 type clientHelloParams struct {
 	version      uint16
@@ -351,10 +307,8 @@ func buildTestClientHello(t *testing.T, params clientHelloParams) []byte {
 
 func buildSNIExtension(hostname string) []byte {
 	nameBytes := []byte(hostname)
-	// server_name_list entry: type(1=host_name) + length(2) + name
 	entry := []byte{0x00, byte(len(nameBytes) >> 8), byte(len(nameBytes))}
 	entry = append(entry, nameBytes...)
-	// server_name_list: length(2) + entries
 	listLen := len(entry)
 	data := []byte{byte(listLen >> 8), byte(listLen)}
 	data = append(data, entry...)
@@ -394,63 +348,5 @@ func buildExtension(extType uint16, data []byte) []byte {
 	ext = append(ext, byte(len(data)>>8), byte(len(data)))
 	ext = append(ext, data...)
 	return ext
-}
-
-// noOpBotStore satisfies aitm.BotStore for tests that don't need persistence.
-type noOpBotStore struct{}
-
-func (n *noOpBotStore) StoreBotTelemetry(_ *aitm.BotTelemetry) error        { return nil }
-func (n *noOpBotStore) GetBotTelemetry(_ string) ([]*aitm.BotTelemetry, error) {
-	return nil, nil
-}
-func (n *noOpBotStore) DeleteBotTelemetry(_ string) error { return nil }
-
-// writeSignatureFile writes a JSON signature file to a temp file and returns its path.
-func writeSignatureFile(t *testing.T, sigs []aitm.BotSignature) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "ja4.json")
-	writeSignatureFileAt(t, path, sigs)
-	return path
-}
-
-func writeSignatureFileAt(t *testing.T, path string, sigs []aitm.BotSignature) {
-	t.Helper()
-	type sigFile struct {
-		UpdatedAt  string           `json:"updated_at"`
-		Signatures []aitm.BotSignature `json:"signatures"`
-	}
-	if sigs == nil {
-		sigs = []aitm.BotSignature{}
-	}
-	data, err := json.Marshal(sigFile{
-		UpdatedAt:  time.Now().UTC().Format(time.RFC3339),
-		Signatures: sigs,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func newDBWithSig(t *testing.T, hash string) *botguard.JA4SignatureDB {
-	t.Helper()
-	sigFile := writeSignatureFile(t, []aitm.BotSignature{{JA4Hash: hash, Description: "test"}})
-	db, err := botguard.NewJA4SignatureDB(sigFile, &events.NoOpBus{}, slog.Default())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return db
-}
-
-func emptyDB(t *testing.T) *botguard.JA4SignatureDB {
-	t.Helper()
-	sigFile := writeSignatureFile(t, nil)
-	db, err := botguard.NewJA4SignatureDB(sigFile, &events.NoOpBus{}, slog.Default())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return db
 }
 

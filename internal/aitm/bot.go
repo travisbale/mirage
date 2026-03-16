@@ -5,13 +5,6 @@ import (
 	"time"
 )
 
-// BotStore is the persistence interface required by BotGuardService.
-type BotStore interface {
-	StoreBotTelemetry(t *BotTelemetry) error
-	GetBotTelemetry(sessionID string) ([]*BotTelemetry, error)
-	DeleteBotTelemetry(sessionID string) error
-}
-
 type BotVerdict int
 
 const (
@@ -54,17 +47,23 @@ type ProxyContext struct {
 	RequestID string
 }
 
-// BotScorer is the interface implemented by botguard.Scorer.
+type botTelemetryStore interface {
+	StoreBotTelemetry(t *BotTelemetry) error
+	GetBotTelemetry(sessionID string) ([]*BotTelemetry, error)
+	DeleteBotTelemetry(sessionID string) error
+}
+
+// botScorer is the interface implemented by botguard.Scorer.
 // It combines L1 (JA4 hash lookup) and L2 (telemetry heuristic) signals
 // into a single verdict per connection.
-type BotScorer interface {
+type botScorer interface {
 	ScoreConnection(ja4 string, telemetry *BotTelemetry) BotVerdict
 }
 
 // BotGuardService evaluates connections for bot/scanner signatures.
 type BotGuardService struct {
-	Scorer BotScorer
-	Store  BotStore
+	Scorer botScorer
+	Store  botTelemetryStore
 	Bus    EventBus
 }
 
