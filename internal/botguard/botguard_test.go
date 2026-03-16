@@ -1,7 +1,6 @@
 package botguard_test
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -114,35 +113,16 @@ func TestHelloConn_CapturesFirstRecord(t *testing.T) {
 
 // ── Scorer (verdict) ──────────────────────────────────────────────────────────
 
-func TestScorer_KnownBadJA4ReturnsVerdictSpoof(t *testing.T) {
-	ss := &stubSigStore{sigs: []aitm.BotSignature{{JA4Hash: "badja4_aabbccddeeff_112233445566", Description: "test"}}}
-	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SignatureFinder: ss, Logger: slog.Default()}
-	verdict := scorer.ScoreConnection("badja4_aabbccddeeff_112233445566", nil)
-	if verdict != aitm.VerdictSpoof {
-		t.Errorf("expected VerdictSpoof, got %v", verdict)
-	}
-}
-
-func TestScorer_UnknownHashReturnsVerdictAllow(t *testing.T) {
-	ss := &stubSigStore{sigs: []aitm.BotSignature{{JA4Hash: "badja4_aabbccddeeff_112233445566", Description: "test"}}}
-	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SignatureFinder: ss, Logger: slog.Default()}
-	verdict := scorer.ScoreConnection("unknownhash_000000000000_000000000000", nil)
-	if verdict != aitm.VerdictAllow {
-		t.Errorf("expected VerdictAllow, got %v", verdict)
-	}
-}
-
 func TestScorer_DisabledAlwaysAllows(t *testing.T) {
-	ss := &stubSigStore{sigs: []aitm.BotSignature{{JA4Hash: "badja4_aabbccddeeff_112233445566", Description: "test"}}}
-	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: false}, SignatureFinder: ss, Logger: slog.Default()}
-	verdict := scorer.ScoreConnection("badja4_aabbccddeeff_112233445566", nil)
+	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: false}, Logger: slog.Default()}
+	verdict := scorer.ScoreConnection(nil)
 	if verdict != aitm.VerdictAllow {
 		t.Errorf("expected VerdictAllow when disabled, got %v", verdict)
 	}
 }
 
 func TestScorer_HighTelemetryScoreReturnsVerdictSpoof(t *testing.T) {
-	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, SignatureFinder: &stubSigStore{}, Logger: slog.Default()}
+	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, Logger: slog.Default()}
 	// SwiftShader renderer + 0 mouse moves + pixel_ratio 1.0 + device_memory 0 → score > 0.6
 	telem := &aitm.BotTelemetry{Raw: map[string]any{
 		"webgl_renderer":   "ANGLE (SwiftShader)",
@@ -151,7 +131,7 @@ func TestScorer_HighTelemetryScoreReturnsVerdictSpoof(t *testing.T) {
 		"device_memory":    float64(0),
 		"fonts_detected":   float64(1),
 	}}
-	verdict := scorer.ScoreConnection("", telem)
+	verdict := scorer.ScoreConnection(telem)
 	if verdict != aitm.VerdictSpoof {
 		t.Errorf("expected VerdictSpoof for high telemetry score, got %v", verdict)
 	}
@@ -212,20 +192,6 @@ func TestSpoofProxy_StripsCORSHeaders(t *testing.T) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-// stubSigStore is an in-memory signatureLookup for testing.
-type stubSigStore struct {
-	sigs []aitm.BotSignature
-}
-
-func (s *stubSigStore) LookupBotSignature(ja4Hash string) (aitm.BotSignature, error) {
-	for _, sig := range s.sigs {
-		if sig.JA4Hash == ja4Hash {
-			return sig, nil
-		}
-	}
-	return aitm.BotSignature{}, errors.New("not found")
-}
 
 type clientHelloParams struct {
 	version      uint16

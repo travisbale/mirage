@@ -49,11 +49,6 @@ type Spoofer interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
-// HostnameSet is a concurrency-safe set of active phishing hostnames.
-type HostnameSet interface {
-	Contains(hostname string) bool
-}
-
 // Pipeline holds ordered slices of request and response handlers.
 //
 // Execution model:

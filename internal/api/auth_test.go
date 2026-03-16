@@ -40,15 +40,14 @@ func (s *stubLures) Unpause(_ string) error                   { return nil }
 
 type stubPhishlets struct{}
 
-func (s *stubPhishlets) GetPhishletConfig(_ string) (*aitm.PhishletConfig, error) {
-	return nil, nil
-}
-func (s *stubPhishlets) SetPhishletConfig(_ *aitm.PhishletConfig) error { return nil }
-func (s *stubPhishlets) ListPhishletConfigs() ([]*aitm.PhishletConfig, error) {
-	return nil, nil
-}
-func (s *stubPhishlets) CreateSubPhishlet(_ *aitm.SubPhishlet) error { return nil }
-func (s *stubPhishlets) DeleteSubPhishlet(_ string) error            { return nil }
+func (s *stubPhishlets) Enable(_, _, _, _ string) (*aitm.PhishletConfig, error) { return nil, nil }
+func (s *stubPhishlets) Disable(_ string) (*aitm.PhishletConfig, error)          { return nil, nil }
+func (s *stubPhishlets) Hide(_ string) (*aitm.PhishletConfig, error)             { return nil, nil }
+func (s *stubPhishlets) Unhide(_ string) (*aitm.PhishletConfig, error)           { return nil, nil }
+func (s *stubPhishlets) GetConfig(_ string) (*aitm.PhishletConfig, error)        { return nil, nil }
+func (s *stubPhishlets) ListConfigs() ([]*aitm.PhishletConfig, error)            { return nil, nil }
+func (s *stubPhishlets) CreateSubPhishlet(_ *aitm.SubPhishlet) error             { return nil }
+func (s *stubPhishlets) DeleteSubPhishlet(_ string) error                        { return nil }
 
 type stubBlacklist struct{}
 
@@ -58,9 +57,9 @@ func (s *stubBlacklist) List() []string   { return nil }
 
 type stubBotguard struct{}
 
-func (s *stubBotguard) ListBotSignatures() ([]aitm.BotSignature, error) { return nil, nil }
-func (s *stubBotguard) CreateBotSignature(_ aitm.BotSignature) error    { return nil }
-func (s *stubBotguard) DeleteBotSignature(_ string) (bool, error)       { return false, nil }
+func (s *stubBotguard) ListSignatures() ([]aitm.BotSignature, error) { return nil, nil }
+func (s *stubBotguard) AddSignature(_ aitm.BotSignature) error       { return nil }
+func (s *stubBotguard) RemoveSignature(_ string) (bool, error)       { return false, nil }
 
 type stubBus struct{}
 

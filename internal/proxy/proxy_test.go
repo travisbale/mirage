@@ -100,42 +100,6 @@ func TestPipeline_ResponseHandlers_ShortCircuit(t *testing.T) {
 	}
 }
 
-// ---- ActiveHostnameSet --------------------------------------------------------
-
-func TestActiveHostnameSet_Contains(t *testing.T) {
-	ah := &proxy.ActiveHostnameSet{}
-	ah.Add("phish.example.com")
-
-	if !ah.Contains("phish.example.com") {
-		t.Error("expected Contains to return true for added hostname")
-	}
-	if !ah.Contains("PHISH.EXAMPLE.COM") {
-		t.Error("expected Contains to be case-insensitive")
-	}
-	if ah.Contains("other.example.com") {
-		t.Error("expected Contains to return false for unknown hostname")
-	}
-}
-
-func TestActiveHostnameSet_Remove(t *testing.T) {
-	ah := &proxy.ActiveHostnameSet{}
-	ah.Add("phish.example.com")
-	ah.Remove("phish.example.com")
-	if ah.Contains("phish.example.com") {
-		t.Error("expected hostname to be removed")
-	}
-}
-
-func TestActiveHostnameSet_Snapshot(t *testing.T) {
-	ah := &proxy.ActiveHostnameSet{}
-	ah.Add("a.example.com")
-	ah.Add("b.example.com")
-	snap := ah.Snapshot()
-	if len(snap) != 2 {
-		t.Errorf("expected 2 hostnames in snapshot, got %d", len(snap))
-	}
-}
-
 // ---- SpoofProxy --------------------------------------------------------
 
 func TestSpoofProxy_EmptyURL_Returns200(t *testing.T) {

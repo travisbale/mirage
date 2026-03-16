@@ -28,9 +28,12 @@ type lureManager interface {
 }
 
 type phishletManager interface {
-	GetPhishletConfig(name string) (*aitm.PhishletConfig, error)
-	SetPhishletConfig(cfg *aitm.PhishletConfig) error
-	ListPhishletConfigs() ([]*aitm.PhishletConfig, error)
+	Enable(name, hostname, baseDomain, dnsProvider string) (*aitm.PhishletConfig, error)
+	Disable(name string) (*aitm.PhishletConfig, error)
+	Hide(name string) (*aitm.PhishletConfig, error)
+	Unhide(name string) (*aitm.PhishletConfig, error)
+	GetConfig(name string) (*aitm.PhishletConfig, error)
+	ListConfigs() ([]*aitm.PhishletConfig, error)
 	CreateSubPhishlet(sp *aitm.SubPhishlet) error
 	DeleteSubPhishlet(name string) error
 }
@@ -42,9 +45,9 @@ type blacklistManager interface {
 }
 
 type botguardManager interface {
-	ListBotSignatures() ([]aitm.BotSignature, error)
-	CreateBotSignature(sig aitm.BotSignature) error
-	DeleteBotSignature(ja4Hash string) (bool, error)
+	ListSignatures() ([]aitm.BotSignature, error)
+	AddSignature(sig aitm.BotSignature) error
+	RemoveSignature(ja4Hash string) (bool, error)
 }
 
 type eventBus interface {

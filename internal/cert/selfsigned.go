@@ -41,7 +41,17 @@ func NewSelfSignedCertSource(caDir string) *SelfSignedCertSource {
 	}
 }
 
+// EnsureCA initializes the CA if it has not been already, and is safe to call
+// more than once. After it returns without error, CACert() is non-nil and the
+// CA certificate file is present in caDir.
+func (s *SelfSignedCertSource) EnsureCA() error {
+	var err error
+	s.once.Do(func() { err = s.initCA() })
+	return err
+}
+
 // CACert returns the dev CA certificate; useful for building a test trust pool.
+// Returns nil until EnsureCA (or GetCertificate) has been called.
 func (s *SelfSignedCertSource) CACert() *x509.Certificate {
 	return s.caCert
 }

