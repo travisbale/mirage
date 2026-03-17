@@ -69,7 +69,7 @@ func (s *stubBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func newTestRouter(sessions *stubSessions) *api.Router {
-	return api.NewRouter(api.RouterDeps{
+	return &api.Router{
 		Sessions:  sessions,
 		Lures:     &stubLures{},
 		Phishlets: &stubPhishlets{},
@@ -77,7 +77,7 @@ func newTestRouter(sessions *stubSessions) *api.Router {
 		Botguard:  &stubBotguard{},
 		Bus:       &stubBus{},
 		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
-	})
+	}
 }
 
 func newMTLSServer(t *testing.T, handler http.Handler, ca *api.CA) *httptest.Server {

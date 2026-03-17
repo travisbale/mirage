@@ -6,10 +6,7 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
-// Compile-time check: Phishlets satisfies aitm.PhishletStore.
-var _ aitm.PhishletStore = (*Phishlets)(nil)
-
-// Phishlets implements aitm.PhishletStore backed by SQLite.
+// Phishlets implements the phishletStore interface defined in the aitm package.
 // Only operator config fields are persisted; compiled rule fields are never stored.
 type Phishlets struct{ db *DB }
 

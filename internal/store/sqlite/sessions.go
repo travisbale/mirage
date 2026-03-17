@@ -9,10 +9,7 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
-// Compile-time check: Sessions satisfies aitm.SessionStore.
-var _ aitm.SessionStore = (*Sessions)(nil)
-
-// Sessions implements aitm.SessionStore backed by SQLite.
+// Sessions implements the sessionStore interface defined in the aitm package.
 type Sessions struct{ db *DB }
 
 func NewSessionStore(db *DB) *Sessions { return &Sessions{db: db} }

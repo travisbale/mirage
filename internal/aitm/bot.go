@@ -73,7 +73,7 @@ type BotGuardService struct {
 	Scorer         botScorer
 	Store          botTelemetryStore
 	SignatureStore botSignatureStore
-	Bus            EventBus
+	Bus            eventBus
 	signatures     sync.Map // ja4hash → struct{}
 }
 

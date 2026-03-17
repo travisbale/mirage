@@ -10,31 +10,27 @@ import (
 
 const sessionCookieName = "__ss"
 
-type SessionLookup interface {
-	GetSession(id string) (*aitm.Session, error)
-}
-
-type SessionFactory interface {
+type sessionManager interface {
+	Get(id string) (*aitm.Session, error)
 	NewSession(ctx *aitm.ProxyContext) (*aitm.Session, error)
 }
 
 // SessionResolver loads an existing session from the tracking cookie or creates a new one.
 type SessionResolver struct {
-	Store   SessionLookup
-	Factory SessionFactory
+	Sessions sessionManager
 }
 
 func (h *SessionResolver) Name() string { return "SessionResolver" }
 
 func (h *SessionResolver) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 	if cookie, err := req.Cookie(sessionCookieName); err == nil && cookie.Value != "" {
-		if sess, err := h.Store.GetSession(cookie.Value); err == nil {
+		if sess, err := h.Sessions.Get(cookie.Value); err == nil {
 			ctx.Session = sess
 			ctx.IsNewSession = false
 			return nil
 		}
 	}
-	sess, err := h.Factory.NewSession(ctx)
+	sess, err := h.Sessions.NewSession(ctx)
 	if err != nil {
 		return fmt.Errorf("session_resolver: %w", err)
 	}

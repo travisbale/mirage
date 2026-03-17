@@ -36,7 +36,7 @@ func (r *Router) auditMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next(rec, req)
-		r.logger.Info("api",
+		r.Logger.Info("api",
 			"operator", operatorFromCtx(req.Context()),
 			"method", req.Method,
 			"path", req.URL.Path,

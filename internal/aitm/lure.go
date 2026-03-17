@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// LureStore is the persistence interface required by LureService.
-type LureStore interface {
+// lureStore is the persistence interface required by LureService.
+type lureStore interface {
 	CreateLure(lure *Lure) error
 	GetLure(id string) (*Lure, error)
 	UpdateLure(lure *Lure) error
@@ -145,15 +145,15 @@ func decryptParams(key []byte, encoded string) (map[string]string, error) {
 	return out, nil
 }
 
-// LureInvalidator is called after any lure mutation to refresh caches.
-type LureInvalidator interface {
+// lureInvalidator is called after any lure mutation to refresh caches.
+type lureInvalidator interface {
 	InvalidateLures()
 }
 
 // LureService owns all business logic for lure management.
 type LureService struct {
-	Store       LureStore
-	Invalidator LureInvalidator
+	Store       lureStore
+	Invalidator lureInvalidator
 }
 
 func (s *LureService) Create(lure *Lure) error {

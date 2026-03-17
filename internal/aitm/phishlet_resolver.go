@@ -14,12 +14,12 @@ type PhishletResolver struct {
 	mu        sync.RWMutex
 	phishlets map[string]*Phishlet // name → phishlet
 	hostnames map[string]*Phishlet // lowercase hostname → phishlet (enabled only)
-	lureStore LureStore
+	lureStore lureStore
 	luresMu   sync.RWMutex
 	lures     []*Lure // cached; refreshed by InvalidateLures
 }
 
-func NewPhishletResolver(lureStore LureStore) *PhishletResolver {
+func NewPhishletResolver(lureStore lureStore) *PhishletResolver {
 	return &PhishletResolver{
 		phishlets: make(map[string]*Phishlet),
 		hostnames: make(map[string]*Phishlet),

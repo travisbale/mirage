@@ -1,5 +1,5 @@
 // Package events provides an in-process publish/subscribe event bus that
-// implements aitm.EventBus.
+// implements the eventBus interface defined in the aitm package.
 package events
 
 import (
@@ -12,9 +12,6 @@ import (
 
 // DefaultBufferSize is the channel buffer size used when none is specified.
 const DefaultBufferSize = 64
-
-// Compile-time check: Bus satisfies aitm.EventBus.
-var _ aitm.EventBus = (*Bus)(nil)
 
 // Bus is a goroutine-safe publish/subscribe bus backed by in-process
 // Go channels.
@@ -80,21 +77,6 @@ func (b *Bus) Subscribe(eventType aitm.EventType) <-chan aitm.Event {
 	return ch
 }
 
-// SubscribeFunc subscribes to eventType on bus and starts a goroutine that
-// calls fn for each received event. The goroutine exits when the subscription
-// channel is closed (i.e., when Unsubscribe is called for the returned channel).
-//
-// fn is called sequentially — concurrent calls from a single SubscribeFunc are
-// not possible. For slow handlers, spawn a goroutine inside fn.
-func SubscribeFunc(bus aitm.EventBus, eventType aitm.EventType, fn func(aitm.Event)) <-chan aitm.Event {
-	ch := bus.Subscribe(eventType)
-	go func() {
-		for event := range ch {
-			fn(event)
-		}
-	}()
-	return ch
-}
 
 // Unsubscribe removes ch from the subscriber list for t and closes it.
 // Safe to call multiple times for the same channel — subsequent calls are no-ops.

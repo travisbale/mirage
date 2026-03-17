@@ -88,11 +88,13 @@ func (h *WSHub) HandleUpgrade(w http.ResponseWriter, r *http.Request, sessionID 
 	}
 }
 
+type sessionGetter interface {
+	Get(id string) (*aitm.Session, error)
+}
+
 // HandleTelemetryDone is the fallback polling endpoint GET /t/{sid}/done.
 // Returns {"redirect_url":"..."} if the session is complete, {"done":false} otherwise.
-func HandleTelemetryDone(store interface {
-	GetSession(id string) (*aitm.Session, error)
-}) http.HandlerFunc {
+func HandleTelemetryDone(sessions sessionGetter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		var sessionID string
@@ -115,7 +117,7 @@ func HandleTelemetryDone(store interface {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		sess, err := store.GetSession(sessionID)
+		sess, err := sessions.Get(sessionID)
 		if err != nil || !sess.IsDone() {
 			json.NewEncoder(w).Encode(map[string]bool{"done": false})
 			return

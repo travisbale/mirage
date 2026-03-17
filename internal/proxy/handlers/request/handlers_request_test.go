@@ -317,29 +317,25 @@ func TestLureValidator_UAFilterNoMatch_Spoofs(t *testing.T) {
 
 // ---- SessionResolver --------------------------------------------------------
 
-type stubSessionStore struct {
-	session *aitm.Session
-	err     error
+type stubSessionManager struct {
+	getSession *aitm.Session
+	getErr     error
+	newSession *aitm.Session
+	newErr     error
 }
 
-func (s *stubSessionStore) GetSession(_ string) (*aitm.Session, error) {
-	return s.session, s.err
+func (s *stubSessionManager) Get(_ string) (*aitm.Session, error) {
+	return s.getSession, s.getErr
 }
 
-type stubSessionFactory struct {
-	session *aitm.Session
-	err     error
-}
-
-func (s *stubSessionFactory) NewSession(_ *aitm.ProxyContext) (*aitm.Session, error) {
-	return s.session, s.err
+func (s *stubSessionManager) NewSession(_ *aitm.ProxyContext) (*aitm.Session, error) {
+	return s.newSession, s.newErr
 }
 
 func TestSessionResolver_ExistingSession_FromCookie(t *testing.T) {
 	existing := &aitm.Session{ID: "existing-sess"}
 	h := &request.SessionResolver{
-		Store:   &stubSessionStore{session: existing},
-		Factory: &stubSessionFactory{},
+		Sessions: &stubSessionManager{getSession: existing},
 	}
 	ctx := &aitm.ProxyContext{}
 	req := newReq(http.MethodGet, "https://example.com/", nil)
@@ -359,8 +355,7 @@ func TestSessionResolver_ExistingSession_FromCookie(t *testing.T) {
 func TestSessionResolver_NoCookie_CreatesNew(t *testing.T) {
 	newSess := &aitm.Session{ID: "new-sess"}
 	h := &request.SessionResolver{
-		Store:   &stubSessionStore{err: errors.New("not found")},
-		Factory: &stubSessionFactory{session: newSess},
+		Sessions: &stubSessionManager{getErr: errors.New("not found"), newSession: newSess},
 	}
 	ctx := &aitm.ProxyContext{}
 	req := newReq(http.MethodGet, "https://example.com/", nil)
@@ -378,8 +373,7 @@ func TestSessionResolver_NoCookie_CreatesNew(t *testing.T) {
 
 func TestSessionResolver_FactoryError_ReturnsError(t *testing.T) {
 	h := &request.SessionResolver{
-		Store:   &stubSessionStore{err: errors.New("not found")},
-		Factory: &stubSessionFactory{err: errors.New("db down")},
+		Sessions: &stubSessionManager{getErr: errors.New("not found"), newErr: errors.New("db down")},
 	}
 	ctx := &aitm.ProxyContext{}
 	req := newReq(http.MethodGet, "https://example.com/", nil)
@@ -391,16 +385,14 @@ func TestSessionResolver_FactoryError_ReturnsError(t *testing.T) {
 
 // ---- CredentialExtractor ----------------------------------------------------
 
-type stubCredentialStore struct{}
+type stubCredentialCapturer struct{}
 
-func (s *stubCredentialStore) UpdateSession(_ *aitm.Session) error { return nil }
+func (s *stubCredentialCapturer) CaptureCredentials(_ *aitm.Session) error { return nil }
 
 func TestCredentialExtractor_ExtractsUsername(t *testing.T) {
-	bus := newTestBus()
 	h := &request.CredentialExtractor{
-		Store:  &stubCredentialStore{},
-		Bus:    bus,
-		Logger: discardLogger(),
+		Capturer: &stubCredentialCapturer{},
+		Logger:   discardLogger(),
 	}
 	ctx := &aitm.ProxyContext{
 		Session: &aitm.Session{ID: "sess-1"},
@@ -434,9 +426,8 @@ func TestCredentialExtractor_ExtractsUsername(t *testing.T) {
 
 func TestCredentialExtractor_NonPost_Skips(t *testing.T) {
 	h := &request.CredentialExtractor{
-		Store:  &stubCredentialStore{},
-		Bus:    newTestBus(),
-		Logger: discardLogger(),
+		Capturer: &stubCredentialCapturer{},
+		Logger:   discardLogger(),
 	}
 	ctx := &aitm.ProxyContext{
 		Session:  &aitm.Session{ID: "sess-1"},
@@ -453,9 +444,8 @@ func TestCredentialExtractor_NonPost_Skips(t *testing.T) {
 
 func TestCredentialExtractor_NoPhishlet_Skips(t *testing.T) {
 	h := &request.CredentialExtractor{
-		Store:  &stubCredentialStore{},
-		Bus:    newTestBus(),
-		Logger: discardLogger(),
+		Capturer: &stubCredentialCapturer{},
+		Logger:   discardLogger(),
 	}
 	ctx := &aitm.ProxyContext{Session: &aitm.Session{ID: "sess-1"}} // no Phishlet
 	req := newReq(http.MethodPost, "https://login.example.com/login", strings.NewReader("username=x"))
@@ -465,11 +455,9 @@ func TestCredentialExtractor_NoPhishlet_Skips(t *testing.T) {
 }
 
 func TestCredentialExtractor_NoRuleMatch_NoUpdate(t *testing.T) {
-	bus := newTestBus()
 	h := &request.CredentialExtractor{
-		Store:  &stubCredentialStore{},
-		Bus:    bus,
-		Logger: discardLogger(),
+		Capturer: &stubCredentialCapturer{},
+		Logger:   discardLogger(),
 	}
 	ctx := &aitm.ProxyContext{
 		Session: &aitm.Session{ID: "sess-1"},
@@ -491,15 +479,3 @@ func TestCredentialExtractor_NoRuleMatch_NoUpdate(t *testing.T) {
 		t.Error("expected no username extracted when key does not match")
 	}
 }
-
-// ---- testBus ----------------------------------------------------------------
-
-type testBus struct{}
-
-func newTestBus() *testBus { return &testBus{} }
-
-func (b *testBus) Publish(_ aitm.Event)                              {}
-func (b *testBus) Subscribe(_ aitm.EventType) <-chan aitm.Event      { return make(chan aitm.Event, 1) }
-func (b *testBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
-
-var _ aitm.EventBus = (*testBus)(nil)

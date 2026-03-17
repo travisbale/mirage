@@ -23,13 +23,29 @@ type Event struct {
 	Payload    any
 }
 
-// EventBus is the publish/subscribe interface for decoupling components.
+// eventBus is the publish/subscribe interface for decoupling components.
 // Implementations must be safe for concurrent use.
 // Publish must never block — if a subscriber's channel is full, the event is dropped.
-type EventBus interface {
+type eventBus interface {
 	Publish(event Event)
 	Subscribe(eventType EventType) <-chan Event
 	Unsubscribe(eventType EventType, ch <-chan Event)
+}
+
+// SubscribeFunc subscribes to eventType on bus and starts a goroutine that
+// calls fn for each received event. The goroutine exits when the subscription
+// channel is closed (i.e., when Unsubscribe is called for the returned channel).
+//
+// fn is called sequentially — concurrent calls from a single SubscribeFunc are
+// not possible. For slow handlers, spawn a goroutine inside fn.
+func SubscribeFunc(bus eventBus, eventType EventType, fn func(Event)) <-chan Event {
+	ch := bus.Subscribe(eventType)
+	go func() {
+		for event := range ch {
+			fn(event)
+		}
+	}()
+	return ch
 }
 
 // LureHitPayload is the payload for EventLureHit.

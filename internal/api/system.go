@@ -14,14 +14,14 @@ import (
 func (r *Router) getStatus(w http.ResponseWriter, req *http.Request) {
 	uptime := time.Since(r.startedAt)
 
-	total, _ := r.sessions.Count(aitm.SessionFilter{})
-	active, _ := r.sessions.Count(aitm.SessionFilter{
+	total, _ := r.Sessions.Count(aitm.SessionFilter{})
+	active, _ := r.Sessions.Count(aitm.SessionFilter{
 		IncompleteOnly: true,
 		After:          time.Now().Add(-time.Hour),
 	})
 
 	writeJSON(w, http.StatusOK, sdk.StatusResponse{
-		Version:        r.version,
+		Version:        r.Version,
 		Uptime:         uptime.Round(time.Second).String(),
 		UptimeSeconds:  uptime.Seconds(),
 		GoRoutines:     runtime.NumGoroutine(),

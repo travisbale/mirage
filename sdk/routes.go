@@ -19,8 +19,7 @@ const (
 	RouteLures     = "/api/lures"
 
 	// Phishlets
-	RoutePhishletRegistry = "/api/phishlets/registry"
-	RoutePhishletHosts    = "/api/phishlets/{name}/hosts"
+	RoutePhishletHosts   = "/api/phishlets/{name}/hosts"
 	RoutePhishletEnable   = "/api/phishlets/{name}/enable"
 	RoutePhishletDisable  = "/api/phishlets/{name}/disable"
 	RoutePhishletHide     = "/api/phishlets/{name}/hide"

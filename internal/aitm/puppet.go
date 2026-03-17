@@ -9,9 +9,9 @@ type puppet interface {
 type PuppetService struct {
 	puppet puppet
 	store  botTelemetryStore
-	bus    EventBus
+	bus    eventBus
 }
 
-func NewPuppetService(puppet puppet, store botTelemetryStore, bus EventBus) *PuppetService {
+func NewPuppetService(puppet puppet, store botTelemetryStore, bus eventBus) *PuppetService {
 	return &PuppetService{puppet: puppet, store: store, bus: bus}
 }

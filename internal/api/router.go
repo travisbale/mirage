@@ -3,6 +3,7 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -53,8 +54,9 @@ type eventBus interface {
 	Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event)
 }
 
-// RouterDeps holds the dependencies required to construct a Router.
-type RouterDeps struct {
+// Router is the top-level handler for the management API. It implements
+// http.Handler and is passed to the APIRouter pipeline step.
+type Router struct {
 	Sessions  sessionManager
 	Lures     lureManager
 	Phishlets phishletManager
@@ -64,46 +66,19 @@ type RouterDeps struct {
 	Domain    string // global base domain for lure URL generation
 	Version   string
 	Logger    *slog.Logger
-}
 
-// Router is the top-level handler for the management API. It implements
-// http.Handler and is passed to the APIRouter pipeline step.
-type Router struct {
-	mux        *http.ServeMux
-	sessions   sessionManager
-	lures      lureManager
-	phishlets  phishletManager
-	blacklists blacklistManager
-	botguard   botguardManager
-	bus        eventBus
-	domain     string
-	version    string
-	startedAt  time.Time
-	logger     *slog.Logger
-}
-
-// NewRouter wires all dependencies into the ServeMux and returns a ready Router.
-func NewRouter(deps RouterDeps) *Router {
-	r := &Router{
-		mux:        http.NewServeMux(),
-		sessions:   deps.Sessions,
-		lures:      deps.Lures,
-		phishlets:  deps.Phishlets,
-		blacklists: deps.Blacklist,
-		botguard:   deps.Botguard,
-		bus:        deps.Bus,
-		domain:     deps.Domain,
-		version:    deps.Version,
-		startedAt:  time.Now(),
-		logger:     deps.Logger,
-	}
-
-	r.registerRoutes()
-
-	return r
+	once      sync.Once
+	mux       *http.ServeMux
+	startedAt time.Time
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.once.Do(func() {
+		r.mux = http.NewServeMux()
+		r.startedAt = time.Now()
+		r.registerRoutes()
+	})
+
 	r.mux.ServeHTTP(w, req)
 }
 
@@ -129,7 +104,6 @@ func (r *Router) registerRoutes() {
 	h("DELETE", sdk.RouteLurePause, r.unpauseLure)
 
 	// Phishlets
-	h("GET", sdk.RoutePhishletRegistry, r.listRegistry)
 	h("GET", sdk.RoutePhishletHosts, r.getPhishletHosts)
 	h("POST", sdk.RoutePhishletEnable, r.enablePhishlet)
 	h("POST", sdk.RoutePhishletDisable, r.disablePhishlet)

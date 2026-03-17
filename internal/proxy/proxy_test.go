@@ -212,7 +212,7 @@ func TestPeekedConn_NilBeforeComplete(t *testing.T) {
 // ---- HandleTelemetryDone ----------------------------------------------------
 
 func TestHandleTelemetryDone_NotDone(t *testing.T) {
-	store := &stubSessionStore{sessions: map[string]*aitm.Session{
+	store := &stubSessionGetter{sessions: map[string]*aitm.Session{
 		"sid1": {ID: "sid1"},
 	}}
 	handler := proxy.HandleTelemetryDone(store)
@@ -233,7 +233,7 @@ func TestHandleTelemetryDone_NotDone(t *testing.T) {
 func TestHandleTelemetryDone_Done(t *testing.T) {
 	sess := &aitm.Session{ID: "sid2", RedirectURL: "https://example.com/done"}
 	sess.Complete()
-	store := &stubSessionStore{sessions: map[string]*aitm.Session{"sid2": sess}}
+	store := &stubSessionGetter{sessions: map[string]*aitm.Session{"sid2": sess}}
 	handler := proxy.HandleTelemetryDone(store)
 
 	req := httptest.NewRequest(http.MethodGet, "/t/sid2/done", nil)
@@ -289,11 +289,11 @@ func (b *testEventBus) Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Even
 	}
 }
 
-type stubSessionStore struct {
+type stubSessionGetter struct {
 	sessions map[string]*aitm.Session
 }
 
-func (s *stubSessionStore) GetSession(id string) (*aitm.Session, error) {
+func (s *stubSessionGetter) Get(id string) (*aitm.Session, error) {
 	sess, ok := s.sessions[id]
 	if !ok {
 		return nil, io.ErrUnexpectedEOF

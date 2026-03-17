@@ -10,7 +10,7 @@ import (
 )
 
 func (r *Router) getPhishlet(w http.ResponseWriter, req *http.Request) {
-	phishlet, err := r.phishlets.Get(req.PathValue("name"))
+	phishlet, err := r.Phishlets.Get(req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet not found")
@@ -27,7 +27,7 @@ func (r *Router) getPhishlet(w http.ResponseWriter, req *http.Request) {
 func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
 
-	phishlets, err := r.phishlets.List()
+	phishlets, err := r.Phishlets.List()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list phishlets")
 		return
@@ -59,7 +59,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	p, err := r.phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
+	p, err := r.Phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
 	if err != nil {
 		switch {
 		case errors.Is(err, aitm.ErrHostnameRequired):
@@ -77,7 +77,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
-	p, err := r.phishlets.Disable(req.PathValue("name"))
+	p, err := r.Phishlets.Disable(req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -92,7 +92,7 @@ func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
-	p, err := r.phishlets.Hide(req.PathValue("name"))
+	p, err := r.Phishlets.Hide(req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -107,7 +107,7 @@ func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
-	p, err := r.phishlets.Unhide(req.PathValue("name"))
+	p, err := r.Phishlets.Unhide(req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -119,17 +119,6 @@ func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, phishletToResponse(p))
-}
-
-// listRegistry stubs the phishlet registry — not implemented until Phase 15.
-func (r *Router) listRegistry(w http.ResponseWriter, req *http.Request) {
-	limit, offset := parsePagination(req)
-	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.PhishletResponse]{
-		Items:  []sdk.PhishletResponse{},
-		Total:  0,
-		Limit:  limit,
-		Offset: offset,
-	})
 }
 
 // getPhishletHosts returns /etc/hosts lines for a phishlet. Stubbed until

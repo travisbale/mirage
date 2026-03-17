@@ -8,13 +8,13 @@ import (
 // BlacklistService manages IP-based access control using an in-memory set.
 // Persistence will be layered on in a later phase.
 type BlacklistService struct {
-	bus       EventBus
+	bus       eventBus
 	mu        sync.Mutex
 	blocked   map[string]struct{}
 	whitelist map[string]time.Time // IP → temporary exemption expiry
 }
 
-func NewBlacklistService(bus EventBus) *BlacklistService {
+func NewBlacklistService(bus eventBus) *BlacklistService {
 	return &BlacklistService{
 		bus:       bus,
 		blocked:   make(map[string]struct{}),

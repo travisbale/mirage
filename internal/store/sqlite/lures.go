@@ -7,10 +7,7 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
-// Compile-time check: Lures satisfies aitm.LureStore.
-var _ aitm.LureStore = (*Lures)(nil)
-
-// Lures implements aitm.LureStore backed by SQLite.
+// Lures implements the lureStore interface defined in the aitm package.
 type Lures struct{ db *DB }
 
 func NewLureStore(db *DB) *Lures { return &Lures{db: db} }

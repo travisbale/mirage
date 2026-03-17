@@ -140,7 +140,7 @@ func TestSubscribeFuncDeliversEvents(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(3)
 
-	ch := events.SubscribeFunc(bus, aitm.EventCredsCaptured, func(e aitm.Event) {
+	ch := aitm.SubscribeFunc(bus, aitm.EventCredsCaptured, func(e aitm.Event) {
 		count.Add(1)
 		wg.Done()
 	})
@@ -166,7 +166,7 @@ func TestSubscribeFuncDeliversEvents(t *testing.T) {
 func TestSubscribeFuncStopsAfterUnsubscribe(t *testing.T) {
 	bus := events.NewBus(8)
 
-	ch := events.SubscribeFunc(bus, aitm.EventDNSRecordSynced, func(e aitm.Event) {})
+	ch := aitm.SubscribeFunc(bus, aitm.EventDNSRecordSynced, func(e aitm.Event) {})
 
 	goroutineDone := make(chan struct{})
 	go func() {

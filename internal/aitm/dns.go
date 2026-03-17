@@ -52,10 +52,10 @@ type DNSService struct {
 	mu        sync.RWMutex
 	providers map[string]DNSProvider // key: provider alias
 	zones     map[string]ZoneConfig  // key: zone (base domain)
-	bus       EventBus
+	bus       eventBus
 }
 
-func NewDNSService(providers map[string]DNSProvider, zones map[string]ZoneConfig, bus EventBus) *DNSService {
+func NewDNSService(providers map[string]DNSProvider, zones map[string]ZoneConfig, bus eventBus) *DNSService {
 	return &DNSService{
 		providers: providers,
 		zones:     zones,
