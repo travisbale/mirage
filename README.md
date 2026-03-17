@@ -1,8 +1,12 @@
-# Mirage
-
-[![CI](https://github.com/travisbale/mirage/actions/workflows/ci.yml/badge.svg)](https://github.com/travisbale/mirage/actions/workflows/ci.yml)
-[![Go 1.26](https://img.shields.io/badge/go-1.26-blue?logo=go)](https://golang.org/doc/go1.26)
-[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)
+<p align="center">
+  <img src="logo.png" alt="Mirage" width="150" />
+  <h1 align="center">Mirage</h1>
+  <p align="center">
+    <a href="https://github.com/travisbale/mirage/actions/workflows/ci.yml"><img src="https://github.com/travisbale/mirage/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+    <a href="https://golang.org/doc/go1.26"><img src="https://img.shields.io/badge/go-1.26-blue?logo=go" alt="Go 1.26" /></a>
+    <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/license-GPLv3-green.svg" alt="License: GPL v3" /></a>
+  </p>
+</p>
 
 Mirage is an Adversary-in-the-Middle (AiTM) phishing framework for authorized red team engagements. It acts as a reverse proxy between the victim and a legitimate target, capturing live session cookies post-MFA to bypass two-factor authentication.
 
