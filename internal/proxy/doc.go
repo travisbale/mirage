@@ -35,7 +35,7 @@ and the handler is responsible for writing a complete response to
  4. BlacklistChecker  — spoofs blocked IPs
  5. APIRouter         — routes management-hostname requests to the REST API handler
  6. PhishletRouter    — matches hostname against active phishlets; sets ctx.Phishlet,
-    ctx.Deployment, ctx.Lure; spoofs unrecognised hostnames
+    ctx.Lure; spoofs unrecognised hostnames
  7. LureValidator     — spoofs paused lures or requests from filtered user-agents
  8. SessionResolver   — loads or creates the session from the tracking cookie;
     sets ctx.Session, ctx.IsNewSession

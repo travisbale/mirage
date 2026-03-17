@@ -7,17 +7,18 @@ dependencies prevents import cycles.
 
 # Phishlet types
 
-There are three distinct phishlet-related types that are easy to confuse:
+[Phishlet] is the unified type representing a phishlet. It combines two
+groups of fields that have different lifecycles:
 
-  - [PhishletDef] is the compiled, in-memory representation of a phishlet
-    YAML file. All regex fields are pre-compiled and template parameters
-    have been substituted. It is rebuilt from disk on every reload and is
-    never persisted.
+  - Compiled rules (ProxyHosts, SubFilters, AuthTokens, etc.) are populated
+    by the phishlet loader from the YAML file. They are never persisted.
 
-  - [PhishletDeployment] is the operator's runtime state for a phishlet:
-    the hostname it answers on, whether it is enabled/hidden, and which DNS
-    provider manages its records. This is persisted to the database and
-    survives restarts.
+  - Operator config (Hostname, BaseDomain, Enabled, Hidden, etc.) is
+    persisted to the database and survives restarts.
+
+Either group may be zero-valued. A freshly loaded YAML has no operator
+config; a record loaded from the database has no compiled rules. The daemon
+merges both at startup and on every YAML reload.
 
 # Lures
 
@@ -38,7 +39,7 @@ the [EventBus]:
     [Session.CompletedAt] is set and the post-capture redirect fires
 
 The proxy pipeline calls [SessionService.IsComplete] after every response
-to check whether all non-always [TokenRule] entries in the [PhishletDef]
+to check whether all non-always [TokenRule] entries in the [Phishlet]
 have been satisfied. When they have, [SessionService.Complete] marks the
 session done and publishes [EventSessionCompleted].
 

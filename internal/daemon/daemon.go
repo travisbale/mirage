@@ -136,9 +136,9 @@ func (ini *initializer) initStore() error {
 func (ini *initializer) initPhishlets() error {
 	ini.phishletStore = sqlite.NewPhishletStore(ini.db)
 	ini.lureStore = sqlite.NewLureStore(ini.db)
-	ini.resolver = aitm.NewPhishletResolver(ini.phishletStore, ini.lureStore)
+	ini.resolver = aitm.NewPhishletResolver(ini.lureStore)
 
-	ini.loadPhishletDefs(ini.cfg.PhishletsDir, ini.resolver)
+	ini.loadPhishlets(ini.cfg.PhishletsDir, ini.resolver)
 
 	zones, err := ini.extractZones(ini.cfg.ExternalIPv4)
 	if err != nil {
@@ -153,16 +153,16 @@ func (ini *initializer) initPhishlets() error {
 // needed by DNSService. This is separate from LoadActiveFromDB so DNS can be
 // initialised before PhishletService is fully wired.
 func (ini *initializer) extractZones(externalIP string) (map[string]aitm.ZoneConfig, error) {
-	deployments, err := ini.phishletStore.ListPhishletDeployments()
+	phishlets, err := ini.phishletStore.ListPhishlets()
 	if err != nil {
-		return nil, fmt.Errorf("listing phishlet deployments: %w", err)
+		return nil, fmt.Errorf("listing phishlets: %w", err)
 	}
 	zones := make(map[string]aitm.ZoneConfig)
-	for _, deployment := range deployments {
-		if deployment.Enabled && deployment.BaseDomain != "" && deployment.DNSProvider != "" {
-			zones[deployment.BaseDomain] = aitm.ZoneConfig{
-				Zone:         deployment.BaseDomain,
-				ProviderName: deployment.DNSProvider,
+	for _, phishlet := range phishlets {
+		if phishlet.Enabled && phishlet.BaseDomain != "" && phishlet.DNSProvider != "" {
+			zones[phishlet.BaseDomain] = aitm.ZoneConfig{
+				Zone:         phishlet.BaseDomain,
+				ProviderName: phishlet.DNSProvider,
 				ExternalIP:   externalIP,
 			}
 		}
@@ -235,7 +235,7 @@ func (ini *initializer) initServices() error {
 	ini.spoofProxy = proxy.NewSpoofProxy("")
 	ini.wsHub = proxy.NewWSHub(ini.bus, ini.logger)
 
-	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService)
+	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.resolver)
 	if err := phishletSvc.LoadActiveFromDB(); err != nil {
 		return fmt.Errorf("loading active phishlets: %w", err)
 	}
@@ -313,21 +313,21 @@ func (ini *initializer) initWatcher() {
 		return
 	}
 	ini.phishletReloadSub = events.SubscribeFunc(ini.bus, aitm.EventPhishletReloaded, func(ev aitm.Event) {
-		if def, ok := ev.Payload.(*aitm.PhishletDef); ok {
-			ini.resolver.RegisterDef(def)
+		if p, ok := ev.Payload.(*aitm.Phishlet); ok {
+			ini.resolver.Register(p)
 		}
 	})
 	ini.watcher.Start()
 }
 
 func (ini *initializer) countActive() int {
-	deployments, err := ini.Daemon.phishletSvc.ListDeployments()
+	phishlets, err := ini.Daemon.phishletSvc.List()
 	if err != nil {
 		return 0
 	}
 	n := 0
-	for _, deployment := range deployments {
-		if deployment.Enabled {
+	for _, p := range phishlets {
+		if p.Enabled {
 			n++
 		}
 	}
@@ -343,7 +343,7 @@ func (d *Daemon) SetUpstreamTransport(rt http.RoundTripper) {
 
 // ---- helpers ----------------------------------------------------------------
 
-func (d *Daemon) loadPhishletDefs(dir string, resolver *aitm.PhishletResolver) {
+func (d *Daemon) loadPhishlets(dir string, resolver *aitm.PhishletResolver) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		d.logger.Warn("could not read phishlets directory", "dir", dir, "error", err)
@@ -368,7 +368,7 @@ func (d *Daemon) loadPhishletDefs(dir string, resolver *aitm.PhishletResolver) {
 			continue
 		}
 
-		resolver.RegisterDef(def)
+		resolver.Register(def)
 		d.logger.Info("loaded phishlet", "name", def.Name)
 	}
 }

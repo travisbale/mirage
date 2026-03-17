@@ -40,12 +40,12 @@ func (s *stubLures) Unpause(_ string) error                { return nil }
 
 type stubPhishlets struct{}
 
-func (s *stubPhishlets) Enable(_, _, _, _ string) (*aitm.PhishletDeployment, error) { return nil, nil }
-func (s *stubPhishlets) Disable(_ string) (*aitm.PhishletDeployment, error)         { return nil, nil }
-func (s *stubPhishlets) Hide(_ string) (*aitm.PhishletDeployment, error)            { return nil, nil }
-func (s *stubPhishlets) Unhide(_ string) (*aitm.PhishletDeployment, error)          { return nil, nil }
-func (s *stubPhishlets) GetDeployment(_ string) (*aitm.PhishletDeployment, error)   { return nil, nil }
-func (s *stubPhishlets) ListDeployments() ([]*aitm.PhishletDeployment, error)       { return nil, nil }
+func (s *stubPhishlets) Enable(_, _, _, _ string) (*aitm.Phishlet, error) { return nil, nil }
+func (s *stubPhishlets) Disable(_ string) (*aitm.Phishlet, error)         { return nil, nil }
+func (s *stubPhishlets) Hide(_ string) (*aitm.Phishlet, error)            { return nil, nil }
+func (s *stubPhishlets) Unhide(_ string) (*aitm.Phishlet, error)          { return nil, nil }
+func (s *stubPhishlets) Get(_ string) (*aitm.Phishlet, error)             { return nil, nil }
+func (s *stubPhishlets) List() ([]*aitm.Phishlet, error)                  { return nil, nil }
 
 type stubBlacklist struct{}
 

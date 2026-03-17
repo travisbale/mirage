@@ -28,12 +28,12 @@ type lureManager interface {
 }
 
 type phishletManager interface {
-	Enable(name, hostname, baseDomain, dnsProvider string) (*aitm.PhishletDeployment, error)
-	Disable(name string) (*aitm.PhishletDeployment, error)
-	Hide(name string) (*aitm.PhishletDeployment, error)
-	Unhide(name string) (*aitm.PhishletDeployment, error)
-	GetDeployment(name string) (*aitm.PhishletDeployment, error)
-	ListDeployments() ([]*aitm.PhishletDeployment, error)
+	Enable(name, hostname, baseDomain, dnsProvider string) (*aitm.Phishlet, error)
+	Disable(name string) (*aitm.Phishlet, error)
+	Hide(name string) (*aitm.Phishlet, error)
+	Unhide(name string) (*aitm.Phishlet, error)
+	Get(name string) (*aitm.Phishlet, error)
+	List() ([]*aitm.Phishlet, error)
 }
 
 type blacklistManager interface {

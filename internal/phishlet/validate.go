@@ -51,7 +51,7 @@ func (p ParseErrors) Is(target error) bool {
 // whether an error came from phishlet parsing.
 var ErrParseError = ParseErrors{}
 
-// CollisionError describes a hostname collision detected by PhishletDef.Validate.
+// CollisionError describes a hostname collision detected by Validate.
 type CollisionError struct {
 	// NewHostname is the hostname declared by the phishlet being validated.
 	NewHostname string
@@ -64,31 +64,30 @@ func (e CollisionError) Error() string {
 		e.NewHostname, e.ConflictingPhishlet)
 }
 
-// Validate checks a compiled PhishletDef against the list of currently active
-// phishlet configs for hostname collisions. It returns all conflicts found,
-// not just the first.
+// Validate checks a compiled Phishlet against the list of currently active
+// phishlets for hostname collisions. It returns all conflicts found, not just the first.
 //
 // A collision occurs when a proxy_host in the new phishlet would resolve to a
 // hostname that is already owned by another enabled phishlet.
 //
-// baseDomain is the global domain (from config) used when a PhishletDeployment
-// does not override it. It is needed to construct the full hostname for comparison.
-func Validate(def *aitm.PhishletDef, active []*aitm.PhishletDeployment, baseDomain string) []CollisionError {
+// baseDomain is the global domain (from config) used to construct full hostnames
+// for comparison.
+func Validate(p *aitm.Phishlet, active []*aitm.Phishlet, baseDomain string) []CollisionError {
 	// Build a map from full hostname → phishlet name for all active, enabled phishlets.
 	owned := make(map[string]string)
-	for _, deployment := range active {
-		if !deployment.Enabled {
+	for _, a := range active {
+		if !a.Enabled {
 			continue
 		}
-		if deployment.Hostname != "" {
-			owned[deployment.Hostname] = deployment.Name
+		if a.Hostname != "" {
+			owned[a.Hostname] = a.Name
 		}
 	}
 
 	var collisions []CollisionError
-	for _, ph := range def.ProxyHosts {
+	for _, ph := range p.ProxyHosts {
 		hostname := ph.PhishSubdomain + "." + baseDomain
-		if owner, conflict := owned[hostname]; conflict && owner != def.Name {
+		if owner, conflict := owned[hostname]; conflict && owner != p.Name {
 			collisions = append(collisions, CollisionError{
 				NewHostname:         hostname,
 				ConflictingPhishlet: owner,

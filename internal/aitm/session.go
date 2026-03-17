@@ -62,7 +62,7 @@ func (s *Session) HasCredentials() bool { return s.Username != "" }
 // HasRequiredTokens returns true when all non-always auth tokens defined by
 // def have been captured in this session. Used by TokenExtractor to determine
 // when to fire EventSessionCompleted.
-func (s *Session) HasRequiredTokens(def *PhishletDef) bool {
+func (s *Session) HasRequiredTokens(def *Phishlet) bool {
 	if def == nil {
 		return false
 	}
@@ -223,7 +223,7 @@ func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
 }
 
 // IsComplete satisfies the response.SessionCompleter interface.
-func (s *SessionService) IsComplete(sess *Session, def *PhishletDef) bool {
+func (s *SessionService) IsComplete(sess *Session, def *Phishlet) bool {
 	return sess.HasRequiredTokens(def)
 }
 

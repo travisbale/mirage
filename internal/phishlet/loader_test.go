@@ -20,15 +20,15 @@ func TestLoader(t *testing.T) {
 		file        string
 		wantErr     bool
 		errContains string // substring that must appear in the error string
-		wantName    string // if non-empty, assert PhishletDef.Name == wantName
-		assertFn    func(t *testing.T, def *aitm.PhishletDef)
+		wantName    string // if non-empty, assert Phishlet.Name == wantName
+		assertFn    func(t *testing.T, def *aitm.Phishlet)
 	}{
 		{
 			name:     "valid_minimal",
 			file:     "testdata/valid_minimal.yaml",
 			wantErr:  false,
 			wantName: "test-minimal",
-			assertFn: func(t *testing.T, def *aitm.PhishletDef) {
+			assertFn: func(t *testing.T, def *aitm.Phishlet) {
 				if len(def.ProxyHosts) != 1 {
 					t.Errorf("expected 1 proxy host, got %d", len(def.ProxyHosts))
 				}
@@ -42,7 +42,7 @@ func TestLoader(t *testing.T) {
 			file:     "testdata/valid_full.yaml",
 			wantErr:  false,
 			wantName: "test-full",
-			assertFn: func(t *testing.T, def *aitm.PhishletDef) {
+			assertFn: func(t *testing.T, def *aitm.Phishlet) {
 				if len(def.ProxyHosts) != 2 {
 					t.Errorf("expected 2 proxy hosts, got %d", len(def.ProxyHosts))
 				}
@@ -121,7 +121,7 @@ func TestLoader(t *testing.T) {
 	}
 }
 
-// TestValidate_HostnameCollision verifies that PhishletDef.Validate detects
+// TestValidate_HostnameCollision verifies that Phishlet.Validate detects
 // a phish_sub collision with a currently-active phishlet.
 func TestValidate_HostnameCollision(t *testing.T) {
 	var loader phishlet.Loader
@@ -132,7 +132,7 @@ func TestValidate_HostnameCollision(t *testing.T) {
 	}
 
 	// Simulate an existing active phishlet that owns "login.attacker.com".
-	active := []*aitm.PhishletDeployment{
+	active := []*aitm.Phishlet{
 		{
 			Name:       "existing",
 			Hostname:   "login.attacker.com",
@@ -162,7 +162,7 @@ func TestValidate_NoCollisionWithSelf(t *testing.T) {
 	}
 
 	// Simulate the same phishlet already active (updating itself).
-	active := []*aitm.PhishletDeployment{
+	active := []*aitm.Phishlet{
 		{
 			Name:       "collider", // same name as the phishlet being validated
 			Hostname:   "login.attacker.com",
@@ -227,9 +227,9 @@ func TestWatcher(t *testing.T) {
 
 	select {
 	case e := <-ch:
-		def, ok := e.Payload.(*aitm.PhishletDef)
+		def, ok := e.Payload.(*aitm.Phishlet)
 		if !ok {
-			t.Fatalf("payload is %T, want *aitm.PhishletDef", e.Payload)
+			t.Fatalf("payload is %T, want *aitm.Phishlet", e.Payload)
 		}
 		if def.Name != "watch-reloaded" {
 			t.Errorf("reloaded phishlet name: got %q, want %q", def.Name, "watch-reloaded")

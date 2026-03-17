@@ -12,20 +12,20 @@ import (
 func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
 
-	deployments, err := r.phishlets.ListDeployments()
+	phishlets, err := r.phishlets.List()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list phishlets")
 		return
 	}
 
-	total := len(deployments)
+	total := len(phishlets)
 	start := min(offset, total)
 	end := min(start+limit, total)
-	page := deployments[start:end]
+	page := phishlets[start:end]
 
 	items := make([]sdk.PhishletResponse, len(page))
-	for i, deployment := range page {
-		items[i] = phishletDeploymentToResponse(deployment)
+	for i, p := range page {
+		items[i] = phishletToResponse(p)
 	}
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.PhishletResponse]{
 		Items:  items,
@@ -44,21 +44,21 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	deployment, err := r.phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
+	p, err := r.phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
 	if err != nil {
-		if err.Error() == "hostname: required" {
-			writeError(w, http.StatusUnprocessableEntity, err.Error())
+		if errors.Is(err, aitm.ErrHostnameRequired) {
+			writeError(w, http.StatusUnprocessableEntity, "hostname is required")
 		} else {
 			writeError(w, http.StatusInternalServerError, "failed to enable phishlet")
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
+	writeJSON(w, http.StatusOK, phishletToResponse(p))
 }
 
 func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	deployment, err := r.phishlets.Disable(name)
+	p, err := r.phishlets.Disable(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -67,12 +67,12 @@ func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
+	writeJSON(w, http.StatusOK, phishletToResponse(p))
 }
 
 func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	deployment, err := r.phishlets.Hide(name)
+	p, err := r.phishlets.Hide(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -81,12 +81,12 @@ func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
+	writeJSON(w, http.StatusOK, phishletToResponse(p))
 }
 
 func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
-	deployment, err := r.phishlets.Unhide(name)
+	p, err := r.phishlets.Unhide(name)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")
@@ -95,7 +95,7 @@ func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, phishletDeploymentToResponse(deployment))
+	writeJSON(w, http.StatusOK, phishletToResponse(p))
 }
 
 // listRegistry stubs the phishlet registry — not implemented until Phase 15.
@@ -116,15 +116,15 @@ func (r *Router) getPhishletHosts(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func phishletDeploymentToResponse(deployment *aitm.PhishletDeployment) sdk.PhishletResponse {
+func phishletToResponse(p *aitm.Phishlet) sdk.PhishletResponse {
 	return sdk.PhishletResponse{
-		Name:        deployment.Name,
-		BaseDomain:  deployment.BaseDomain,
-		Hostname:    deployment.Hostname,
-		DNSProvider: deployment.DNSProvider,
-		UnauthURL:   deployment.UnauthURL,
-		SpoofURL:    deployment.SpoofURL,
-		Enabled:     deployment.Enabled,
-		Hidden:      deployment.Hidden,
+		Name:        p.Name,
+		BaseDomain:  p.BaseDomain,
+		Hostname:    p.Hostname,
+		DNSProvider: p.DNSProvider,
+		UnauthURL:   p.UnauthURL,
+		SpoofURL:    p.SpoofURL,
+		Enabled:     p.Enabled,
+		Hidden:      p.Hidden,
 	}
 }

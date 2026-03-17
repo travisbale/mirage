@@ -105,7 +105,7 @@ func (d *Daemon) healthLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			configs, _ := d.phishletSvc.ListDeployments()
+			configs, _ := d.phishletSvc.List()
 			openSessions, _ := d.sessionSvc.Count(aitm.SessionFilter{IncompleteOnly: true})
 			activePhishlets := 0
 			for _, pcfg := range configs {

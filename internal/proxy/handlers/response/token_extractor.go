@@ -19,7 +19,7 @@ type eventPublisher interface {
 }
 
 type SessionCompleter interface {
-	IsComplete(sess *aitm.Session, def *aitm.PhishletDef) bool
+	IsComplete(sess *aitm.Session, def *aitm.Phishlet) bool
 }
 
 type TemporaryWhitelister interface {

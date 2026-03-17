@@ -180,12 +180,12 @@ func TestBlacklistChecker_Blocked(t *testing.T) {
 func TestURLRewriter_RewritesHostname(t *testing.T) {
 	h := &request.URLRewriter{}
 	ctx := &aitm.ProxyContext{
-		Phishlet: &aitm.PhishletDef{
+		Phishlet: &aitm.Phishlet{
 			ProxyHosts: []aitm.ProxyHost{
 				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
 			},
+			BaseDomain: "phish.example.com",
 		},
-		Deployment: &aitm.PhishletDeployment{BaseDomain: "phish.example.com"},
 	}
 	req := newReq(http.MethodGet, "https://login.phish.example.com/oauth2", nil)
 	req.Host = "login.phish.example.com"
@@ -404,7 +404,7 @@ func TestCredentialExtractor_ExtractsUsername(t *testing.T) {
 	}
 	ctx := &aitm.ProxyContext{
 		Session: &aitm.Session{ID: "sess-1"},
-		Phishlet: &aitm.PhishletDef{
+		Phishlet: &aitm.Phishlet{
 			// Empty Login spec → matches any POST to any path.
 			Credentials: aitm.CredentialRules{
 				Username: aitm.CredentialRule{
@@ -440,7 +440,7 @@ func TestCredentialExtractor_NonPost_Skips(t *testing.T) {
 	}
 	ctx := &aitm.ProxyContext{
 		Session:  &aitm.Session{ID: "sess-1"},
-		Phishlet: &aitm.PhishletDef{},
+		Phishlet: &aitm.Phishlet{},
 	}
 	req := newReq(http.MethodGet, "https://login.example.com/", nil)
 	if err := h.Handle(ctx, req); err != nil {
@@ -473,7 +473,7 @@ func TestCredentialExtractor_NoRuleMatch_NoUpdate(t *testing.T) {
 	}
 	ctx := &aitm.ProxyContext{
 		Session: &aitm.Session{ID: "sess-1"},
-		Phishlet: &aitm.PhishletDef{
+		Phishlet: &aitm.Phishlet{
 			Credentials: aitm.CredentialRules{
 				Username: aitm.CredentialRule{
 					Key:  regexp.MustCompile(`^user$`),
