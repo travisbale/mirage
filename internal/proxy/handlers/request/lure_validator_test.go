@@ -1,6 +1,7 @@
 package request_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -37,7 +38,7 @@ func TestLureValidator_PausedLure_Spoofs(t *testing.T) {
 		ResponseWriter: httptest.NewRecorder(),
 	}
 	req := newReq(http.MethodGet, "https://example.com/", nil)
-	if err := h.Handle(ctx, req); err != proxy.ErrShortCircuit {
+	if err := h.Handle(ctx, req); !errors.Is(err, proxy.ErrShortCircuit) {
 		t.Fatalf("expected ErrShortCircuit, got %v", err)
 	}
 	if !spoofer.called {
@@ -64,7 +65,7 @@ func TestLureValidator_UAFilterNoMatch_Spoofs(t *testing.T) {
 	}
 	req := newReq(http.MethodGet, "https://example.com/", nil)
 	req.Header.Set("User-Agent", "Googlebot/2.1")
-	if err := h.Handle(ctx, req); err != proxy.ErrShortCircuit {
+	if err := h.Handle(ctx, req); !errors.Is(err, proxy.ErrShortCircuit) {
 		t.Fatalf("expected ErrShortCircuit, got %v", err)
 	}
 	if !spoofer.called {

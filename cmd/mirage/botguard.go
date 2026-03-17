@@ -37,7 +37,8 @@ func newBotguardListCmd() *cobra.Command {
 				return printJSON(resp)
 			}
 			rows := make([][]string, len(resp.Items))
-			for i, s := range resp.Items {
+			for i := range resp.Items {
+				s := &resp.Items[i]
 				rows[i] = []string{s.JA4Hash, s.Description, fmtTime(s.AddedAt)}
 			}
 			printTable([]string{"JA4 HASH", "DESCRIPTION", "ADDED"}, rows)

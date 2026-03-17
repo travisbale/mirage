@@ -126,7 +126,9 @@ func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 		r.Bus.Unsubscribe(aitm.EventSessionCompleted, chCompleted)
 	}()
 
-	sse.WriteEvent("connected", []byte(`{"status":"connected"}`))
+	if err := sse.WriteEvent("connected", []byte(`{"status":"connected"}`)); err != nil {
+		return
+	}
 
 	ctx := req.Context()
 	for {

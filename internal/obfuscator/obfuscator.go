@@ -114,9 +114,9 @@ func (ob *NodeObfuscator) Shutdown(ctx context.Context) error {
 			if !sp.dead {
 				sentinel, _ := json.Marshal(nodeRequest{ID: "__shutdown__", JS: ""})
 				sentinel = append(sentinel, '\n')
-				sp.stdin.Write(sentinel) // best-effort
-				sp.stdin.Close()
-				sp.cmd.Wait()
+				_, _ = sp.stdin.Write(sentinel) // best-effort shutdown signal
+				_ = sp.stdin.Close()
+				_ = sp.cmd.Wait()
 				ob.logger.Debug("sidecar shut down", "pid", sp.cmd.Process.Pid)
 			}
 		default:

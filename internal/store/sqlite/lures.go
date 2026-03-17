@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -35,7 +36,7 @@ func (s *Lures) GetLure(id string) (*aitm.Lure, error) {
 		ua_filter, paused_until, og_title, og_desc, og_image, og_url,
 		redirector, params_key FROM lures WHERE id = ?`, id)
 	l, err := scanLure(row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, aitm.ErrNotFound
 	}
 	return l, err

@@ -1,0 +1,63 @@
+version: "2"
+
+linters:
+  # Start from the standard default set (errcheck, govet, staticcheck,
+  # unused, ineffassign, gosimple) and add targeted extras.
+  default: standard
+  enable:
+    - errorlint  # flag err == ErrFoo comparisons; require errors.Is/As
+    - gocritic   # diagnostic and performance checks (see settings below)
+    - misspell   # catch typos in comments and strings
+    - revive     # golint successor — naming, blank imports, etc.
+    - whitespace # flag unnecessary blank lines at start/end of blocks
+
+  settings:
+    errcheck:
+      exclude-functions:
+        # Errors from writing to an http.ResponseWriter can't be acted on
+        # after headers have been sent; silencing avoids noise without
+        # hiding real bugs.
+        - (net/http.ResponseWriter).Write
+        - (*encoding/json.Encoder).Encode
+        # fmt.Fprint* to non-critical writers (tabwriter, stderr output)
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        # Close on I/O types — universally unchecked in Go; the operation
+        # already succeeded and there is nothing useful to do on close failure.
+        - (io.ReadCloser).Close
+        - (io.WriteCloser).Close
+        - (net.Listener).Close
+        - (net.Conn).Close
+
+    gocritic:
+      # diagnostic: catches real correctness issues (exitAfterDefer, etc.)
+      # performance: catches value-copy issues in range loops
+      # Intentionally omitting "style" — it flags octalLiteral, unnamedResult,
+      # and other opinionated checks that generate noise without catching bugs.
+      enabled-tags:
+        - diagnostic
+        - performance
+      disabled-checks:
+        - hugeParam         # passing large structs by value is often intentional
+        - commentedOutCode  # false-positive on magic-number comments like `ttl = 1 // auto`
+        - deferInLoop       # ACME challenge loop defers are bounded (≤2) and intentionally scoped to function exit
+
+    revive:
+      rules:
+        # Don't require doc comments on every exported symbol — useful for
+        # libraries, but noisy in application code with self-documenting names.
+        - name: exported
+          disabled: true
+
+  exclusions:
+    rules:
+      # defer x.Close() / x.Flush() errors can't be acted on and are
+      # universally left unchecked in Go — suppress the noise.
+      - source: "defer .*\\.Close\\(\\)"
+        linters: [errcheck]
+      - source: "defer .*\\.Flush\\(\\)"
+        linters: [errcheck]
+      # Test files get more latitude: unchecked errors in table-driven setup, unexported test helpers, etc.
+      - path: "_test\\.go"
+        linters: [errcheck, gocritic]

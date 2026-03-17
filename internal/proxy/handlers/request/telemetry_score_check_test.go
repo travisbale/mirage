@@ -1,6 +1,7 @@
 package request_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -49,7 +50,7 @@ func TestTelemetryScoreCheck_AboveThreshold_Spoofs(t *testing.T) {
 	req := newReq(http.MethodGet, "https://example.com/", nil)
 
 	err := h.Handle(ctx, req)
-	if err != proxy.ErrShortCircuit {
+	if !errors.Is(err, proxy.ErrShortCircuit) {
 		t.Fatalf("expected ErrShortCircuit, got %v", err)
 	}
 	if !spoofer.called {

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -97,7 +98,7 @@ func (s *WildcardACMECertSource) issue(ctx context.Context, baseDomain string, p
 
 	acct := &acme.Account{Contact: []string{"mailto:" + s.email}}
 	if _, err := client.Register(ctx, acct, acme.AcceptTOS); err != nil {
-		if err != acme.ErrAccountAlreadyExists {
+		if !errors.Is(err, acme.ErrAccountAlreadyExists) {
 			return nil, fmt.Errorf("acme register: %w", err)
 		}
 	}
@@ -132,7 +133,12 @@ func (s *WildcardACMECertSource) issue(ctx context.Context, baseDomain string, p
 		if err := provider.Present(auth.Identifier.Value, challenge.Token, keyAuth); err != nil {
 			return nil, fmt.Errorf("acme: dns present: %w", err)
 		}
-		defer provider.CleanUp(auth.Identifier.Value, challenge.Token, keyAuth)
+		domain := auth.Identifier.Value
+		defer func() {
+			if err := provider.CleanUp(domain, challenge.Token, keyAuth); err != nil {
+				s.logger.Warn("acme: dns cleanup failed", "domain", domain, "error", err)
+			}
+		}()
 
 		time.Sleep(propDelay)
 

@@ -39,7 +39,8 @@ func newPhishletsListCmd() *cobra.Command {
 				return printJSON(resp)
 			}
 			rows := make([][]string, len(resp.Items))
-			for i, p := range resp.Items {
+			for i := range resp.Items {
+				p := &resp.Items[i]
 				rows[i] = []string{
 					p.Name,
 					p.Hostname,

@@ -62,14 +62,14 @@ func newSessionsListCmd() *cobra.Command {
 				return printJSON(resp)
 			}
 			rows := make([][]string, len(resp.Items))
-			for i, s := range resp.Items {
+			for i := range resp.Items {
 				rows[i] = []string{
-					truncate(s.ID, 8),
-					s.Phishlet,
-					s.RemoteAddr,
-					s.Username,
-					fmtTime(s.StartedAt),
-					fmtBool(s.CompletedAt != nil),
+					truncate(resp.Items[i].ID, 8),
+					resp.Items[i].Phishlet,
+					resp.Items[i].RemoteAddr,
+					resp.Items[i].Username,
+					fmtTime(resp.Items[i].StartedAt),
+					fmtBool(resp.Items[i].CompletedAt != nil),
 				}
 			}
 			printTable([]string{"ID", "PHISHLET", "REMOTE ADDR", "USERNAME", "STARTED", "DONE"}, rows)

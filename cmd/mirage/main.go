@@ -13,6 +13,12 @@ import (
 var Version = "dev"
 
 func main() {
+	if err := run(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	root := newRootCmd()
 
 	// When invoked with no subcommand, drop into the REPL if a server is configured.
@@ -23,9 +29,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	if err := root.ExecuteContext(ctx); err != nil {
-		os.Exit(1)
-	}
+	return root.ExecuteContext(ctx)
 }
 
 func newRootCmd() *cobra.Command {

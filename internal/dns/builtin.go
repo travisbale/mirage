@@ -91,7 +91,7 @@ func (p *BuiltInDNSProvider) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 	reply.Authoritative = true
 
 	if len(r.Question) == 0 {
-		w.WriteMsg(reply)
+		_ = w.WriteMsg(reply) // UDP write; packet loss is expected and unrecoverable
 		return
 	}
 

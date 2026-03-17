@@ -60,7 +60,7 @@ func TestPhishletRouter_UnknownHost_Spoofs(t *testing.T) {
 	req.Host = "unknown.example.com"
 
 	err := h.Handle(ctx, req)
-	if err != proxy.ErrShortCircuit {
+	if !errors.Is(err, proxy.ErrShortCircuit) {
 		t.Fatalf("expected ErrShortCircuit, got %v", err)
 	}
 	if !spoofer.called {

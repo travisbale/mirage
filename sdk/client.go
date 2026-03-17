@@ -145,7 +145,7 @@ func (c *Client) StreamSessions() (<-chan SessionEvent, func(), error) {
 	}
 
 	ch := make(chan SessionEvent, 16)
-	cancel := func() { resp.Body.Close() }
+	cancel := func() { _ = resp.Body.Close() }
 
 	go func() {
 		defer close(ch)

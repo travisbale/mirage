@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -60,10 +61,10 @@ func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
 		}
 
 		line, err := rl.Readline()
-		if err == readline.ErrInterrupt {
+		if errors.Is(err, readline.ErrInterrupt) {
 			continue
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 
@@ -83,7 +84,6 @@ func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
 					continue
 				}
 				serverAlias = args[2]
-				degraded = false
 				rl.SetPrompt(prompt(serverAlias, false))
 				fmt.Printf("Switched to server %q\n", serverAlias)
 				continue

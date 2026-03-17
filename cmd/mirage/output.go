@@ -17,7 +17,7 @@ func printTable(headers []string, rows [][]string) {
 	for _, row := range rows {
 		fmt.Fprintln(w, strings.Join(row, "\t"))
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 func printJSON(v any) error {

@@ -155,8 +155,7 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var body sdk.GenerateURLRequest
-	// Body is optional; ignore decode errors.
-	json.NewDecoder(req.Body).Decode(&body)
+	_ = json.NewDecoder(req.Body).Decode(&body) // body is optional
 
 	url, err := lure.GenerateURL(r.Domain, body.Params)
 	if err != nil {

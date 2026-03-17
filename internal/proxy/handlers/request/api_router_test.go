@@ -1,6 +1,7 @@
 package request_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,7 +22,7 @@ func TestAPIRouter_MatchingHost_DelegatesToHandler(t *testing.T) {
 	req.Host = "api-secret.example.com"
 
 	err := h.Handle(ctx, req)
-	if err != proxy.ErrShortCircuit {
+	if !errors.Is(err, proxy.ErrShortCircuit) {
 		t.Fatalf("expected ErrShortCircuit, got %v", err)
 	}
 	if !handler.called {
@@ -40,7 +41,7 @@ func TestAPIRouter_CaseInsensitiveMatch(t *testing.T) {
 	req.Host = "api-secret.example.com"
 
 	err := h.Handle(ctx, req)
-	if err != proxy.ErrShortCircuit {
+	if !errors.Is(err, proxy.ErrShortCircuit) {
 		t.Fatalf("expected ErrShortCircuit for case-insensitive match, got %v", err)
 	}
 	if !handler.called {

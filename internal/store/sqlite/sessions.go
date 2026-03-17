@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
 		http_tokens, puppet_id, started_at, completed_at
 		FROM sessions WHERE id = ?`, id)
 	sess, err := scanSession(row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, aitm.ErrNotFound
 	}
 	return sess, err

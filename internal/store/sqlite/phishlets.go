@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 
 	"github.com/travisbale/mirage/internal/aitm"
 )
@@ -17,7 +18,7 @@ func (s *Phishlets) GetPhishlet(name string) (*aitm.Phishlet, error) {
 		name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden
 		FROM phishlet_configs WHERE name = ?`, name)
 	p, err := scanPhishlet(row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, aitm.ErrNotFound
 	}
 	return p, err

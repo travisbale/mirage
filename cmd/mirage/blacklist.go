@@ -37,8 +37,8 @@ func newBlacklistListCmd() *cobra.Command {
 				return printJSON(resp)
 			}
 			rows := make([][]string, len(resp.Items))
-			for i, e := range resp.Items {
-				rows[i] = []string{e.Value}
+			for i := range resp.Items {
+				rows[i] = []string{resp.Items[i].Value}
 			}
 			printTable([]string{"ENTRY"}, rows)
 			return nil

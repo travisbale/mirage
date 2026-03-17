@@ -43,20 +43,20 @@ func newLuresListCmd() *cobra.Command {
 				return printJSON(resp)
 			}
 			var items []sdk.LureResponse
-			for _, l := range resp.Items {
-				if phishlet == "" || l.Phishlet == phishlet {
-					items = append(items, l)
+			for i := range resp.Items {
+				if phishlet == "" || resp.Items[i].Phishlet == phishlet {
+					items = append(items, resp.Items[i])
 				}
 			}
 			rows := make([][]string, len(items))
-			for i, l := range items {
+			for i := range items {
 				rows[i] = []string{
-					truncate(l.ID, 8),
-					l.Phishlet,
-					l.Hostname,
-					l.Path,
-					l.RedirectURL,
-					fmtOptTime(l.PausedUntil),
+					truncate(items[i].ID, 8),
+					items[i].Phishlet,
+					items[i].Hostname,
+					items[i].Path,
+					items[i].RedirectURL,
+					fmtOptTime(items[i].PausedUntil),
 				}
 			}
 			printTable([]string{"ID", "PHISHLET", "HOSTNAME", "PATH", "REDIRECT URL", "PAUSED UNTIL"}, rows)

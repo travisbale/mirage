@@ -86,13 +86,12 @@ func extractField(rule aitm.CredentialRule, body []byte, req *http.Request) stri
 		for key, values := range parsed {
 			if rule.Key != nil && rule.Key.MatchString(key) {
 				for _, value := range values {
-					if rule.Search != nil {
-						if matches := rule.Search.FindStringSubmatch(value); len(matches) > 1 {
-							return matches[1]
-						}
+					if rule.Search == nil {
 						return value
 					}
-					return value
+					if matches := rule.Search.FindStringSubmatch(value); len(matches) > 1 {
+						return matches[1]
+					}
 				}
 			}
 		}

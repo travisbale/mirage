@@ -2,6 +2,7 @@ package sqlite_test
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -63,7 +64,7 @@ func TestSessions_RoundTrip(t *testing.T) {
 	if err := s.DeleteSession(session.ID); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
 	}
-	if _, err := s.GetSession(session.ID); err != aitm.ErrNotFound {
+	if _, err := s.GetSession(session.ID); !errors.Is(err, aitm.ErrNotFound) {
 		t.Errorf("after delete: got %v, want ErrNotFound", err)
 	}
 }
@@ -73,13 +74,13 @@ func TestSessions_Errors(t *testing.T) {
 	session := &aitm.Session{ID: "s1", Phishlet: "p", StartedAt: time.Now()}
 	_ = s.CreateSession(session)
 
-	if err := s.CreateSession(session); err != aitm.ErrConflict {
+	if err := s.CreateSession(session); !errors.Is(err, aitm.ErrConflict) {
 		t.Errorf("duplicate create: got %v, want ErrConflict", err)
 	}
-	if _, err := s.GetSession("missing"); err != aitm.ErrNotFound {
+	if _, err := s.GetSession("missing"); !errors.Is(err, aitm.ErrNotFound) {
 		t.Errorf("missing get: got %v, want ErrNotFound", err)
 	}
-	if err := s.DeleteSession("missing"); err != aitm.ErrNotFound {
+	if err := s.DeleteSession("missing"); !errors.Is(err, aitm.ErrNotFound) {
 		t.Errorf("missing delete: got %v, want ErrNotFound", err)
 	}
 }
@@ -116,7 +117,7 @@ func TestSessions_ListFilter(t *testing.T) {
 	}
 
 	_, err := s.ListSessions(aitm.SessionFilter{CompletedOnly: true, IncompleteOnly: true})
-	if err != aitm.ErrInvalidFilter {
+	if !errors.Is(err, aitm.ErrInvalidFilter) {
 		t.Errorf("contradictory filter: got %v, want ErrInvalidFilter", err)
 	}
 }
@@ -156,7 +157,7 @@ func TestSessions_Count(t *testing.T) {
 	}
 
 	_, err = s.CountSessions(aitm.SessionFilter{CompletedOnly: true, IncompleteOnly: true})
-	if err != aitm.ErrInvalidFilter {
+	if !errors.Is(err, aitm.ErrInvalidFilter) {
 		t.Errorf("contradictory filter: got %v, want ErrInvalidFilter", err)
 	}
 }
@@ -198,7 +199,7 @@ func TestLures_RoundTrip(t *testing.T) {
 	if err := s.DeleteLure(l.ID); err != nil {
 		t.Fatalf("DeleteLure: %v", err)
 	}
-	if _, err := s.GetLure(l.ID); err != aitm.ErrNotFound {
+	if _, err := s.GetLure(l.ID); !errors.Is(err, aitm.ErrNotFound) {
 		t.Errorf("after delete: got %v, want ErrNotFound", err)
 	}
 }
@@ -233,7 +234,7 @@ func TestPhishlets_ConfigUpsert(t *testing.T) {
 		t.Error("Enabled should be false after upsert")
 	}
 
-	if _, err := s.GetPhishlet("missing"); err != aitm.ErrNotFound {
+	if _, err := s.GetPhishlet("missing"); !errors.Is(err, aitm.ErrNotFound) {
 		t.Errorf("missing: got %v, want ErrNotFound", err)
 	}
 }
@@ -294,7 +295,7 @@ func TestWithTx_Rollback(t *testing.T) {
 
 	// The session should not exist because the transaction was rolled back.
 	s := sqlite.NewSessionStore(db)
-	if _, err := s.GetSession("tx-sess"); err != aitm.ErrNotFound {
+	if _, err := s.GetSession("tx-sess"); !errors.Is(err, aitm.ErrNotFound) {
 		t.Errorf("rolled-back session should not exist, got %v", err)
 	}
 }

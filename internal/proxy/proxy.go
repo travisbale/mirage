@@ -283,7 +283,7 @@ func (w *bufferedResponseWriter) flush() {
 		ContentLength: int64(len(w.buf)),
 		Close:         !w.keepAlive,
 	}
-	resp.Write(w.conn)
+	_ = resp.Write(w.conn) // raw connection write; error unrecoverable at this point
 }
 
 func (w *bufferedResponseWriter) writeError(code int, msg string) {

@@ -210,7 +210,7 @@ func (ini *initializer) initCerts() error {
 		return err
 	}
 
-	ini.Daemon.certSource = src
+	ini.certSource = src
 
 	return nil
 }
@@ -244,7 +244,7 @@ func (ini *initializer) initServices() error {
 	if err := phishletSvc.LoadActiveFromDB(); err != nil {
 		return fmt.Errorf("loading active phishlets: %w", err)
 	}
-	ini.Daemon.phishletSvc = phishletSvc
+	ini.phishletSvc = phishletSvc
 
 	if err := ini.resolver.LoadLuresFromDB(); err != nil {
 		return fmt.Errorf("loading lures: %w", err)
@@ -288,7 +288,7 @@ func (ini *initializer) initProxy(version string) error {
 	apiHandler := &api.Router{
 		Sessions:  ini.sessionSvc,
 		Lures:     ini.lureSvc,
-		Phishlets: ini.Daemon.phishletSvc,
+		Phishlets: ini.phishletSvc,
 		Blacklist: ini.blacklistSvc,
 		Botguard:  ini.botGuardSvc,
 		Bus:       ini.bus,
@@ -312,7 +312,7 @@ func (ini *initializer) initProxy(version string) error {
 		blacklistSvc:     ini.blacklistSvc,
 		sessionSvc:       ini.sessionSvc,
 		phishletResolver: ini.resolver,
-		phishletSvc:      ini.Daemon.phishletSvc,
+		phishletSvc:      ini.phishletSvc,
 		spoofProxy:       ini.spoofProxy,
 		apiHandler:       apiHandler,
 		apiHostname:      ini.cfg.API.SecretHostname,
@@ -360,7 +360,7 @@ func (ini *initializer) initWatcher() {
 }
 
 func (ini *initializer) countActive() int {
-	phishlets, err := ini.Daemon.phishletSvc.List()
+	phishlets, err := ini.phishletSvc.List()
 	if err != nil {
 		return 0
 	}
