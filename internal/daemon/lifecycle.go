@@ -83,6 +83,12 @@ func (d *Daemon) Shutdown() {
 		}
 	}
 
+	if d.puppetSvc != nil {
+		if err := d.puppetSvc.Shutdown(context.Background()); err != nil {
+			d.logger.Error("puppet shutdown error", "error", err)
+		}
+	}
+
 	d.logger.Info("closing store")
 	if err := d.db.Close(); err != nil {
 		d.logger.Error("store close error", "error", err)

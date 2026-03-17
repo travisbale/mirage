@@ -47,11 +47,21 @@ func (h *JSInjector) Handle(ctx *aitm.ProxyContext, resp *http.Response) error {
 		}
 	}
 
-	scriptBlock := fmt.Sprintf("<script>%s\n%s\n%s</script>",
-		obfuscator.MarkerStart, scriptContent.String(), obfuscator.MarkerEnd)
-	bodyBytes = bytes.Replace(bodyBytes, []byte("</body>"), []byte(scriptBlock+"\n</body>"), 1)
+	// Inject puppet override before </head> so property overrides are active
+	// before any page JavaScript runs.
+	if ctx.PuppetOverride != "" {
+		bodyBytes = bytes.Replace(bodyBytes, []byte("</head>"),
+			[]byte(markedScript(ctx.PuppetOverride)+"\n</head>"), 1)
+	}
+
+	bodyBytes = bytes.Replace(bodyBytes, []byte("</body>"),
+		[]byte(markedScript(scriptContent.String())+"\n</body>"), 1)
 	replaceBody(resp, bodyBytes)
 	return nil
+}
+
+func markedScript(content string) string {
+	return fmt.Sprintf("<script>%s\n%s\n%s</script>", obfuscator.MarkerStart, content, obfuscator.MarkerEnd)
 }
 
 func injectSID(script, quotedSID string) string {

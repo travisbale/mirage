@@ -44,6 +44,10 @@ type ProxyContext struct {
 	// can write directly to the client without going upstream.
 	ResponseWriter http.ResponseWriter
 
+	// PuppetOverride is a JS snippet that overrides browser telemetry signals.
+	// Set by PuppetOverrideResolver; injected by JSInjector before </head>.
+	PuppetOverride string
+
 	// RequestID is a random hex string assigned at connection time for log correlation.
 	RequestID string
 }

