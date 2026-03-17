@@ -206,6 +206,10 @@ func (c *Client) UnpauseLure(id string) error {
 
 // --- Phishlets ---
 
+func (c *Client) GetPhishlet(name string) (*PhishletResponse, error) {
+	return get[PhishletResponse](c, ResolveRoute(RoutePhishlet, "name", name))
+}
+
 func (c *Client) ListPhishlets() (*PaginatedResponse[PhishletResponse], error) {
 	return get[PaginatedResponse[PhishletResponse]](c, RoutePhishlets)
 }

@@ -135,6 +135,7 @@ func (r *Router) registerRoutes() {
 	h("POST", sdk.RoutePhishletDisable, r.disablePhishlet)
 	h("POST", sdk.RoutePhishletHide, r.hidePhishlet)
 	h("POST", sdk.RoutePhishletUnhide, r.unhidePhishlet)
+	h("GET", sdk.RoutePhishlet, r.getPhishlet)
 	h("GET", sdk.RoutePhishlets, r.listPhishlets)
 
 	// Blacklist
