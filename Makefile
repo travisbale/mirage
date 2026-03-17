@@ -1,7 +1,7 @@
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
 
-.PHONY: build build-daemon scripts sidecar-install clean test fmt lint docker
+.PHONY: build build-daemon scripts sidecar-install clean test test-integration fmt lint docker
 
 scripts:
 	@echo "Minifying injected JavaScript..."
@@ -30,6 +30,10 @@ clean:
 test:
 	@echo "Running tests..."
 	@go test ./...
+
+test-integration:
+	@echo "Running all tests (unit + integration)..."
+	@go test -tags=integration -count=1 -timeout=120s ./...
 
 fmt:
 	@echo "Formatting code..."
