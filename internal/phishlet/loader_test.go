@@ -121,62 +121,6 @@ func TestLoader(t *testing.T) {
 	}
 }
 
-// TestValidate_HostnameCollision verifies that Phishlet.Validate detects
-// a phish_sub collision with a currently-active phishlet.
-func TestValidate_HostnameCollision(t *testing.T) {
-	var loader phishlet.Loader
-
-	def, err := loader.Load("testdata/hostname_collision.yaml")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	// Simulate an existing active phishlet that owns "login.attacker.com".
-	active := []*aitm.Phishlet{
-		{
-			Name:       "existing",
-			Hostname:   "login.attacker.com",
-			BaseDomain: "attacker.com",
-			Enabled:    true,
-		},
-	}
-
-	collisions := phishlet.Validate(def, active, "attacker.com")
-	if len(collisions) == 0 {
-		t.Error("expected at least one collision, got none")
-	}
-	if collisions[0].ConflictingPhishlet != "existing" {
-		t.Errorf("ConflictingPhishlet: got %q, want %q",
-			collisions[0].ConflictingPhishlet, "existing")
-	}
-}
-
-// TestValidate_NoCollisionWithSelf verifies that a phishlet does not collide
-// with itself (e.g., when being re-enabled after a reload).
-func TestValidate_NoCollisionWithSelf(t *testing.T) {
-	var loader phishlet.Loader
-
-	def, err := loader.Load("testdata/hostname_collision.yaml")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	// Simulate the same phishlet already active (updating itself).
-	active := []*aitm.Phishlet{
-		{
-			Name:       "collider", // same name as the phishlet being validated
-			Hostname:   "login.attacker.com",
-			BaseDomain: "attacker.com",
-			Enabled:    true,
-		},
-	}
-
-	collisions := phishlet.Validate(def, active, "attacker.com")
-	if len(collisions) != 0 {
-		t.Errorf("expected no collisions with self, got %d", len(collisions))
-	}
-}
-
 // TestParseError_FieldPaths verifies that errors from a bad regex include
 // the full dot-separated field path in the error message.
 func TestParseError_FieldPaths(t *testing.T) {

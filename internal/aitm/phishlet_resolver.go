@@ -56,6 +56,17 @@ func (r *PhishletResolver) ContainsHostname(hostname string) bool {
 	return ok
 }
 
+// OwnerOf returns the name of the enabled phishlet that owns hostname, or ""
+// if no phishlet is registered for it.
+func (r *PhishletResolver) OwnerOf(hostname string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if p, ok := r.hostnames[strings.ToLower(hostname)]; ok {
+		return p.Name
+	}
+	return ""
+}
+
 // ResolveHostname returns the phishlet and best-matching lure for a request.
 // When multiple lures share a phishlet, the longest path prefix wins.
 func (r *PhishletResolver) ResolveHostname(hostname, urlPath string) (*Phishlet, *Lure, error) {

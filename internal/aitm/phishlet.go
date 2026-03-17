@@ -262,6 +262,9 @@ func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string)
 	if p.Hostname == "" {
 		return nil, ErrHostnameRequired
 	}
+	if owner := s.resolver.OwnerOf(p.Hostname); owner != "" && owner != p.Name {
+		return nil, ErrHostnameConflict
+	}
 	p.Enabled = true
 	if err := s.store.SetPhishlet(p); err != nil {
 		return nil, err

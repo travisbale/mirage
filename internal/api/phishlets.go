@@ -46,9 +46,12 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 
 	p, err := r.phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
 	if err != nil {
-		if errors.Is(err, aitm.ErrHostnameRequired) {
+		switch {
+		case errors.Is(err, aitm.ErrHostnameRequired):
 			writeError(w, http.StatusUnprocessableEntity, "hostname is required")
-		} else {
+		case errors.Is(err, aitm.ErrHostnameConflict):
+			writeError(w, http.StatusConflict, "hostname is already in use by another phishlet")
+		default:
 			writeError(w, http.StatusInternalServerError, "failed to enable phishlet")
 		}
 		return
