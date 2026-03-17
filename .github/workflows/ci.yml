@@ -38,6 +38,9 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Generate scripts
+        run: make scripts
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
