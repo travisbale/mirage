@@ -20,12 +20,12 @@ const (
 
 	// Phishlets
 	RoutePhishletHosts   = "/api/phishlets/{name}/hosts"
-	RoutePhishletEnable   = "/api/phishlets/{name}/enable"
-	RoutePhishletDisable  = "/api/phishlets/{name}/disable"
-	RoutePhishletHide     = "/api/phishlets/{name}/hide"
-	RoutePhishletUnhide   = "/api/phishlets/{name}/unhide"
-	RoutePhishlet         = "/api/phishlets/{name}"
-	RoutePhishlets        = "/api/phishlets"
+	RoutePhishletEnable  = "/api/phishlets/{name}/enable"
+	RoutePhishletDisable = "/api/phishlets/{name}/disable"
+	RoutePhishletHide    = "/api/phishlets/{name}/hide"
+	RoutePhishletUnhide  = "/api/phishlets/{name}/unhide"
+	RoutePhishlet        = "/api/phishlets/{name}"
+	RoutePhishlets       = "/api/phishlets"
 
 	// Blacklist
 	RouteBlacklistEntry = "/api/blacklist/{entry}"

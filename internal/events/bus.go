@@ -77,7 +77,6 @@ func (b *Bus) Subscribe(eventType aitm.EventType) <-chan aitm.Event {
 	return ch
 }
 
-
 // Unsubscribe removes ch from the subscriber list for t and closes it.
 // Safe to call multiple times for the same channel — subsequent calls are no-ops.
 func (b *Bus) Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event) {
