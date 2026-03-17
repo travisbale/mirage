@@ -27,11 +27,11 @@ clean:
 	@rm -rf build/
 	@rm -rf internal/proxy/handlers/response/dist/
 
-test:
+test: scripts
 	@echo "Running tests..."
 	@go test ./...
 
-test-integration:
+test-integration: scripts
 	@echo "Running all tests (unit + integration)..."
 	@go test -tags=integration -count=1 -timeout=120s ./...
 
