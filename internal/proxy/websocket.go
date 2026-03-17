@@ -65,17 +65,22 @@ func (h *WSHub) listenCompletions(bus eventSubscriber) {
 // HandleUpgrade handles GET /ws/{sid}: blocks until the session completes,
 // then sends the redirect URL and closes the connection.
 func (h *WSHub) HandleUpgrade(w http.ResponseWriter, r *http.Request, sessionID string) {
-	conn, err := h.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		h.logger.Warn("wshub: upgrade failed", "error", err)
-		return
-	}
-	defer conn.Close()
-
+	// Register the waiter before upgrading so that by the time the client's
+	// Dial returns (after receiving the 101 response), the waiter is already
+	// in place. This eliminates the race where a completion event fires between
+	// Dial returning and the waiter being registered.
 	resultCh := make(chan redirectMsg, 1)
 	h.mu.Lock()
 	h.waiting[sessionID] = append(h.waiting[sessionID], resultCh)
 	h.mu.Unlock()
+
+	conn, err := h.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		h.removeWaiter(sessionID, resultCh)
+		h.logger.Warn("wshub: upgrade failed", "error", err)
+		return
+	}
+	defer conn.Close()
 
 	select {
 	case msg := <-resultCh:
@@ -84,7 +89,23 @@ func (h *WSHub) HandleUpgrade(w http.ResponseWriter, r *http.Request, sessionID 
 		}
 	case <-time.After(10 * time.Minute):
 		// Session timed out — client will fall back to polling.
+		h.removeWaiter(sessionID, resultCh)
 		h.logger.Debug("wshub: timeout waiting for session completion", "session_id", sessionID)
+	}
+}
+
+func (h *WSHub) removeWaiter(sessionID string, ch chan redirectMsg) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	waiters := h.waiting[sessionID]
+	for i, c := range waiters {
+		if c == ch {
+			h.waiting[sessionID] = append(waiters[:i], waiters[i+1:]...)
+			if len(h.waiting[sessionID]) == 0 {
+				delete(h.waiting, sessionID)
+			}
+			return
+		}
 	}
 }
 

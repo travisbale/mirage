@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/proxy"
 )
@@ -114,51 +115,118 @@ func TestSpoofProxy_EmptyURL_Returns200(t *testing.T) {
 
 // ---- WSHub ------------------------------------------------------------------
 
-func TestWSHub_TimeoutCase(t *testing.T) {
-	bus := newTestEventBus()
-	hub := proxy.NewWSHub(bus, discardLogger())
-	_ = hub // confirmed non-nil, no panic on construction
+// newWSHubServer starts an httptest.Server that upgrades every connection via hub
+// for the given sessionID. Returns the server and its ws:// URL.
+func newWSHubServer(t *testing.T, hub *proxy.WSHub, sessionID string) (*httptest.Server, string) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hub.HandleUpgrade(w, r, sessionID)
+	}))
+	t.Cleanup(srv.Close)
+	return srv, "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
 }
 
-// ---- WSHub redirect on completion -------------------------------------------
-
-func TestWSHub_SendsRedirectOnCompletion(t *testing.T) {
-	bus := newTestEventBus()
-	hub := proxy.NewWSHub(bus, discardLogger())
-	_ = hub
-
-	// Publish EventSessionCompleted and verify the bus delivers it.
-	sess := &aitm.Session{
-		ID:          "sess-001",
-		RedirectURL: "https://real.example.com/dashboard",
-	}
-	sess.Complete()
-
-	done := make(chan struct{})
-	ch := bus.Subscribe(aitm.EventSessionCompleted)
-	go func() {
-		defer close(done)
-		event := <-ch
-		got, ok := event.Payload.(*aitm.Session)
-		if !ok {
-			t.Errorf("expected *aitm.Session payload")
-			return
-		}
-		if got.LureRedirectURL() != "https://real.example.com/dashboard" {
-			t.Errorf("unexpected redirect URL: %s", got.LureRedirectURL())
-		}
-	}()
-
+// publishCompletion fires EventSessionCompleted on bus for the given session.
+func publishCompletion(bus *testEventBus, sess *aitm.Session) {
 	bus.Publish(aitm.Event{
 		Type:       aitm.EventSessionCompleted,
 		OccurredAt: time.Now(),
 		Payload:    sess,
 	})
+}
 
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for completion event")
+// TestWSHub_WebSocketClientReceivesRedirect verifies the full WebSocket flow:
+// a real client connects, the session completes, and the client receives the
+// redirect JSON message.
+func TestWSHub_WebSocketClientReceivesRedirect(t *testing.T) {
+	bus := newTestEventBus()
+	hub := proxy.NewWSHub(bus, discardLogger())
+
+	sess := &aitm.Session{ID: "ws-sess-001", RedirectURL: "https://real.example.com/dashboard"}
+	sess.Complete()
+
+	_, wsURL := newWSHubServer(t, hub, sess.ID)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	publishCompletion(bus, sess)
+
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	var msg struct {
+		RedirectURL string `json:"redirect_url"`
+	}
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("ReadJSON: %v", err)
+	}
+	if msg.RedirectURL != "https://real.example.com/dashboard" {
+		t.Errorf("redirect_url: got %q, want %q", msg.RedirectURL, "https://real.example.com/dashboard")
+	}
+}
+
+// TestWSHub_MultipleWaiters verifies that when two WebSocket clients are
+// waiting for the same session, both receive the redirect message.
+func TestWSHub_MultipleWaiters(t *testing.T) {
+	bus := newTestEventBus()
+	hub := proxy.NewWSHub(bus, discardLogger())
+
+	sess := &aitm.Session{ID: "ws-multi-001", RedirectURL: "https://real.example.com/home"}
+	sess.Complete()
+
+	_, wsURL := newWSHubServer(t, hub, sess.ID)
+
+	conn1, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial conn1: %v", err)
+	}
+	defer conn1.Close()
+
+	conn2, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial conn2: %v", err)
+	}
+	defer conn2.Close()
+
+	publishCompletion(bus, sess)
+
+	for i, conn := range []*websocket.Conn{conn1, conn2} {
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		var msg struct {
+			RedirectURL string `json:"redirect_url"`
+		}
+		if err := conn.ReadJSON(&msg); err != nil {
+			t.Fatalf("conn%d ReadJSON: %v", i+1, err)
+		}
+		if msg.RedirectURL != "https://real.example.com/home" {
+			t.Errorf("conn%d redirect_url: got %q, want %q", i+1, msg.RedirectURL, "https://real.example.com/home")
+		}
+	}
+}
+
+// TestWSHub_UnknownSession_CleanedOnServerClose verifies that a WebSocket
+// connection for a session that never completes is cleaned up when the server
+// shuts down.
+func TestWSHub_UnknownSession_CleanedOnServerClose(t *testing.T) {
+	bus := newTestEventBus()
+	hub := proxy.NewWSHub(bus, discardLogger())
+
+	srv, wsURL := newWSHubServer(t, hub, "ghost-session")
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	// Close the server — the underlying connection drops, HandleUpgrade returns.
+	srv.Close()
+
+	// The client should see a connection close error on the next read.
+	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	_, _, readErr := conn.ReadMessage()
+	if readErr == nil {
+		t.Error("expected connection close error after server shutdown")
 	}
 }
 
