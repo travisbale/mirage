@@ -65,6 +65,14 @@ obfuscator:
   sidecar_dir: ""        # directory containing the Node obfuscator package
   request_timeout: 5s
   max_concurrent: 4
+
+puppet:
+  enabled: false
+  chromium_path: ""      # defaults to PATH lookup
+  min_instances: 1
+  max_instances: 3
+  nav_timeout: 30s
+  cache_ttl: 1h
 ```
 
 Validate a config file without starting the daemon:
@@ -156,11 +164,13 @@ mirage --server prod
 - **mTLS API** — management API authenticated with mutual TLS; the daemon auto-generates a CA and issues operator certificates
 - **SSH deployment** — one-command remote provisioning with systemd unit installation
 - **Blacklist** — IP/CIDR blocking with automatic temporary whitelisting after successful token capture
+- **Puppet** — headless Chromium collects real browser telemetry from the target site and injects JS overrides into proxied responses so victim sessions match a legitimate visit's fingerprint
 
 ## Testing
 
 ```bash
-make test
+make test               # unit tests only
+make test-integration   # unit + integration tests (requires Chromium)
 ```
 
 ## Project Layout
@@ -176,6 +186,7 @@ internal/
   dns/          DNS server and provider integrations
   events/       In-process event bus
   obfuscator/   JS obfuscation (Node.js sidecar + no-op fallback)
+  puppet/       Headless Chromium telemetry collection and JS override generation
   phishlet/     Phishlet YAML loader and compiler
   proxy/        MITM reverse proxy and handler pipeline
   store/
