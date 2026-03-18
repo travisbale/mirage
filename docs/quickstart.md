@@ -44,14 +44,13 @@ domain: phish.local
 external_ipv4: 127.0.0.1
 https_port: 8443
 dns_port: 5353
-db_path: /tmp/mirage/data/data.db
+data_dir: /tmp/mirage/data
 phishlets_dir: /tmp/mirage/phishlets
 
 self_signed: true
 
 api:
   secret_hostname: api.phish.local
-  client_ca_cert_path: /tmp/mirage/data/api-ca.crt
 ```
 
 > Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Set `self_signed: true` to skip ACME and use a locally generated CA instead. Using non-standard ports (8443/5353) avoids needing root.

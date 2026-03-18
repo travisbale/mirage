@@ -18,13 +18,12 @@ external_ipv4: {{ .ExternalIPv4 }}
 https_port: {{ .HTTPSPort }}
 dns_port: {{ .DNSPort }}
 autocert: {{ .AutoCert }}
-db_path: /var/lib/mirage/data.db
+data_dir: /var/lib/mirage
 phishlets_dir: {{ .RemoteConfigDir }}/phishlets
 redirectors_dir: {{ .RemoteConfigDir }}/redirectors
 
 api:
   secret_hostname: {{ .SecretHostname }}
-  client_ca_cert_path: /var/lib/mirage/api-ca.crt
 `
 
 const systemdUnitTemplate = `[Unit]

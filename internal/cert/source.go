@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -45,13 +46,18 @@ func NewSource(cfg SourceConfig, logger *slog.Logger) (aitm.CertSource, error) {
 	fileSrc := &FileCertSource{BaseDir: cfg.CertFileDir}
 
 	if cfg.SelfSigned {
+		caCertPath := filepath.Join(cfg.CADir, "mirage-ca.crt")
+		firstRun := isNotExist(caCertPath)
+
 		selfSigned := NewSelfSignedCertSource(cfg.CADir)
 		if err := selfSigned.EnsureCA(); err != nil {
 			return nil, fmt.Errorf("initializing CA: %w", err)
 		}
 
 		logger.Info("using self-signed certificates", "ca_dir", cfg.CADir)
-		logger.Info("import the CA cert into your browser to avoid TLS warnings", "ca_cert", filepath.Join(cfg.CADir, "mirage-ca.crt"))
+		if firstRun {
+			logger.Info("import the CA cert into your browser to avoid TLS warnings", "ca_cert", caCertPath)
+		}
 
 		return NewChainedCertSource(logger, fileSrc, selfSigned), nil
 	}
@@ -69,4 +75,9 @@ func NewSource(cfg SourceConfig, logger *slog.Logger) (aitm.CertSource, error) {
 	logger.Info("using ACME certificates", "directory", cfg.ACMEDirectoryURL, "email", cfg.ACMEEmail)
 
 	return NewChainedCertSource(logger, fileSrc, wildcardSrc, perHostSrc), nil
+}
+
+func isNotExist(path string) bool {
+	_, err := os.Stat(path)
+	return os.IsNotExist(err)
 }

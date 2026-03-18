@@ -82,8 +82,7 @@ func TestRenderConfig(t *testing.T) {
 		"external_ipv4: 203.0.113.5",
 		"https_port: 443",
 		"secret_hostname: abc123.mgmt.attacker.com",
-		"client_ca_cert_path: /var/lib/mirage/api-ca.crt",
-		"db_path: /var/lib/mirage/data.db",
+		"data_dir: /var/lib/mirage",
 		"phishlets_dir: /etc/mirage/phishlets",
 		"autocert: true",
 	} {

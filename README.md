@@ -44,7 +44,7 @@ domain: phish.example.com
 external_ipv4: 1.2.3.4
 https_port: 443
 dns_port: 53
-db_path: /var/lib/mirage/data.db
+data_dir: /var/lib/mirage
 phishlets_dir: /etc/mirage/phishlets
 redirectors_dir: /etc/mirage/redirectors
 
@@ -54,7 +54,6 @@ self_signed: false
 
 api:
   secret_hostname: api.phish.example.com   # all traffic to this hostname is routed to the management API
-  client_ca_cert_path: /var/lib/mirage/api-ca.crt  # auto-generated on first start
 
 acme:
   email: admin@phish.example.com

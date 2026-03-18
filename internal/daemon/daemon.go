@@ -129,7 +129,7 @@ func New(configPath string, version string, logger *slog.Logger) (*Daemon, error
 }
 
 func (ini *initializer) initStore() error {
-	db, err := sqlite.Open(ini.cfg.DBPath)
+	db, err := sqlite.Open(filepath.Join(ini.cfg.DataDir, "data.db"))
 	if err != nil {
 		return fmt.Errorf("opening database: %w", err)
 	}
@@ -187,7 +187,7 @@ func (ini *initializer) initDNS() error {
 }
 
 func (ini *initializer) initCerts() error {
-	dataDir := filepath.Dir(ini.cfg.DBPath)
+	dataDir := ini.cfg.DataDir
 
 	// Build per-zone provider map for wildcard DNS-01 ACME.
 	zonedProviders := make(map[string]aitm.DNSProvider)
@@ -270,7 +270,7 @@ func (ini *initializer) initPuppet() *aitm.PuppetService {
 	}
 
 	if !cfg.Enabled {
-		ini.logger.Info("puppet service disabled")
+		ini.logger.Debug("puppet service disabled")
 		return newNoOp()
 	}
 
@@ -329,16 +329,17 @@ func (ini *initializer) initProxy(version string) error {
 		Logger:     ini.logger,
 	}
 
-	clientCA, err := loadOrGenerateCA(ini.cfg.API.ClientCACertPath, ini.logger)
+	apiCACertPath := filepath.Join(ini.cfg.DataDir, "api-ca.crt")
+	clientCA, err := loadOrGenerateCA(apiCACertPath, ini.logger)
 	if err != nil {
 		return err
 	}
-	if err := issueOperatorCert(clientCA, ini.cfg.API.ClientCACertPath, ini.logger); err != nil {
+	if err := issueOperatorCert(clientCA, apiCACertPath, ini.logger); err != nil {
 		return err
 	}
 	aitmProxy.SecretHostname = ini.cfg.API.SecretHostname
 	aitmProxy.ClientCAs = clientCA.CertPool()
-	ini.logger.Info("API enabled", "hostname", ini.cfg.API.SecretHostname, "ca_cert", ini.cfg.API.ClientCACertPath)
+	ini.logger.Info("API enabled", "hostname", ini.cfg.API.SecretHostname, "ca_cert", apiCACertPath)
 
 	ini.proxy = aitmProxy
 

@@ -103,17 +103,15 @@ func NewHarness(t *testing.T) *Harness {
 	}
 
 	// Read certs written to disk by daemon.New.
-	dbDir := filepath.Dir(filepath.Join(tmpDir, "data.db"))
-	proxyCACertPEM, err := os.ReadFile(filepath.Join(dbDir, "ca", "mirage-ca.crt"))
+	proxyCACertPEM, err := os.ReadFile(filepath.Join(tmpDir, "ca", "mirage-ca.crt"))
 	if err != nil {
 		t.Fatalf("reading proxy CA cert: %v", err)
 	}
-	apiDir := filepath.Join(tmpDir, "api")
-	operatorCertPEM, err := os.ReadFile(filepath.Join(apiDir, "operator.crt"))
+	operatorCertPEM, err := os.ReadFile(filepath.Join(tmpDir, "operator.crt"))
 	if err != nil {
 		t.Fatalf("reading operator cert: %v", err)
 	}
-	operatorKeyPEM, err := os.ReadFile(filepath.Join(apiDir, "operator.key"))
+	operatorKeyPEM, err := os.ReadFile(filepath.Join(tmpDir, "operator.key"))
 	if err != nil {
 		t.Fatalf("reading operator key: %v", err)
 	}
@@ -216,12 +214,11 @@ func writeConfig(t *testing.T, tmpDir string, httpsPort, dnsPort int) string {
 		ExternalIPv4: "127.0.0.1",
 		HTTPSPort:    httpsPort,
 		DNSPort:      dnsPort,
-		DBPath:       filepath.Join(tmpDir, "data.db"),
+		DataDir:      tmpDir,
 		PhishletsDir: filepath.Join(tmpDir, "phishlets"),
 		SelfSigned:   true,
 		API: config.APIConfig{
-			SecretHostname:   testAPIHostname,
-			ClientCACertPath: filepath.Join(tmpDir, "api", "api-ca.crt"),
+			SecretHostname: testAPIHostname,
 		},
 	}
 	data, err := yaml.Marshal(cfg)
