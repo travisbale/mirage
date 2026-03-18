@@ -16,11 +16,14 @@ build: scripts
 	@mkdir -p build
 	@go build $(LDFLAGS) -o build/miraged ./cmd/miraged
 	@go build $(LDFLAGS) -o build/mirage ./cmd/mirage
+	@echo "  build/miraged"
+	@echo "  build/mirage"
 
 build-daemon: scripts
 	@echo "Building miraged..."
 	@mkdir -p build
 	@go build $(LDFLAGS) -o build/miraged ./cmd/miraged
+	@echo "  build/miraged"
 
 clean:
 	@echo "Cleaning build artifacts..."
@@ -47,3 +50,4 @@ lint:
 docker:
 	@echo "Building Docker image..."
 	@docker build --build-arg VERSION=$(VERSION) -t mirage:$(VERSION) .
+	@echo "  mirage:$(VERSION)"
