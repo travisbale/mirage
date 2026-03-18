@@ -30,13 +30,13 @@ func (s *stubSessions) ExportCookiesJSON(_ string) ([]byte, error) { return []by
 
 type stubLures struct{}
 
-func (s *stubLures) Get(_ string) (*aitm.Lure, error)      { return nil, nil }
-func (s *stubLures) Create(_ *aitm.Lure) error             { return nil }
-func (s *stubLures) Update(_ *aitm.Lure) error             { return nil }
-func (s *stubLures) Delete(_ string) error                 { return nil }
-func (s *stubLures) List() ([]*aitm.Lure, error)           { return nil, nil }
-func (s *stubLures) Pause(_ string, _ time.Duration) error { return nil }
-func (s *stubLures) Unpause(_ string) error                { return nil }
+func (s *stubLures) Get(_ string) (*aitm.Lure, error)                    { return nil, nil }
+func (s *stubLures) Create(_ *aitm.Lure) error                           { return nil }
+func (s *stubLures) Update(_ *aitm.Lure) error                           { return nil }
+func (s *stubLures) Delete(_ string) error                               { return nil }
+func (s *stubLures) List() ([]*aitm.Lure, error)                         { return nil, nil }
+func (s *stubLures) Pause(_ string, _ time.Duration) (*aitm.Lure, error) { return nil, nil }
+func (s *stubLures) Unpause(_ string) (*aitm.Lure, error)                { return nil, nil }
 
 type stubPhishlets struct{}
 

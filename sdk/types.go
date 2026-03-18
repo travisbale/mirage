@@ -89,8 +89,7 @@ type UpdateLureRequest struct {
 type LureResponse struct {
 	ID          string     `json:"id"`
 	Phishlet    string     `json:"phishlet"`
-	Hostname    string     `json:"hostname"`
-	Path        string     `json:"path"`
+	URL         string     `json:"url"`
 	RedirectURL string     `json:"redirect_url"`
 	SpoofURL    string     `json:"spoof_url"`
 	UAFilter    string     `json:"ua_filter"`

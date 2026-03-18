@@ -35,9 +35,10 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 	page := filtered[start:end]
 
 	items := make([]sdk.LureResponse, len(page))
-	for i, l := range page {
-		items[i] = lureToResponse(l)
+	for i, lure := range page {
+		items[i] = r.lureToResponse(lure)
 	}
+
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.LureResponse]{
 		Items:  items,
 		Total:  total,
@@ -59,8 +60,10 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 		} else {
 			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
 		}
+
 		return
 	}
+
 	if !phishlet.Enabled {
 		writeError(w, http.StatusBadRequest, "phishlet is not enabled")
 		return
@@ -84,19 +87,23 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 		OGURL:       body.OGURL,
 		Redirector:  body.Redirector,
 	}
+
 	if err := r.Lures.Create(lure); err != nil {
 		if errors.Is(err, aitm.ErrConflict) {
 			writeError(w, http.StatusConflict, "lure already exists")
 		} else {
 			writeError(w, http.StatusInternalServerError, "failed to create lure")
 		}
+
 		return
 	}
-	writeJSON(w, http.StatusCreated, lureToResponse(lure))
+
+	writeJSON(w, http.StatusCreated, r.lureToResponse(lure))
 }
 
 func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
+
 	lure, err := r.Lures.Get(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
@@ -104,6 +111,7 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 		} else {
 			writeError(w, http.StatusInternalServerError, "failed to get lure")
 		}
+
 		return
 	}
 
@@ -111,6 +119,7 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		return
 	}
+
 	if body.UAFilter != nil {
 		lure.UAFilter = *body.UAFilter
 	}
@@ -140,11 +149,13 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to update lure")
 		return
 	}
-	writeJSON(w, http.StatusOK, lureToResponse(lure))
+
+	writeJSON(w, http.StatusOK, r.lureToResponse(lure))
 }
 
 func (r *Router) deleteLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
+
 	if err := r.Lures.Delete(id); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "lure does not exist")
@@ -153,11 +164,13 @@ func (r *Router) deleteLure(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
+
 	lure, err := r.Lures.Get(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
@@ -165,17 +178,19 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 		} else {
 			writeError(w, http.StatusInternalServerError, "failed to get lure")
 		}
+
 		return
 	}
 
 	var body sdk.GenerateURLRequest
 	_ = json.NewDecoder(req.Body).Decode(&body) // body is optional
 
-	url, err := lure.GenerateURL(r.Domain, r.HTTPSPort, body.Params)
+	url, err := lure.URLWithParams(r.HTTPSPort, body.Params)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate lure URL")
 		return
 	}
+
 	writeJSON(w, http.StatusOK, sdk.GenerateURLResponse{URL: url})
 }
 
@@ -186,9 +201,15 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		return
 	}
-	d, _ := time.ParseDuration(body.Duration)
 
-	if err := r.Lures.Pause(id, d); err != nil {
+	duration, err := time.ParseDuration(body.Duration)
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, "failed to parse duration")
+		return
+	}
+
+	lure, err := r.Lures.Pause(id, duration)
+	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "lure does not exist")
 		} else {
@@ -196,17 +217,15 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	lure, err := r.Lures.Get(id)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get lure")
-		return
-	}
-	writeJSON(w, http.StatusOK, lureToResponse(lure))
+
+	writeJSON(w, http.StatusOK, r.lureToResponse(lure))
 }
 
 func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
-	if err := r.Lures.Unpause(id); err != nil {
+
+	lure, err := r.Lures.Unpause(id)
+	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "lure does not exist")
 		} else {
@@ -214,37 +233,25 @@ func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	lure, err := r.Lures.Get(id)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get lure")
-		return
-	}
-	writeJSON(w, http.StatusOK, lureToResponse(lure))
+
+	writeJSON(w, http.StatusOK, r.lureToResponse(lure))
 }
 
-func lureToResponse(l *aitm.Lure) sdk.LureResponse {
+func (r *Router) lureToResponse(lure *aitm.Lure) sdk.LureResponse {
 	return sdk.LureResponse{
-		ID:          l.ID,
-		Phishlet:    l.Phishlet,
-		Hostname:    l.Hostname,
-		Path:        l.Path,
-		RedirectURL: l.RedirectURL,
-		SpoofURL:    l.SpoofURL,
-		UAFilter:    l.UAFilter,
-		PausedUntil: pausedUntil(l),
-		OGTitle:     l.OGTitle,
-		OGDesc:      l.OGDesc,
-		OGImage:     l.OGImage,
-		OGURL:       l.OGURL,
-		Redirector:  l.Redirector,
+		ID:          lure.ID,
+		Phishlet:    lure.Phishlet,
+		URL:         lure.URL(r.HTTPSPort),
+		RedirectURL: lure.RedirectURL,
+		SpoofURL:    lure.SpoofURL,
+		UAFilter:    lure.UAFilter,
+		PausedUntil: lure.PausedUntilPtr(),
+		OGTitle:     lure.OGTitle,
+		OGDesc:      lure.OGDesc,
+		OGImage:     lure.OGImage,
+		OGURL:       lure.OGURL,
+		Redirector:  lure.Redirector,
 	}
-}
-
-func pausedUntil(l *aitm.Lure) *time.Time {
-	if l.PausedUntil.IsZero() {
-		return nil
-	}
-	return &l.PausedUntil
 }
 
 func randomPath() string {

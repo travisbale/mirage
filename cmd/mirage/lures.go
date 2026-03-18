@@ -53,13 +53,12 @@ func newLuresListCmd() *cobra.Command {
 				rows[i] = []string{
 					items[i].ID,
 					items[i].Phishlet,
-					items[i].Hostname,
-					items[i].Path,
+					items[i].URL,
 					items[i].RedirectURL,
 					fmtOptTime(items[i].PausedUntil),
 				}
 			}
-			printTable([]string{"ID", "PHISHLET", "HOSTNAME", "PATH", "REDIRECT URL", "PAUSED UNTIL"}, rows)
+			printTable([]string{"ID", "PHISHLET", "URL", "REDIRECT URL", "PAUSED UNTIL"}, rows)
 			return nil
 		},
 	}
@@ -102,7 +101,7 @@ func newLuresCreateCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(lure)
 			}
-			fmt.Printf("Created lure %s on %s%s\n", lure.ID, lure.Hostname, lure.Path)
+			fmt.Printf("Created lure %s at %s\n", lure.ID, lure.URL)
 			return nil
 		},
 	}

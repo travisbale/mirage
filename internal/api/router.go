@@ -24,8 +24,8 @@ type lureManager interface {
 	Update(lure *aitm.Lure) error
 	Delete(id string) error
 	List() ([]*aitm.Lure, error)
-	Pause(id string, d time.Duration) error
-	Unpause(id string) error
+	Pause(id string, d time.Duration) (*aitm.Lure, error)
+	Unpause(id string) (*aitm.Lure, error)
 }
 
 type phishletManager interface {
@@ -63,8 +63,7 @@ type Router struct {
 	Blacklist blacklistManager
 	Botguard  botguardManager
 	Bus       eventBus
-	Domain    string // Global base domain for lure URL generation
-	HTTPSPort int    // Included in lure URLs when non-standard (not 443)
+	HTTPSPort int // Included in lure URLs when non-standard (not 443)
 	Version   string
 	Logger    *slog.Logger
 

