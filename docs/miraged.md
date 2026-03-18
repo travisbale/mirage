@@ -34,8 +34,9 @@ On startup, `miraged` initializes these subsystems:
 4. **Certificate manager** — provisions TLS certificates via ACME (Let's Encrypt) or a locally generated CA when `self_signed: true`
 5. **Proxy pipeline** — MITM reverse proxy that intercepts victim HTTPS traffic, rewrites responses, captures credentials and auth tokens
 6. **BotGuard** — computes JA4 TLS fingerprints and scores requests against a signature database; suspicious clients are spoofed
-7. **JS obfuscator** (optional) — Node.js sidecar that transforms injected JavaScript on every request to defeat static fingerprinting
-8. **Management API** — REST API served on `api.secret_hostname`, authenticated via mutual TLS
+7. **Puppet service** (optional) — headless Chromium visits the real target site and collects browser telemetry; injects JS overrides into proxied responses so victim sessions match a legitimate visit's fingerprint
+8. **JS obfuscator** (optional) — Node.js sidecar that transforms injected JavaScript on every request to defeat static fingerprinting
+9. **Management API** — REST API served on `api.secret_hostname`, authenticated via mutual TLS
 
 ## Request pipeline
 
@@ -43,15 +44,19 @@ Each victim request flows through a handler chain:
 
 **Request handlers** (in order):
 
-1. `IPExtractor` — resolves the real client IP (honours trusted proxy headers)
-2. `BlacklistCheck` — drops requests from blacklisted IPs
-3. `LureRouter` — matches the request path to a configured lure
-4. `LureValidator` — enforces lure pause state and UA filter rules
-5. `SessionResolver` — loads an existing session from cookie or creates a new one
-6. `TelemetryScoreCheck` — checks the JA4 bot score; spoofs if above threshold
-7. `URLRewriter` — rewrites the request URL for upstream forwarding
-8. `CredentialExtractor` — captures username/password from POST bodies matching phishlet credential rules
-9. `ForcePostInjector` — injects form fields required by some phishlets
+1. `JA4Extractor` — extracts the JA4 TLS fingerprint from the ClientHello
+2. `BotGuardCheck` — fast-path bot check; spoofs known bot fingerprints before session creation
+3. `IPExtractor` — resolves the real client IP (honours trusted proxy headers)
+4. `BlacklistChecker` — drops requests from blacklisted IPs
+5. `APIRouter` — routes requests for the secret API hostname to the management API handler
+6. `PhishletRouter` — matches the request hostname to an enabled phishlet; spoofs unrecognised hostnames
+7. `LureValidator` — enforces lure pause state and UA filter rules
+8. `SessionResolver` — loads an existing session from cookie or creates a new one
+9. `PuppetOverrideResolver` — looks up cached puppet telemetry and attaches the override script to the request context
+10. `TelemetryScoreCheck` — checks the JA4 bot score against the configured threshold; spoofs if above
+11. `URLRewriter` — rewrites the request URL for upstream forwarding
+12. `CredentialExtractor` — captures username/password from POST bodies matching phishlet credential rules
+13. `ForcePostInjector` — injects form fields required by some phishlets
 
 **Response handlers** (in order):
 

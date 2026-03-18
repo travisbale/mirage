@@ -76,11 +76,14 @@ obfuscator:
 puppet:
   enabled: false
   chromium_path: ""      # defaults to PATH lookup
+  user_agent: ""         # defaults to a recent Chrome UA
   min_instances: 1
   max_instances: 3
   nav_timeout: 30s
   cache_ttl: 1h
 ```
+
+> **Note:** The puppet service infrastructure is fully implemented but the telemetry collection script is a placeholder — it does not yet collect the browser signals needed to prevent the target site from detecting the proxied connection. Keep `puppet.enabled: false` until this is completed.
 
 Validate a config file without starting the daemon:
 
@@ -90,14 +93,52 @@ miraged --config /etc/mirage/miraged.yaml validate
 
 ## Deployment
 
+`miraged` can be deployed as a Docker container or provisioned directly onto a remote Linux server via the `mirage deploy` command. Either way, the `mirage` CLI connects to the running daemon over mTLS from your operator machine.
+
+### Docker
+
+The Docker image contains only `miraged`. Config, phishlets, and data are supplied at runtime via two volume mounts:
+
+| Mount | Contents |
+|-------|----------|
+| `/etc/mirage` | `miraged.yaml`, `phishlets/`, `redirectors/` |
+| `/var/lib/mirage` | SQLite database, generated TLS certs |
+
+Build the image:
+
+```bash
+make docker
+# or: docker build --build-arg VERSION=$(git describe --tags --always) -t mirage:latest .
+```
+
+Run with Docker:
+
+```bash
+docker run -d \
+  --cap-add NET_BIND_SERVICE \
+  --network host \
+  -v /etc/mirage:/etc/mirage:ro \
+  -v /var/lib/mirage:/var/lib/mirage \
+  mirage:latest
+```
+
+Or with Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+> `--network host` (or `network_mode: host` in Compose) is required so the DNS server on port 53 is reachable from the host. `NET_BIND_SERVICE` is needed to bind privileged ports 443 and 53 as a non-root user.
+
+### SSH
+
 Provision a remote server over SSH in one command:
 
 ```bash
-mirage deploy \
-  --host 203.0.113.5 \
-  --ssh-key ~/.ssh/id_ed25519 \
+mirage deploy 203.0.113.5 \
   --domain phish.example.com \
-  --external-ip 203.0.113.5
+  --ip 203.0.113.5 \
+  --ssh-key ~/.ssh/id_ed25519
 ```
 
 This uploads the `miraged` binary, writes the config, installs a systemd unit, and performs a health check.
@@ -133,7 +174,7 @@ mirage server add \
   --alias prod \
   --address https://<server-ip>:443 \
   --secret-hostname api.phish.example.com \
-  --ca ~/.mirage/prod-ca.crt \
+  --ca-cert ~/.mirage/prod-ca.crt \
   --cert ~/.mirage/prod-client.crt \
   --key ~/.mirage/prod-client.key
 ```
@@ -171,7 +212,7 @@ mirage --server prod
 - **mTLS API** — management API authenticated with mutual TLS; the daemon auto-generates a CA and issues operator certificates
 - **SSH deployment** — one-command remote provisioning with systemd unit installation
 - **Blacklist** — IP/CIDR blocking with automatic temporary whitelisting after successful token capture
-- **Puppet** — headless Chromium collects real browser telemetry from the target site and injects JS overrides into proxied responses so victim sessions match a legitimate visit's fingerprint
+- **Puppet** *(infrastructure complete, collector pending)* — headless Chromium visits the real target site and collects browser telemetry, then injects JS overrides into proxied responses so the victim's session appears indistinguishable from a direct visit — preventing the target site from detecting the proxied connection; the collection script is a placeholder pending research into what signals specific targets check
 
 ## Testing
 

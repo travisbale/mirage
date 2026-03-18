@@ -108,7 +108,7 @@ func newLuresCreateCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&baseDomain, "base-domain", "", "base domain override")
+	cmd.Flags().StringVar(&baseDomain, "domain", "", "base domain override")
 	cmd.Flags().StringVar(&path, "path", "", "lure path (default: random)")
 	cmd.Flags().StringVar(&redirectURL, "redirect", "", "URL to redirect unauthenticated visitors")
 	cmd.Flags().StringVar(&spoofURL, "spoof", "", "URL to display in the browser address bar")
@@ -233,17 +233,17 @@ func newLuresURLCmd() *cobra.Command {
 }
 
 func newLuresPauseCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "pause <id> <duration>",
-		Short: "Pause a lure (e.g. 15m, 2h, 1d)",
-		Args:  cobra.ExactArgs(2),
+	var duration string
+	cmd := &cobra.Command{
+		Use:   "pause <id>",
+		Short: "Pause a lure (e.g. --duration 15m, 2h, 1d)",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
 				return err
 			}
 			// Normalise "d" suffix before sending to server.
-			duration := args[1]
 			if len(duration) > 1 && duration[len(duration)-1] == 'd' {
 				d, err := parseDuration(duration)
 				if err != nil {
@@ -258,10 +258,13 @@ func newLuresPauseCmd() *cobra.Command {
 			if err := client.PauseLure(args[0], req); err != nil {
 				return err
 			}
-			fmt.Printf("Lure %s paused for %s\n", truncate(args[0], 8), args[1])
+			fmt.Printf("Lure %s paused for %s\n", truncate(args[0], 8), duration)
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&duration, "duration", "", "how long to pause (e.g. 15m, 2h, 1d)")
+	_ = cmd.MarkFlagRequired("duration")
+	return cmd
 }
 
 func newLuresUnpauseCmd() *cobra.Command {

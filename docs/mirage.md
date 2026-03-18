@@ -26,7 +26,7 @@ Running with no subcommand drops into the interactive REPL.
 mirage server add --alias prod --address https://1.2.3.4:443 \
   --secret-hostname api.phish.example.com \
   --cert ~/.mirage/client.crt --key ~/.mirage/client.key \
-  --ca ~/.mirage/server-ca.crt
+  --ca-cert ~/.mirage/server-ca.crt
 mirage server list
 mirage server remove prod
 mirage server default prod
@@ -37,7 +37,7 @@ mirage server default prod
 ```bash
 mirage deploy 203.0.113.5 \
   --domain phish.example.com \
-  --external-ip 203.0.113.5 \
+  --ip 203.0.113.5 \
   --ssh-key ~/.ssh/id_ed25519 \
   [--alias prod] [--secret-hostname api.phish.example.com] [--force]
 ```
@@ -48,7 +48,7 @@ Uploads the `miraged` binary, writes the config, installs a systemd unit, starts
 
 ```bash
 mirage phishlets list
-mirage phishlets enable <name> --hostname <hostname> [--domain <base-domain>]
+mirage phishlets enable <name> --hostname <hostname> [--domain <base-domain>] [--dns-provider <alias>]
 mirage phishlets disable <name>
 mirage phishlets hide <name>
 mirage phishlets unhide <name>
@@ -58,10 +58,10 @@ mirage phishlets unhide <name>
 
 ```bash
 mirage lures list [--phishlet <name>]
-mirage lures create <phishlet> [--path /p/<id>] [--redirect <url>] [--spoof <url>] [--ua-filter <regex>]
+mirage lures create <phishlet> [--path /p/<id>] [--redirect <url>] [--spoof <url>] [--ua-filter <regex>] [--domain <base-domain>]
 mirage lures update <id> [--redirect <url>] [--spoof <url>] [--ua-filter <regex>] [--og-title ...] [--og-desc ...] [--og-image ...]
-mirage lures url <id>
-mirage lures pause <id> [--duration 4h]
+mirage lures url <id> [key=value ...]
+mirage lures pause <id> --duration <duration>   # e.g. 15m, 2h, 1d
 mirage lures unpause <id>
 mirage lures delete <id>
 ```
@@ -90,7 +90,6 @@ mirage blacklist remove <ip-or-cidr>
 mirage botguard list
 mirage botguard add <ja4-hash> [--description "Googlebot"]
 mirage botguard remove <ja4-hash>
-mirage botguard threshold <0.0-1.0>
 ```
 
 ## Client config

@@ -47,12 +47,10 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(configPath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "INVALID: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("invalid config: %w", err)
 			}
 			if err := cfg.Validate(); err != nil {
-				fmt.Fprintf(os.Stderr, "INVALID: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("invalid config: %w", err)
 			}
 			fmt.Println("OK")
 			return nil

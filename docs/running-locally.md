@@ -40,9 +40,10 @@ self_signed: true
 
 api:
   secret_hostname: api.phish.local
+  client_ca_cert_path: /tmp/mirage/data/api-ca.crt
 ```
 
-> `domain` and `external_ipv4` are the only required fields. Everything else has defaults, but ports 443 and 53 need root — use 8443/5353 to run as a normal user. Set `self_signed: true` to skip ACME and use a locally generated CA instead.
+> Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Everything else has defaults, but ports 443 and 53 need root — use 8443/5353 to run as a normal user. Set `self_signed: true` to skip ACME and use a locally generated CA instead.
 
 ---
 

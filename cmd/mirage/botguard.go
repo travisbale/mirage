@@ -73,7 +73,7 @@ func newBotguardAddCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&desc, "desc", "", "description of the bot signature")
+	cmd.Flags().StringVar(&desc, "description", "", "description of the bot signature")
 	return cmd
 }
 
