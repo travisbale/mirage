@@ -19,6 +19,9 @@ func (r CreateLureRequest) Validate() error {
 			return fmt.Errorf("ua_filter: invalid regex: %w", err)
 		}
 	}
+	if r.RedirectURL == "" {
+		return fmt.Errorf("redirect_url: required")
+	}
 	if err := validateURL("redirect_url", r.RedirectURL); err != nil {
 		return err
 	}

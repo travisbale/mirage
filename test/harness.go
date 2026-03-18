@@ -137,8 +137,9 @@ func NewHarness(t *testing.T) *Harness {
 	// Create a default lure at "/" so victim requests to the root path
 	// are treated as valid lure hits and receive a session.
 	if _, err := apiClient.CreateLure(sdk.CreateLureRequest{
-		Phishlet: testPhishletName,
-		Path:     "/",
+		Phishlet:    testPhishletName,
+		Path:        "/",
+		RedirectURL: "https://testsite.internal/",
 	}); err != nil {
 		t.Fatalf("CreateLure default: %v", err)
 	}

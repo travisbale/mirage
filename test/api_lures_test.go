@@ -14,8 +14,9 @@ func TestAPI_CreateAndDeleteLure(t *testing.T) {
 	harness := test.NewHarness(t)
 
 	lure, err := harness.API.CreateLure(sdk.CreateLureRequest{
-		Phishlet: "testsite",
-		Path:     "/go/test",
+		Phishlet:    "testsite",
+		Path:        "/go/test",
+		RedirectURL: "https://testsite.internal/",
 	})
 	if err != nil {
 		t.Fatalf("CreateLure: %v", err)
@@ -61,8 +62,9 @@ func TestAPI_PausedLureSpoofs(t *testing.T) {
 	})
 
 	lure, err := harness.API.CreateLure(sdk.CreateLureRequest{
-		Phishlet: "testsite",
-		Path:     "/go/test",
+		Phishlet:    "testsite",
+		Path:        "/go/test",
+		RedirectURL: "https://testsite.internal/",
 	})
 	if err != nil {
 		t.Fatalf("CreateLure: %v", err)
