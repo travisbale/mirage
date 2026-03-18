@@ -48,6 +48,37 @@ func TestCredentialExtractor_ExtractsUsername(t *testing.T) {
 	}
 }
 
+func TestCredentialExtractor_HostWithPort_StillMatches(t *testing.T) {
+	h := &request.CredentialExtractor{
+		Capturer: &stubCredentialCapturer{},
+		Logger:   discardLogger(),
+	}
+	ctx := &aitm.ProxyContext{
+		Session: &aitm.Session{ID: "sess-1"},
+		Phishlet: &aitm.Phishlet{
+			Login: aitm.LoginSpec{Domain: "login.example.com", Path: "/login"},
+			Credentials: aitm.CredentialRules{
+				Username: aitm.CredentialRule{
+					Key:    regexp.MustCompile(`^username$`),
+					Search: regexp.MustCompile(`^(.+)$`),
+					Type:   "post",
+				},
+			},
+		},
+	}
+	body := strings.NewReader("username=victim%40example.com")
+	req := newReq(http.MethodPost, "https://login.example.com:8443/login", body)
+	req.Host = "login.example.com:8443"
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(ctx.Session.Username, "victim") {
+		t.Errorf("expected credentials extracted when host includes port, got %q", ctx.Session.Username)
+	}
+}
+
 func TestCredentialExtractor_NonPost_Skips(t *testing.T) {
 	h := &request.CredentialExtractor{
 		Capturer: &stubCredentialCapturer{},

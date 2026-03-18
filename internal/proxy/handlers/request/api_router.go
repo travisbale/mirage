@@ -18,7 +18,7 @@ type APIRouter struct {
 func (h *APIRouter) Name() string { return "APIRouter" }
 
 func (h *APIRouter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
-	if strings.EqualFold(req.Host, h.SecretHostname) {
+	if strings.EqualFold(hostWithoutPort(req.Host), h.SecretHostname) {
 		h.Handler.ServeHTTP(ctx.ResponseWriter, req)
 		return proxy.ErrShortCircuit
 	}

