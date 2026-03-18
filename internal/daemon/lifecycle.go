@@ -71,8 +71,6 @@ func (d *Daemon) Reload() error {
 // Shutdown tears down all subsystems in reverse dependency order.
 // Called after Run returns.
 func (d *Daemon) Shutdown() {
-	d.logger.Info("shutting down")
-
 	if d.phishletReloadSub != nil {
 		d.bus.Unsubscribe(aitm.EventPhishletReloaded, d.phishletReloadSub)
 	}
@@ -89,7 +87,6 @@ func (d *Daemon) Shutdown() {
 		}
 	}
 
-	d.logger.Info("closing store")
 	if err := d.db.Close(); err != nil {
 		d.logger.Error("store close error", "error", err)
 	}
