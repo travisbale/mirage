@@ -404,7 +404,7 @@ func (d *Daemon) loadPhishlets(dir string, resolver *aitm.PhishletResolver) {
 		path := filepath.Join(dir, entry.Name())
 		def, err := loader.Load(path)
 		if err != nil {
-			d.logger.Warn("failed to load phishlet", "path", path, "error", err)
+			d.logger.Error("failed to load phishlet", "path", path, "error", err)
 			continue
 		}
 
