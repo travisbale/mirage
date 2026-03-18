@@ -23,11 +23,10 @@ func newREPLCmd() *cobra.Command {
 				return err
 			}
 			alias, _ := cmd.Flags().GetString("server")
-			server, err := cfg.findServer(alias)
-			if err != nil {
-				return err
+			if alias == "" {
+				alias = cfg.DefaultServer
 			}
-			return runREPL(cmd.Context(), server.Alias, cfgPath)
+			return runREPL(cmd.Context(), alias, cfgPath)
 		},
 	}
 }
@@ -63,6 +62,11 @@ func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
  ─────────────────────────────────────────────────────────────
 
 `)
+
+	if serverAlias == "" {
+		fmt.Println("No server configured. Run `server add` to connect to a miraged instance.")
+		fmt.Println()
+	}
 
 	degraded := false
 	for {
@@ -103,7 +107,13 @@ func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
 			fallthrough
 
 		default:
-			degraded = !execCommand(args, serverAlias, cfgPath)
+			ok := execCommand(args, serverAlias, cfgPath)
+			if serverAlias == "" && ok {
+				if cfg, err := loadConfig(cfgPath); err == nil && cfg.DefaultServer != "" {
+					serverAlias = cfg.DefaultServer
+				}
+			}
+			degraded = !ok
 			rl.SetPrompt(prompt(serverAlias, degraded))
 		}
 	}
@@ -113,7 +123,9 @@ func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
 func execCommand(args []string, serverAlias, cfgPath string) bool {
 	full := make([]string, 0, len(args)+4)
 	full = append(full, args...)
-	full = append(full, "--server", serverAlias)
+	if serverAlias != "" {
+		full = append(full, "--server", serverAlias)
+	}
 	if cfgPath != "" {
 		full = append(full, "--config", cfgPath)
 	}
@@ -132,6 +144,9 @@ func execCommand(args []string, serverAlias, cfgPath string) bool {
 
 // prompt returns the readline prompt string, with a "!" suffix when degraded.
 func prompt(alias string, degraded bool) string {
+	if alias == "" {
+		return "mirage> "
+	}
 	if degraded {
 		return fmt.Sprintf("mirage [%s!]> ", alias)
 	}

@@ -21,7 +21,7 @@ func main() {
 func run() error {
 	root := newRootCmd()
 
-	// When invoked with no subcommand, drop into the REPL if a server is configured.
+	// When invoked with no subcommand, drop into the REPL.
 	root.RunE = func(cmd *cobra.Command, args []string) error {
 		return newREPLCmd().RunE(cmd, args)
 	}
