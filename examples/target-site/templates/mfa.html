@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify your identity — Vault</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f3f4f6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #111827;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.10), 0 4px 24px rgba(0,0,0,.06);
+      padding: 40px 40px 32px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .logo-name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      color: #111827;
+    }
+
+    .icon {
+      width: 48px;
+      height: 48px;
+      background: #eef2ff;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    .email-badge {
+      display: inline-block;
+      background: #f3f4f6;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 13px;
+      color: #374151;
+      font-weight: 500;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 7px;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 8px;
+      color: #111827;
+      background: #fff;
+      text-align: center;
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"]:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 11px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      margin-bottom: 12px;
+    }
+
+    button[type="submit"]:hover { background: #4f46e5; }
+
+    .resend {
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .resend a {
+      color: #6366f1;
+      text-decoration: none;
+    }
+
+    .resend a:hover { text-decoration: underline; }
+
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 7px;
+      color: #dc2626;
+      font-size: 13px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+    }
+
+    footer {
+      margin-top: 28px;
+      font-size: 12px;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="8" fill="#6366f1"/>
+        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
+      </svg>
+      <span class="logo-name">Vault</span>
+    </div>
+
+    <div class="icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 11a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm0-9a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3z" fill="#6366f1"/>
+      </svg>
+    </div>
+
+    <h1>Two-factor authentication</h1>
+    <p class="subtitle">
+      Enter the 6-digit code from your authenticator app for<br/>
+      <span class="email-badge">{{ email }}</span>
+    </p>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/mfa">
+      <label for="code">Authentication code</label>
+      <input
+        type="text"
+        id="code"
+        name="code"
+        maxlength="6"
+        inputmode="numeric"
+        pattern="[0-9]{6}"
+        placeholder="000000"
+        autocomplete="one-time-code"
+        autofocus
+        required
+      />
+      <button type="submit">Verify</button>
+    </form>
+
+    <p class="resend">Didn't receive a code? <a href="#">Resend</a></p>
+  </div>
+
+  <footer>&copy; 2025 Vault Inc. All rights reserved.</footer>
+</body>
+</html>

@@ -157,7 +157,7 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	var body sdk.GenerateURLRequest
 	_ = json.NewDecoder(req.Body).Decode(&body) // body is optional
 
-	url, err := lure.GenerateURL(r.Domain, body.Params)
+	url, err := lure.GenerateURL(r.Domain, r.HTTPSPort, body.Params)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate lure URL")
 		return

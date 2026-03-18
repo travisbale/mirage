@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Vault</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f3f4f6;
+      min-height: 100vh;
+      color: #111827;
+    }
+
+    nav {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav-email {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .btn-logout {
+      font-size: 13px;
+      color: #6366f1;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .btn-logout:hover { text-decoration: underline; }
+
+    main {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+
+    .welcome {
+      margin-bottom: 32px;
+    }
+
+    .welcome h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .welcome p {
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      padding: 20px;
+    }
+
+    .card-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .card-sub {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .card-accent { border-top: 3px solid #6366f1; }
+    .card-green  { border-top: 3px solid #10b981; }
+    .card-amber  { border-top: 3px solid #f59e0b; }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .activity {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+    }
+
+    .activity-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .activity-row:last-child { border-bottom: none; }
+
+    .activity-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #6366f1;
+      flex-shrink: 0;
+    }
+
+    .activity-text { font-size: 14px; color: #374151; flex: 1; }
+
+    .activity-time { font-size: 12px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="8" fill="#6366f1"/>
+        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
+      </svg>
+      Vault
+    </div>
+    <div class="nav-right">
+      <span class="nav-email">{{ email }}</span>
+      <a class="btn-logout" href="/logout">Sign out</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="welcome">
+      <h1>Welcome back</h1>
+      <p>Signed in as {{ email }}</p>
+    </div>
+
+    <div class="cards">
+      <div class="card card-accent">
+        <div class="card-label">Storage used</div>
+        <div class="card-value">14.2 GB</div>
+        <div class="card-sub">of 50 GB</div>
+      </div>
+      <div class="card card-green">
+        <div class="card-label">Shared files</div>
+        <div class="card-value">38</div>
+        <div class="card-sub">across 4 workspaces</div>
+      </div>
+      <div class="card card-amber">
+        <div class="card-label">Pending invites</div>
+        <div class="card-value">2</div>
+        <div class="card-sub">awaiting your response</div>
+      </div>
+    </div>
+
+    <div class="section-title">Recent activity</div>
+    <div class="activity">
+      <div class="activity-row">
+        <div class="activity-dot"></div>
+        <div class="activity-text">Q4 Financial Report.pdf was shared with you</div>
+        <div class="activity-time">2 min ago</div>
+      </div>
+      <div class="activity-row">
+        <div class="activity-dot" style="background:#10b981"></div>
+        <div class="activity-text">You uploaded Project Roadmap.pptx</div>
+        <div class="activity-time">1 hr ago</div>
+      </div>
+      <div class="activity-row">
+        <div class="activity-dot" style="background:#f59e0b"></div>
+        <div class="activity-text">Access review required for Engineering workspace</div>
+        <div class="activity-time">Yesterday</div>
+      </div>
+      <div class="activity-row">
+        <div class="activity-dot"></div>
+        <div class="activity-text">Password changed successfully</div>
+        <div class="activity-time">3 days ago</div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

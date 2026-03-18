@@ -293,6 +293,7 @@ func (ini *initializer) initProxy(version string) error {
 		Botguard:  ini.botGuardSvc,
 		Bus:       ini.bus,
 		Domain:    ini.cfg.Domain,
+		HTTPSPort: ini.cfg.HTTPSPort,
 		Version:   version,
 		Logger:    ini.logger,
 	}

