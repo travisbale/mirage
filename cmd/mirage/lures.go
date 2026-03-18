@@ -51,7 +51,7 @@ func newLuresListCmd() *cobra.Command {
 			rows := make([][]string, len(items))
 			for i := range items {
 				rows[i] = []string{
-					truncate(items[i].ID, 8),
+					items[i].ID,
 					items[i].Phishlet,
 					items[i].Hostname,
 					items[i].Path,
@@ -102,7 +102,7 @@ func newLuresCreateCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(lure)
 			}
-			fmt.Printf("Created lure %s on %s%s\n", truncate(lure.ID, 8), lure.Hostname, lure.Path)
+			fmt.Printf("Created lure %s on %s%s\n", lure.ID, lure.Hostname, lure.Path)
 			return nil
 		},
 	}
@@ -169,7 +169,7 @@ func newLuresUpdateCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(lure)
 			}
-			fmt.Printf("Updated lure %s\n", truncate(lure.ID, 8))
+			fmt.Printf("Updated lure %s\n", lure.ID)
 			return nil
 		},
 	}
@@ -255,7 +255,7 @@ func newLuresPauseCmd() *cobra.Command {
 			if err := client.PauseLure(args[0], req); err != nil {
 				return err
 			}
-			fmt.Printf("Lure %s paused for %s\n", truncate(args[0], 8), duration)
+			fmt.Printf("Lure %s paused for %s\n", args[0], duration)
 			return nil
 		},
 	}
@@ -277,7 +277,7 @@ func newLuresUnpauseCmd() *cobra.Command {
 			if err := client.UnpauseLure(args[0]); err != nil {
 				return err
 			}
-			fmt.Printf("Lure %s unpaused\n", truncate(args[0], 8))
+			fmt.Printf("Lure %s unpaused\n", args[0])
 			return nil
 		},
 	}

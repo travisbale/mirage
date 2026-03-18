@@ -64,7 +64,7 @@ func newSessionsListCmd() *cobra.Command {
 			rows := make([][]string, len(resp.Items))
 			for i := range resp.Items {
 				rows[i] = []string{
-					truncate(resp.Items[i].ID, 8),
+					resp.Items[i].ID,
 					resp.Items[i].Phishlet,
 					resp.Items[i].RemoteAddr,
 					resp.Items[i].Username,
@@ -196,7 +196,7 @@ func newSessionsStreamCmd() *cobra.Command {
 					fmt.Printf("[%s] %-18s %s  %s  %s\n",
 						time.Now().Format("15:04:05"),
 						eventLabel(ev.Type),
-						truncate(s.ID, 8),
+						s.ID,
 						s.Phishlet,
 						s.RemoteAddr,
 					)

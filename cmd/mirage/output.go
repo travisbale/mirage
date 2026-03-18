@@ -51,10 +51,3 @@ func fmtBool(b bool) string {
 	}
 	return "no"
 }
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n]
-}
