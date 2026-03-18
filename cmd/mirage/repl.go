@@ -52,6 +52,18 @@ func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
 	}
 	defer rl.Close()
 
+	fmt.Print(`
+░  ░░░░  ░░        ░░       ░░░░      ░░░░      ░░░        ░
+▒   ▒▒   ▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒▒▒▒
+▓        ▓▓▓▓▓  ▓▓▓▓▓       ▓▓▓  ▓▓▓▓  ▓▓  ▓▓▓   ▓▓      ▓▓▓
+█  █  █  █████  █████  ███  ███        ██  ████  ██  ███████
+█  ████  ██        ██  ████  ██  ████  ███      ███        █
+
+ AiTM Phishing Framework  •  v` + Version + `
+ ─────────────────────────────────────────────────────────────
+
+`)
+
 	degraded := false
 	for {
 		select {
