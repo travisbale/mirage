@@ -86,7 +86,7 @@ func newSessionsShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show session details",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -121,7 +121,7 @@ func newSessionsExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export <id>",
 		Short: "Export session cookies as JSON (StorageAce format)",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -150,7 +150,7 @@ func newSessionsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a session",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {

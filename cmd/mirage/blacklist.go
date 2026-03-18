@@ -50,7 +50,7 @@ func newBlacklistAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add <ip-or-cidr>",
 		Short: "Add an entry to the blacklist",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -74,7 +74,7 @@ func newBlacklistRemoveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <ip-or-cidr>",
 		Short: "Remove an entry from the blacklist",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {

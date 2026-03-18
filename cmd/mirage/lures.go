@@ -77,7 +77,7 @@ func newLuresCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <phishlet>",
 		Short: "Create a lure",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -127,7 +127,7 @@ func newLuresUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a lure",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -187,7 +187,7 @@ func newLuresDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a lure",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -206,7 +206,7 @@ func newLuresURLCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "url <id> [key=value ...]",
 		Short: "Generate a lure URL",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -233,7 +233,7 @@ func newLuresPauseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pause <id>",
 		Short: "Pause a lure (e.g. --duration 15m, 2h, 1d)",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -267,7 +267,7 @@ func newLuresUnpauseCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "unpause <id>",
 		Short: "Unpause a lure",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {

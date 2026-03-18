@@ -12,6 +12,15 @@ import (
 
 var Version = "dev"
 
+// requireOneArg is a cobra Args validator that replaces ExactArgs(1) with a
+// message that shows the correct usage instead of "accepts 1 arg(s), received 0".
+func requireOneArg(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: %s", cmd.UseLine())
+	}
+	return cobra.ExactArgs(1)(cmd, args)
+}
+
 func main() {
 	if err := run(); err != nil {
 		os.Exit(1)

@@ -52,7 +52,7 @@ func newBotguardAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <ja4-hash>",
 		Short: "Add a bot signature",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -81,7 +81,7 @@ func newBotguardRemoveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <ja4-hash>",
 		Short: "Remove a bot signature",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {

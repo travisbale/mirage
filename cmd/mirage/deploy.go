@@ -30,7 +30,7 @@ writes a config file and systemd unit, starts the service, and waits for it to b
 
 After a successful deploy, add the server with:
   mirage server add --alias <alias> ...`,
-		Args: cobra.ExactArgs(1),
+		Args: requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			host := args[0]
 

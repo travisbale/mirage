@@ -63,7 +63,7 @@ func newPhishletsEnableCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "enable <name>",
 		Short: "Enable a phishlet",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -93,7 +93,7 @@ func newPhishletsDisableCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "disable <name>",
 		Short: "Disable a phishlet",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -116,7 +116,7 @@ func newPhishletsHideCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "hide <name>",
 		Short: "Hide a phishlet (serve blank page to non-lure traffic)",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
@@ -139,7 +139,7 @@ func newPhishletsUnhideCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "unhide <name>",
 		Short: "Unhide a phishlet",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := resolveClient(cmd)
 			if err != nil {
