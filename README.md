@@ -187,8 +187,7 @@ Manage phishlets, lures, and sessions:
 ```bash
 mirage phishlets list
 mirage phishlets enable microsoft --hostname login.phish.example.com
-mirage lures create microsoft --redirect https://portal.office.com
-mirage lures url <id>
+mirage lures create microsoft --redirect https://microsoft.com
 mirage sessions list
 mirage sessions list --completed
 mirage sessions export <id> --out cookies.json

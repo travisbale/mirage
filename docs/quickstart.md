@@ -119,12 +119,9 @@ This verifies the connection before saving. On success you'll see `Connected to 
 
 # Create a lure (redirect URL is where victims land after token capture)
 ./build/mirage lures create target-site --redirect http://login.target.local/dashboard
-
-# Get the phishing URL
-./build/mirage lures url <lure-id>
 ```
 
-Visit the generated URL in a browser that trusts the CA. Sign in with any email and password, then enter any 6-digit code for MFA. Once MFA completes the session token is captured and the session is marked complete:
+Visit the printed URL in a browser that trusts the CA. Sign in with any email and password, then enter any 6-digit code for MFA. Once MFA completes the session token is captured and the session is marked complete:
 
 ```bash
 ./build/mirage sessions list --completed

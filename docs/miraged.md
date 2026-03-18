@@ -28,7 +28,7 @@ miraged <command>
 
 On startup, `miraged` initializes these subsystems:
 
-1. **SQLite store** — sessions, lures, and phishlet configs persist in `db_path`
+1. **SQLite store** — sessions, lures, and phishlet configs persist in `data_dir/data.db`
 2. **Phishlet loader** — reads YAML phishlet definitions from `phishlets_dir`
 3. **DNS server** — authoritative nameserver that answers A queries for phishing domains with `external_ipv4`
 4. **Certificate manager** — provisions TLS certificates via ACME (Let's Encrypt) or a locally generated CA when `self_signed: true`

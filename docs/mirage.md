@@ -48,7 +48,7 @@ Uploads the `miraged` binary, writes the config, installs a systemd unit, starts
 
 ```bash
 mirage phishlets list
-mirage phishlets enable <name> --hostname <hostname> [--domain <base-domain>] [--dns-provider <alias>]
+mirage phishlets enable <name> --hostname <hostname> [--dns-provider <alias>]
 mirage phishlets disable <name>
 mirage phishlets hide <name>
 mirage phishlets unhide <name>
@@ -58,7 +58,7 @@ mirage phishlets unhide <name>
 
 ```bash
 mirage lures list [--phishlet <name>]
-mirage lures create <phishlet> [--path /p/<id>] [--redirect <url>] [--spoof <url>] [--ua-filter <regex>] [--domain <base-domain>]
+mirage lures create <phishlet> [--path /p/<id>] [--redirect <url>] [--spoof <url>] [--ua-filter <regex>]
 mirage lures update <id> [--redirect <url>] [--spoof <url>] [--ua-filter <regex>] [--og-title ...] [--og-desc ...] [--og-image ...]
 mirage lures url <id> [key=value ...]
 mirage lures pause <id> --duration <duration>   # e.g. 15m, 2h, 1d
@@ -118,7 +118,7 @@ Running `mirage` with no subcommand (or `mirage repl`) opens an interactive prom
 
 ```txt
 mirage [prod]> sessions list
-mirage [prod]> lures create microsoft --redirect https://portal.office.com
+mirage [prod]> lures create microsoft --redirect https://microsoft.com
 mirage [prod]> sessions export abc123 --out cookies.json
 ```
 
