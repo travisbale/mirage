@@ -25,8 +25,7 @@ make build
 The `examples/target-site/` directory contains a small Flask login portal ("Vault") with email/password and MFA steps — enough to test credential capture and session token capture end-to-end.
 
 ```bash
-docker build -t vault-target examples/target-site/
-docker run -d --name vault-target -p 80:80 vault-target
+docker compose -f examples/target-site/docker-compose.yml up -d
 ```
 
 ---
