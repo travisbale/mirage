@@ -308,11 +308,7 @@ func checkStatus(resp *http.Response) error {
 
 	var e ErrorResponse
 	_ = json.NewDecoder(resp.Body).Decode(&e)
-	if e.Error != "" {
-		return fmt.Errorf("api error %d: %s", resp.StatusCode, e.Error)
-	}
-
-	return fmt.Errorf("api error %d", resp.StatusCode)
+	return fmt.Errorf("%s", e.Error)
 }
 
 // get performs a GET and decodes the JSON response into T.
