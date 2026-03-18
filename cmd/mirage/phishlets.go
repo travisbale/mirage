@@ -79,7 +79,7 @@ func newPhishletsEnableCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(p)
 			}
-			printPhishlet(p)
+			fmt.Printf("Enabled %s on %s\n", p.Name, p.Hostname)
 			return nil
 		},
 	}
@@ -106,7 +106,7 @@ func newPhishletsDisableCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(p)
 			}
-			printPhishlet(p)
+			fmt.Printf("Disabled %s\n", p.Name)
 			return nil
 		},
 	}
@@ -129,7 +129,7 @@ func newPhishletsHideCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(p)
 			}
-			printPhishlet(p)
+			fmt.Printf("Hidden %s\n", p.Name)
 			return nil
 		},
 	}
@@ -152,17 +152,8 @@ func newPhishletsUnhideCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(p)
 			}
-			printPhishlet(p)
+			fmt.Printf("Unhidden %s\n", p.Name)
 			return nil
 		},
 	}
-}
-
-func printPhishlet(p *sdk.PhishletResponse) {
-	fmt.Printf("Name:         %s\n", p.Name)
-	fmt.Printf("Hostname:     %s\n", p.Hostname)
-	fmt.Printf("Domain:       %s\n", p.BaseDomain)
-	fmt.Printf("DNS Provider: %s\n", p.DNSProvider)
-	fmt.Printf("Enabled:      %s\n", fmtBool(p.Enabled))
-	fmt.Printf("Hidden:       %s\n", fmtBool(p.Hidden))
 }
