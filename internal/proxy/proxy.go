@@ -47,7 +47,8 @@ func (p *AITMProxy) Start(ctx context.Context, addr string) error {
 	if err != nil {
 		return fmt.Errorf("aitm: listen %s: %w", addr, err)
 	}
-	p.Logger.Debug("AiTM proxy started", "addr", addr)
+
+	p.Logger.Info("AiTM proxy listening", "addr", addr)
 
 	// Close the listener when ctx is cancelled so Accept unblocks.
 	go func() {

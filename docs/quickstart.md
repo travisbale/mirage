@@ -80,7 +80,7 @@ On first run it will:
 - Issue an operator client cert at `/tmp/mirage/data/operator.crt` + `operator.key`
 - Load any phishlets found in `phishlets_dir`
 
-You should see `miraged ready` in the output.
+You should see `AiTM proxy listening` in the output.
 
 ---
 

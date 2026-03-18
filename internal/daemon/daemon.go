@@ -116,15 +116,6 @@ func New(configPath string, version string, logger *slog.Logger) (*Daemon, error
 
 	ini.initWatcher()
 
-	activeCount := ini.countActive()
-	logger.Info("miraged ready",
-		"version", version,
-		"domain", cfg.Domain,
-		"https_port", cfg.HTTPSPort,
-		"api_hostname", cfg.API.SecretHostname,
-		"active_phishlets", activeCount,
-	)
-
 	return ini.Daemon, nil
 }
 
