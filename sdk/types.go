@@ -64,7 +64,6 @@ type SessionFilter struct {
 
 type CreateLureRequest struct {
 	Phishlet    string `json:"phishlet"`
-	BaseDomain  string `json:"base_domain,omitempty"`
 	Path        string `json:"path,omitempty"`
 	RedirectURL string `json:"redirect_url,omitempty"`
 	SpoofURL    string `json:"spoof_url,omitempty"`
@@ -90,7 +89,6 @@ type UpdateLureRequest struct {
 type LureResponse struct {
 	ID          string     `json:"id"`
 	Phishlet    string     `json:"phishlet"`
-	BaseDomain  string     `json:"base_domain"`
 	Hostname    string     `json:"hostname"`
 	Path        string     `json:"path"`
 	RedirectURL string     `json:"redirect_url"`

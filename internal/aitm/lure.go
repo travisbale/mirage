@@ -28,7 +28,6 @@ type lureStore interface {
 type Lure struct {
 	ID          string
 	Phishlet    string
-	BaseDomain  string // overrides global domain if set
 	Hostname    string
 	Path        string
 	RedirectURL string

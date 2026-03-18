@@ -77,7 +77,6 @@ func (p *Pipeline) RunRequest(ctx *aitm.ProxyContext, req *http.Request) error {
 	for _, handler := range p.RequestHandlers {
 		if err := handler.Handle(ctx, req); err != nil {
 			if errors.Is(err, ErrShortCircuit) {
-				p.Logger.Debug("request pipeline short-circuited", "handler", handler.Name())
 				return ErrShortCircuit
 			}
 			p.Logger.Error("request handler error", "handler", handler.Name(), "error", err)
@@ -95,7 +94,6 @@ func (p *Pipeline) RunResponse(ctx *aitm.ProxyContext, resp *http.Response) erro
 	for _, handler := range p.ResponseHandlers {
 		if err := handler.Handle(ctx, resp); err != nil {
 			if errors.Is(err, ErrShortCircuit) {
-				p.Logger.Debug("response pipeline short-circuited", "handler", handler.Name())
 				return ErrShortCircuit
 			}
 			p.Logger.Error("response handler error", "handler", handler.Name(), "error", err)

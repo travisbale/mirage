@@ -74,7 +74,6 @@ func newLuresCreateCmd() *cobra.Command {
 		uaFilter    string
 		redirector  string
 		path        string
-		baseDomain  string
 	)
 	cmd := &cobra.Command{
 		Use:   "create <phishlet>",
@@ -87,7 +86,6 @@ func newLuresCreateCmd() *cobra.Command {
 			}
 			req := sdk.CreateLureRequest{
 				Phishlet:    args[0],
-				BaseDomain:  baseDomain,
 				Path:        path,
 				RedirectURL: redirectURL,
 				SpoofURL:    spoofURL,
@@ -104,11 +102,10 @@ func newLuresCreateCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(lure)
 			}
-			printLure(lure)
+			fmt.Printf("Created lure %s on %s%s\n", truncate(lure.ID, 8), lure.Hostname, lure.Path)
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&baseDomain, "domain", "", "base domain override")
 	cmd.Flags().StringVar(&path, "path", "", "lure path (default: random)")
 	cmd.Flags().StringVar(&redirectURL, "redirect", "", "URL to redirect unauthenticated visitors")
 	cmd.Flags().StringVar(&spoofURL, "spoof", "", "URL to display in the browser address bar")
@@ -172,7 +169,7 @@ func newLuresUpdateCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(lure)
 			}
-			printLure(lure)
+			fmt.Printf("Updated lure %s\n", truncate(lure.ID, 8))
 			return nil
 		},
 	}
@@ -284,11 +281,4 @@ func newLuresUnpauseCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-func printLure(l *sdk.LureResponse) {
-	printTable(
-		[]string{"ID", "PHISHLET", "HOSTNAME", "PATH", "REDIRECT URL", "PAUSED UNTIL"},
-		[][]string{{truncate(l.ID, 8), l.Phishlet, l.Hostname, l.Path, l.RedirectURL, fmtOptTime(l.PausedUntil)}},
-	)
 }

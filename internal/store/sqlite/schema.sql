@@ -25,7 +25,6 @@ CREATE INDEX IF NOT EXISTS idx_sessions_completed  ON sessions(completed_at)
 CREATE TABLE IF NOT EXISTS lures (
     id              TEXT    PRIMARY KEY,
     phishlet        TEXT    NOT NULL,
-    base_domain     TEXT    NOT NULL DEFAULT '',
     hostname        TEXT    NOT NULL DEFAULT '',
     path            TEXT    NOT NULL DEFAULT '/',
     redirect_url    TEXT    NOT NULL DEFAULT '',
