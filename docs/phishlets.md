@@ -35,6 +35,7 @@ proxy_hosts:
     is_landing: true           # true on the host that receives lure traffic
     is_session: false          # true if this host sets the session cookie
     auto_filter: true          # auto-rewrite domain references in responses (default: true)
+    upstream_scheme: https     # "http" or "https" (default: "https")
 ```
 
 At least one entry is required. `phish_sub`, `orig_sub`, and `domain` are all required on each entry.
@@ -46,6 +47,8 @@ At least one entry is required. `phish_sub`, `orig_sub`, and `domain` are all re
 **`is_session`** — mark the host that sets the primary session cookie. Used by `auth_tokens` with no explicit domain to determine where to look.
 
 **`auto_filter`** — when `true` (the default), miraged automatically rewrites occurrences of `orig_sub.domain` to `phish_sub.phish_domain` in HTML and JavaScript responses. Disable it for hosts where auto-rewriting breaks the page and you want to rely solely on explicit `sub_filters`.
+
+**`upstream_scheme`** — the scheme used when forwarding requests to the upstream host. Defaults to `https`. Set to `http` only for local testing targets that don't serve TLS.
 
 ---
 

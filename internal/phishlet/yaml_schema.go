@@ -17,12 +17,13 @@ type rawPhishlet struct {
 }
 
 type rawProxyHost struct {
-	PhishSub   string `yaml:"phish_sub"`
-	OrigSub    string `yaml:"orig_sub"`
-	Domain     string `yaml:"domain"`
-	IsLanding  bool   `yaml:"is_landing"`
-	IsSession  bool   `yaml:"is_session"`
-	AutoFilter *bool  `yaml:"auto_filter"` // pointer so we can detect missing vs false
+	PhishSub       string `yaml:"phish_sub"`
+	OrigSub        string `yaml:"orig_sub"`
+	Domain         string `yaml:"domain"`
+	IsLanding      bool   `yaml:"is_landing"`
+	IsSession      bool   `yaml:"is_session"`
+	AutoFilter     *bool  `yaml:"auto_filter"`     // pointer so we can detect missing vs false
+	UpstreamScheme string `yaml:"upstream_scheme"` // "http" or "https" (default: "https")
 }
 
 type rawSubFilter struct {

