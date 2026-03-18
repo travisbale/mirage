@@ -104,7 +104,7 @@ In a second terminal:
   --secret-hostname api.phish.local \
   --cert /tmp/mirage/data/operator.crt \
   --key /tmp/mirage/data/operator.key \
-  --ca-cert /tmp/mirage/data/api-ca.crt
+  --ca-cert /tmp/mirage/data/ca/mirage-ca.crt
 ```
 
 This verifies the connection before saving. On success you'll see `Connected to miraged ... — endpoint saved as "local"`.
