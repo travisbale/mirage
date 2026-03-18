@@ -257,19 +257,19 @@ func (s *PhishletService) Contains(hostname string) bool {
 // Enable marks a phishlet as active, optionally updating its hostname, base
 // domain, and DNS provider. The resolver is updated atomically so routing
 // takes effect immediately without a restart.
-func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string) (*Phishlet, error) {
+func (s *PhishletService) Enable(name, hostname, dnsProvider string) (*Phishlet, error) {
 	p := s.currentOrNew(name)
 	if hostname != "" {
 		p.Hostname = hostname
-	}
-	if baseDomain != "" {
-		p.BaseDomain = baseDomain
 	}
 	if dnsProvider != "" {
 		p.DNSProvider = dnsProvider
 	}
 	if p.Hostname == "" {
 		return nil, ErrHostnameRequired
+	}
+	if p.BaseDomain == "" {
+		p.BaseDomain = deriveBaseDomain(s.resolver.Get(name), p.Hostname)
 	}
 	if owner := s.resolver.OwnerOf(p.Hostname); owner != "" && owner != p.Name {
 		return nil, ErrHostnameConflict
@@ -281,6 +281,22 @@ func (s *PhishletService) Enable(name, hostname, baseDomain, dnsProvider string)
 	s.resolver.Register(p)
 	s.bus.Publish(Event{Type: EventPhishletEnabled, Payload: p})
 	return p, nil
+}
+
+// deriveBaseDomain infers the base domain from the phishing hostname by matching
+// each proxy host's PhishSubdomain as a prefix. Returns "" if no match is found.
+func deriveBaseDomain(def *Phishlet, hostname string) string {
+	if def == nil {
+		return ""
+	}
+	hostname = strings.ToLower(hostname)
+	for _, ph := range def.ProxyHosts {
+		prefix := strings.ToLower(ph.PhishSubdomain) + "."
+		if strings.HasPrefix(hostname, prefix) {
+			return hostname[len(prefix):]
+		}
+	}
+	return ""
 }
 
 // Disable marks a phishlet as inactive.

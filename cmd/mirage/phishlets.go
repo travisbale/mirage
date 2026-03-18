@@ -58,7 +58,6 @@ func newPhishletsListCmd() *cobra.Command {
 func newPhishletsEnableCmd() *cobra.Command {
 	var (
 		hostname    string
-		baseDomain  string
 		dnsProvider string
 	)
 	cmd := &cobra.Command{
@@ -72,7 +71,6 @@ func newPhishletsEnableCmd() *cobra.Command {
 			}
 			p, err := client.EnablePhishlet(args[0], sdk.EnablePhishletRequest{
 				Hostname:    hostname,
-				BaseDomain:  baseDomain,
 				DNSProvider: dnsProvider,
 			})
 			if err != nil {
@@ -86,7 +84,6 @@ func newPhishletsEnableCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&hostname, "hostname", "", "phishing hostname (e.g. login.phish.example.com)")
-	cmd.Flags().StringVar(&baseDomain, "domain", "", "base domain")
 	cmd.Flags().StringVar(&dnsProvider, "dns-provider", "", "DNS provider alias")
 	_ = cmd.MarkFlagRequired("hostname")
 	return cmd

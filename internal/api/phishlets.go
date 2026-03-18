@@ -59,7 +59,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	p, err := r.Phishlets.Enable(name, body.Hostname, body.BaseDomain, body.DNSProvider)
+	p, err := r.Phishlets.Enable(name, body.Hostname, body.DNSProvider)
 	if err != nil {
 		switch {
 		case errors.Is(err, aitm.ErrHostnameRequired):

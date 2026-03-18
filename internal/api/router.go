@@ -29,7 +29,7 @@ type lureManager interface {
 }
 
 type phishletManager interface {
-	Enable(name, hostname, baseDomain, dnsProvider string) (*aitm.Phishlet, error)
+	Enable(name, hostname, dnsProvider string) (*aitm.Phishlet, error)
 	Disable(name string) (*aitm.Phishlet, error)
 	Hide(name string) (*aitm.Phishlet, error)
 	Unhide(name string) (*aitm.Phishlet, error)

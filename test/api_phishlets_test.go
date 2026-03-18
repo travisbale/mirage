@@ -29,8 +29,7 @@ func TestAPI_PhishletEnableDisable(t *testing.T) {
 
 	// Re-enable it.
 	if _, err := harness.API.EnablePhishlet("testsite", sdk.EnablePhishletRequest{
-		Hostname:   "login.phish.test",
-		BaseDomain: "phish.test",
+		Hostname: "login.phish.test",
 	}); err != nil {
 		t.Fatalf("EnablePhishlet: %v", err)
 	}

@@ -132,7 +132,6 @@ type PhishletResponse struct {
 
 type EnablePhishletRequest struct {
 	Hostname    string `json:"hostname"`
-	BaseDomain  string `json:"base_domain"`
 	DNSProvider string `json:"dns_provider"`
 }
 

@@ -16,6 +16,7 @@ func newServerCmd() *cobra.Command {
 		newServerListCmd(),
 		newServerRemoveCmd(),
 		newServerDefaultCmd(),
+		newServerSwitchCmd(),
 	)
 	return cmd
 }
@@ -127,6 +128,17 @@ func newServerRemoveCmd() *cobra.Command {
 			}
 			fmt.Printf("Removed server %q\n", args[0])
 			return nil
+		},
+	}
+}
+
+func newServerSwitchCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "switch <alias>",
+		Short: "Switch the active server for the current REPL session",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("server switch is only available inside the REPL — run `mirage` to start one")
 		},
 	}
 }

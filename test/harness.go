@@ -33,7 +33,6 @@ const (
 	testAPIHostname   = "api.phish.test"
 	testPhishletName  = "testsite"
 	testPhishHostname = "login.phish.test"
-	testBaseDomain    = testDomain
 )
 
 // Harness is a fully-wired test environment. Obtain one via NewHarness.
@@ -130,8 +129,7 @@ func NewHarness(t *testing.T) *Harness {
 
 	// Enable the test phishlet via the API.
 	if _, err := apiClient.EnablePhishlet(testPhishletName, sdk.EnablePhishletRequest{
-		Hostname:   testPhishHostname,
-		BaseDomain: testBaseDomain,
+		Hostname: testPhishHostname,
 	}); err != nil {
 		t.Fatalf("EnablePhishlet: %v", err)
 	}
