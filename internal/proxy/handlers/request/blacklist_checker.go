@@ -15,7 +15,7 @@ type IPBlocker interface {
 // BlacklistChecker drops or spoofs connections from blocked IPs.
 type BlacklistChecker struct {
 	Service IPBlocker
-	Spoof   proxy.Spoofer
+	Spoof   spoofer
 }
 
 func (h *BlacklistChecker) Name() string { return "BlacklistChecker" }

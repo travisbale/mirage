@@ -134,6 +134,15 @@ func NewHarness(t *testing.T) *Harness {
 		t.Fatalf("EnablePhishlet: %v", err)
 	}
 
+	// Create a default lure at "/" so victim requests to the root path
+	// are treated as valid lure hits and receive a session.
+	if _, err := apiClient.CreateLure(sdk.CreateLureRequest{
+		Phishlet: testPhishletName,
+		Path:     "/",
+	}); err != nil {
+		t.Fatalf("CreateLure default: %v", err)
+	}
+
 	// Build victim client: trusts proxy CA, always dials proxyAddr.
 	jar, _ := cookiejar.New(nil)
 	pool := x509.NewCertPool()

@@ -18,10 +18,10 @@ func TestSessions_CredentialExtraction(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// First GET to establish a session and receive the tracking cookie.
-	test.DrainAndClose(harness.VictimGet(t, "/login"))
+	// Hit the lure path to establish a session and receive the tracking cookie.
+	test.DrainAndClose(harness.VictimGet(t, "/"))
 
-	// POST credentials to the login path.
+	// POST credentials to the login path (session cookie is now set in the jar).
 	resp := harness.VictimPost(t, "/login", "username=alice&password=s3cret")
 	test.DrainAndClose(resp)
 
@@ -50,7 +50,8 @@ func TestSessions_NoCaptureOnNonLoginPath(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	test.DrainAndClose(harness.VictimGet(t, "/other"))
+	// Hit the lure path to establish a session first.
+	test.DrainAndClose(harness.VictimGet(t, "/"))
 	test.DrainAndClose(harness.VictimPost(t, "/other", "username=alice&password=s3cret"))
 
 	sessions, err := harness.API.ListSessions(sdk.SessionFilter{})

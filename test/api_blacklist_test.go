@@ -62,7 +62,7 @@ func TestAPI_BlacklistBlocksVictim(t *testing.T) {
 	resp := harness.VictimGet(t, "/")
 	test.DrainAndClose(resp)
 
-	// Blacklisted requests are spoofed — the proxy returns 200 with no session cookie.
+	// Blacklisted requests are spoofed — the proxy returns the default page with no session cookie.
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected 200 spoof response, got %d", resp.StatusCode)
 	}

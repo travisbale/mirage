@@ -104,13 +104,20 @@ func TestPipeline_ResponseHandlers_ShortCircuit(t *testing.T) {
 
 // ---- SpoofProxy --------------------------------------------------------
 
-func TestSpoofProxy_EmptyURL_Returns200(t *testing.T) {
-	sp := proxy.NewSpoofProxy("")
+func TestSpoofProxy_NoSpoofURL_ServesDefaultPage(t *testing.T) {
+	sp := proxy.NewSpoofProxy("", discardLogger())
 	req := httptest.NewRequest(http.MethodGet, "https://phish.example.com/", nil)
 	rec := httptest.NewRecorder()
 	sp.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
+		t.Errorf("expected text/html content-type, got %q", ct)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "It works") {
+		t.Errorf("expected default page body, got: %q", body)
 	}
 }
 

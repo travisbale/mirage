@@ -22,6 +22,7 @@ func (h *APIRouter) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 		h.Handler.ServeHTTP(ctx.ResponseWriter, req)
 		return proxy.ErrShortCircuit
 	}
+
 	return nil
 }
 

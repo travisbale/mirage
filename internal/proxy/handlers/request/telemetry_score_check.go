@@ -15,7 +15,7 @@ type TelemetryScorer interface {
 // TelemetryScoreCheck re-evaluates sessions that have accumulated telemetry data.
 type TelemetryScoreCheck struct {
 	Scorer    TelemetryScorer
-	Spoof     proxy.Spoofer
+	Spoof     spoofer
 	Threshold float64
 }
 
@@ -29,7 +29,7 @@ func (h *TelemetryScoreCheck) Handle(ctx *aitm.ProxyContext, req *http.Request) 
 	ctx.Session.BotScore = botScore
 	if botScore > h.Threshold {
 		ctx.BotVerdict = aitm.VerdictSpoof
-		h.Spoof.ServeHTTP(ctx.ResponseWriter, req)
+		h.Spoof.ServeWithTarget(ctx.ResponseWriter, req, contextSpoofURL(ctx))
 		return proxy.ErrShortCircuit
 	}
 	return nil

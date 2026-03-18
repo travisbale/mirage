@@ -43,12 +43,6 @@ type ResponseHandler interface {
 // It is a normal flow-control signal and is never logged as an error.
 var ErrShortCircuit = errors.New("pipeline: short circuit")
 
-// Spoofer transparently reverse-proxies a configured legitimate website.
-// Implemented by the proxy-level SpoofProxy.
-type Spoofer interface {
-	ServeHTTP(w http.ResponseWriter, r *http.Request)
-}
-
 // Pipeline holds ordered slices of request and response handlers.
 //
 // Execution model:
@@ -79,10 +73,13 @@ func (p *Pipeline) RunRequest(ctx *aitm.ProxyContext, req *http.Request) error {
 			if errors.Is(err, ErrShortCircuit) {
 				return ErrShortCircuit
 			}
+
 			p.Logger.Error("request handler error", "handler", handler.Name(), "error", err)
+
 			return err
 		}
 	}
+
 	return nil
 }
 

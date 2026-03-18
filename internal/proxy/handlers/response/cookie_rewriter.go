@@ -29,7 +29,7 @@ func (h *CookieRewriter) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 
 	if ctx.IsNewSession && ctx.Session != nil {
 		tracker := &http.Cookie{
-			Name:     "__ss",
+			Name:     proxy.SessionCookieName,
 			Value:    ctx.Session.ID,
 			Path:     "/",
 			HttpOnly: true,

@@ -11,10 +11,6 @@ import (
 	"github.com/travisbale/mirage/internal/proxy/handlers/request"
 )
 
-type stubHostnameChecker struct{ hosts map[string]bool }
-
-func (s *stubHostnameChecker) Contains(hostname string) bool { return s.hosts[hostname] }
-
 type stubPhishletResolver struct {
 	phishlet *aitm.Phishlet
 	lure     *aitm.Lure
@@ -29,9 +25,8 @@ func TestPhishletRouter_KnownHost_ResolvesPhishlet(t *testing.T) {
 	phishlet := &aitm.Phishlet{Name: "microsoft"}
 	lure := &aitm.Lure{ID: "lure-1"}
 	h := &request.PhishletRouter{
-		Hostnames: &stubHostnameChecker{hosts: map[string]bool{"login.phish.example.com": true}},
-		Resolver:  &stubPhishletResolver{phishlet: phishlet, lure: lure},
-		Spoof:     &stubSpoofer{},
+		Resolver: &stubPhishletResolver{phishlet: phishlet, lure: lure},
+		Spoof:    &stubSpoofer{},
 	}
 	ctx := &aitm.ProxyContext{}
 	req := newReq(http.MethodGet, "https://login.phish.example.com/oauth", nil)
@@ -51,9 +46,8 @@ func TestPhishletRouter_KnownHost_ResolvesPhishlet(t *testing.T) {
 func TestPhishletRouter_UnknownHost_Spoofs(t *testing.T) {
 	spoofer := &stubSpoofer{}
 	h := &request.PhishletRouter{
-		Hostnames: &stubHostnameChecker{hosts: map[string]bool{}},
-		Resolver:  &stubPhishletResolver{},
-		Spoof:     spoofer,
+		Resolver: &stubPhishletResolver{}, // returns nil, nil, nil
+		Spoof:    spoofer,
 	}
 	ctx := &aitm.ProxyContext{ResponseWriter: httptest.NewRecorder()}
 	req := newReq(http.MethodGet, "https://unknown.example.com/", nil)
@@ -71,9 +65,8 @@ func TestPhishletRouter_UnknownHost_Spoofs(t *testing.T) {
 func TestPhishletRouter_HostWithPort_StripsPort(t *testing.T) {
 	phishlet := &aitm.Phishlet{Name: "microsoft"}
 	h := &request.PhishletRouter{
-		Hostnames: &stubHostnameChecker{hosts: map[string]bool{"login.phish.example.com": true}},
-		Resolver:  &stubPhishletResolver{phishlet: phishlet},
-		Spoof:     &stubSpoofer{},
+		Resolver: &stubPhishletResolver{phishlet: phishlet},
+		Spoof:    &stubSpoofer{},
 	}
 	ctx := &aitm.ProxyContext{}
 	req := newReq(http.MethodGet, "https://login.phish.example.com:8443/oauth", nil)
@@ -89,9 +82,8 @@ func TestPhishletRouter_HostWithPort_StripsPort(t *testing.T) {
 
 func TestPhishletRouter_ResolverError_ReturnsError(t *testing.T) {
 	h := &request.PhishletRouter{
-		Hostnames: &stubHostnameChecker{hosts: map[string]bool{"login.example.com": true}},
-		Resolver:  &stubPhishletResolver{err: errors.New("not found")},
-		Spoof:     &stubSpoofer{},
+		Resolver: &stubPhishletResolver{err: errors.New("store unavailable")},
+		Spoof:    &stubSpoofer{},
 	}
 	ctx := &aitm.ProxyContext{}
 	req := newReq(http.MethodGet, "https://login.example.com/", nil)
