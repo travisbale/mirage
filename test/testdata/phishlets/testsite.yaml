@@ -15,7 +15,7 @@ sub_filters:
     replace: "{hostname}"
 
 auth_tokens:
-  - domain: "phish.test"
+  - domain: ".testsite.internal"
     keys:
       - name: session
         required: true

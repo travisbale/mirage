@@ -513,13 +513,13 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 		},
 		ResponseHandlers: []proxy.ResponseHandler{
 			&response.SecurityHeaderStripper{},
-			&response.CookieRewriter{},
-			&response.SubFilterApplier{},
 			&response.TokenExtractor{
 				Sessions:  d.sessionSvc,
 				Whitelist: d.blacklistSvc,
 				Logger:    logger,
 			},
+			&response.CookieRewriter{},
+			&response.SubFilterApplier{},
 			&response.JSInjector{},
 			&response.JSObfuscator{
 				Obfuscator: d.obfuscator,

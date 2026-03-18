@@ -3,7 +3,6 @@ package response
 import (
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -70,7 +69,7 @@ func (h *TokenExtractor) extractCookieToken(ctx *aitm.ProxyContext, resp *http.R
 		if rule.Name != nil && !rule.Name.MatchString(cookie.Name) {
 			continue
 		}
-		if rule.Domain != "" && !matchesDomain(cookie.Domain, rule.Domain) {
+		if rule.Domain != "" && !aitm.MatchesDomain(cookie.Domain, rule.Domain) {
 			continue
 		}
 		token := &aitm.CookieToken{
@@ -113,15 +112,6 @@ func (h *TokenExtractor) extractHeaderToken(ctx *aitm.ProxyContext, resp *http.R
 		}
 	}
 	return false
-}
-
-func matchesDomain(cookieDomain, ruleDomain string) bool {
-	if cookieDomain == "" {
-		return true
-	}
-	clean := strings.TrimPrefix(strings.ToLower(cookieDomain), ".")
-	lower := strings.ToLower(ruleDomain)
-	return clean == lower || strings.HasSuffix(clean, "."+lower)
 }
 
 var _ proxy.ResponseHandler = (*TokenExtractor)(nil)

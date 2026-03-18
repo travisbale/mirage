@@ -77,9 +77,9 @@ Handlers communicate through `ProxyContext`, a per-request struct that accumulat
 Response handlers run on the upstream response before it is forwarded to the victim. They cannot short-circuit — all handlers always run.
 
 1. `SecurityHeaderStripper` — removes upstream security headers (`Content-Security-Policy`, `X-Frame-Options`, etc.) that would break the proxy or expose the phishing domain to the victim's browser
-2. `CookieRewriter` — rewrites `Set-Cookie` domains from the real upstream domain to the phishing domain so cookies are scoped correctly; injects the `__ss` session tracking cookie on new sessions (`ctx.IsNewSession`)
-3. `SubFilterApplier` — runs the phishlet's regex substitution rules against the response body, rewriting upstream domain references to the phishing domain
-4. `TokenExtractor` — captures auth tokens (cookies, headers, response bodies) matching the phishlet's `auth_tokens` rules; marks the session complete when all required tokens are present, then whitelists the victim's IP to prevent accidental blacklisting
+2. `TokenExtractor` — captures auth tokens (cookies, headers) matching the phishlet's `auth_tokens` rules against the **original upstream domains**; marks the session complete when all required tokens are present, then whitelists the victim's IP to prevent accidental blacklisting. Must run before `CookieRewriter` so the original cookie domains are still intact.
+3. `CookieRewriter` — rewrites `Set-Cookie` domains from the real upstream domain to the phishing domain so cookies are scoped correctly; injects the `__ss` session tracking cookie on new sessions (`ctx.IsNewSession`)
+4. `SubFilterApplier` — runs the phishlet's regex substitution rules against the response body, rewriting upstream domain references to the phishing domain
 5. `JSInjector` — injects the post-auth redirect script before `</body>` (redirects the victim after token capture); also injects the puppet override script before `</head>` if `ctx.PuppetOverride` is set
 6. `JSObfuscator` — passes injected script blocks through the Node.js obfuscator sidecar to defeat static JS fingerprinting; no-op if the obfuscator is disabled
 
