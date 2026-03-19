@@ -85,13 +85,6 @@ auth_tokens:
         http_only: false          # only capture if HttpOnly flag matches (false = either)
         always:    false          # capture on every response, not just once per session
 
-  - type:   body                  # capture from response body (default: cookie)
-    domain: login.example.com
-    keys:
-      - name:   access_token
-        search: '"access_token"\s*:\s*"([^"]+)"'   # regex; capture group 1 is the value
-        required: true
-
   - type:   header               # capture from response headers
     domain: login.example.com
     keys:
@@ -99,13 +92,13 @@ auth_tokens:
         required: false
 ```
 
-**`type`** — one of `cookie` (default), `body`, or `header`.
+**`type`** — one of `cookie` (default) or `header`.
 
-**`domain`** — for `cookie` type, matches against the cookie's domain attribute. For `body` and `header`, matches against the response's `Host`.
+**`domain`** — for `cookie` type, matches against the cookie's domain attribute. For `header`, matches against the response's `Host`.
 
-**`name`** — a Go regex matched against the cookie name, header name, or body key. Use `^exact_name$` for an exact match.
+**`name`** — a Go regex matched against the cookie name or header name. Use `^exact_name$` for an exact match.
 
-**`search`** — only used for `body` type. The first capture group is taken as the token value.
+**`search`** — only used for `header` type. The first capture group is taken as the token value.
 
 **`required`** — when `true`, the session is not marked complete until this token is captured. At least one required token is needed for session completion to trigger.
 
