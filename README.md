@@ -144,6 +144,8 @@ This uploads the `miraged` binary, writes the config, installs a systemd unit, a
 
 ## First-time setup
 
+> For a guided local setup using the bundled target site, see the [Quickstart Guide](docs/quickstart.md). No domain registration or ACME certificates required.
+
 **1. Start the daemon.**
 
 ```bash

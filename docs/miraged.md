@@ -48,7 +48,7 @@ Handlers communicate through `ProxyContext`, a per-request struct that accumulat
 
 | Field | Set by | Used by |
 |-------|--------|---------|
-| `JA4` | `JA4Extractor` | `BotGuardCheck`, `TelemetryScoreCheck` |
+| `JA4Hash` | `JA4Extractor` | `BotGuardCheck`, `TelemetryScoreCheck` |
 | `ClientIP` | `IPExtractor` | `BlacklistChecker`, `TokenExtractor` |
 | `Phishlet` | `PhishletRouter` | `InterceptHandler`, `SessionGate`, `LureRedirector`, `URLRewriter`, `CredentialExtractor`, `ForcePostInjector`, `CookieRewriter`, `SubFilterApplier`, `TokenExtractor`, `JSInjector` |
 | `Lure` | `PhishletRouter` | `SessionGate`, `LureRedirector` |
@@ -58,7 +58,7 @@ Handlers communicate through `ProxyContext`, a per-request struct that accumulat
 
 ### Request handlers (in order)
 
-1. `JA4Extractor` — extracts the JA4 TLS fingerprint from the ClientHello; sets `ctx.JA4`
+1. `JA4Extractor` — extracts the JA4 TLS fingerprint from the ClientHello; sets `ctx.JA4Hash`
 2. `BotGuardCheck` — fast-path bot check using the JA4 signature database; spoofs and short-circuits for known bots before any session state is touched
 3. `IPExtractor` — resolves the real client IP, honouring trusted proxy headers; sets `ctx.ClientIP`
 4. `BlacklistChecker` — spoofs and short-circuits if the client IP is blacklisted
