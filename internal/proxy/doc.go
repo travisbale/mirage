@@ -36,19 +36,23 @@ and the handler is responsible for writing a complete response to
  5. APIRouter         — routes management-hostname requests to the REST API handler
  6. PhishletRouter    — matches hostname against active phishlets; sets ctx.Phishlet,
     ctx.Lure; spoofs unrecognised hostnames
- 7. SessionGate        — validates the lure (spoofs paused lures or filtered
+ 7. InterceptHandler  — returns a custom static response for paths matching the
+    phishlet's intercept rules; prevents telemetry and bot-detection requests
+    from reaching upstream
+ 8. SessionGate        — validates the lure (spoofs paused lures or filtered
     user-agents), then loads or creates the session from the tracking cookie;
+    redirects completed sessions to the lure's redirect URL via 302;
     sets ctx.Session, ctx.IsNewSession
- 8. LureRedirector    — immediately redirects sessions that have already
+ 9. LureRedirector    — immediately redirects sessions that have already
     completed token capture to the lure's configured redirect URL
- 9. PuppetOverrideResolver — looks up cached puppet telemetry for the active
+ 10. PuppetOverrideResolver — looks up cached puppet telemetry for the active
     phishlet and sets ctx.PuppetOverride
- 10. TelemetryScoreCheck — L2 bot score; spoofs sessions that exceed the threshold
- 11. URLRewriter       — rewrites Host and URL back to the real upstream domain
-    and strips the session tracking cookie before forwarding
- 12. CredentialExtractor — captures username/password from POST bodies matching
+ 11. TelemetryScoreCheck — L2 bot score; spoofs sessions that exceed the threshold
+ 12. URLRewriter       — rewrites Host, URL, Origin, and Referer from the phishing
+    domain back to the real upstream domain; strips the session tracking cookie
+ 13. CredentialExtractor — captures username/password from POST bodies matching
     the phishlet login spec; persists and logs the event
- 13. ForcePostInjector — injects or overrides POST parameters on matching paths
+ 14. ForcePostInjector — injects or overrides POST parameters on matching paths
 
 # Response pipeline
 

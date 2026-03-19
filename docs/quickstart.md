@@ -34,7 +34,7 @@ docker compose -f examples/target-site/docker-compose.yml up -d
 
 ```bash
 mkdir -p /tmp/mirage/{phishlets,data}
-cp examples/phishlets/target-site.yaml /tmp/mirage/phishlets/
+cp examples/phishlets/form-login.yaml /tmp/mirage/phishlets/
 ```
 
 Create `/tmp/mirage/miraged.yaml`:
@@ -115,13 +115,13 @@ This verifies the connection before saving. On success you'll see `Connected to 
 
 ```bash
 # Enable the phishlet on a hostname
-./build/mirage phishlets enable target-site --hostname login.phish.local
+./build/mirage phishlets enable form-login --hostname login.phish.local
 
 # Create a lure (redirect URL is where victims land after token capture)
-./build/mirage lures create target-site --redirect http://login.target.local/dashboard
+./build/mirage lures create form-login --redirect http://login.target.local/dashboard
 ```
 
-Visit the printed URL in a browser that trusts the CA. Sign in with any email and password, then enter any 6-digit code for MFA. Once MFA completes the session token is captured and the session is marked complete:
+Visit the printed lure URL in a browser that trusts the CA. You'll be taken to the standard login form. Sign in with any email and password, then enter any 6-digit code for MFA. Once MFA completes the session token is captured and the session is marked complete:
 
 ```bash
 ./build/mirage sessions list --completed
@@ -136,7 +136,7 @@ Visit the printed URL in a browser that trusts the CA. Sign in with any email an
 /tmp/mirage/
 ├── miraged.yaml
 ├── phishlets/
-│   └── target-site.yaml
+│   └── form-login.yaml
 └── data/
     ├── data.db          # SQLite — sessions, lures, phishlet configs
     ├── ca/
@@ -156,3 +156,12 @@ Visit the printed URL in a browser that trusts the CA. Sign in with any email an
 - Run `./build/miraged --config /tmp/mirage/miraged.yaml validate` to check your config without starting the daemon.
 - `./build/mirage` with no subcommand drops into an interactive REPL.
 - The CLI `--json` flag outputs raw JSON for scripting.
+
+---
+
+## Next steps
+
+- Try the API login phishlet: the target site also has a JSON-based login page at
+  `/api-login`. Copy `examples/phishlets/api-login.yaml` into your phishlets
+  directory, enable it, and create a lure with `--path /api-login`. This phishlet
+  captures bearer tokens from JSON responses instead of cookies.

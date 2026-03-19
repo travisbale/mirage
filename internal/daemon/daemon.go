@@ -477,6 +477,7 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 				Resolver: d.phishletSvc,
 				Spoof:    d.spoofProxy,
 			},
+			&request.InterceptHandler{},
 			&request.SessionGate{
 				Sessions: d.sessionSvc,
 				Spoof:    d.spoofProxy,

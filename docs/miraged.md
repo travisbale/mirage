@@ -50,8 +50,8 @@ Handlers communicate through `ProxyContext`, a per-request struct that accumulat
 |-------|--------|---------|
 | `JA4` | `JA4Extractor` | `BotGuardCheck`, `TelemetryScoreCheck` |
 | `ClientIP` | `IPExtractor` | `BlacklistChecker`, `TokenExtractor` |
-| `Phishlet` | `PhishletRouter` | `LureValidator`, `LureRedirector`, `URLRewriter`, `CredentialExtractor`, `ForcePostInjector`, `CookieRewriter`, `SubFilterApplier`, `TokenExtractor`, `JSInjector` |
-| `Lure` | `PhishletRouter` | `LureValidator`, `LureRedirector` |
+| `Phishlet` | `PhishletRouter` | `InterceptHandler`, `SessionGate`, `LureRedirector`, `URLRewriter`, `CredentialExtractor`, `ForcePostInjector`, `CookieRewriter`, `SubFilterApplier`, `TokenExtractor`, `JSInjector` |
+| `Lure` | `PhishletRouter` | `SessionGate`, `LureRedirector` |
 | `Session` | `SessionGate` | `LureRedirector`, `PuppetOverrideResolver`, `CredentialExtractor`, `CookieRewriter`, `TokenExtractor`, `JSInjector` |
 | `IsNewSession` | `SessionGate` | `CookieRewriter` (injects the `__ss` tracking cookie on first response) |
 | `PuppetOverride` | `PuppetOverrideResolver` | `JSInjector` |
@@ -64,13 +64,14 @@ Handlers communicate through `ProxyContext`, a per-request struct that accumulat
 4. `BlacklistChecker` — spoofs and short-circuits if the client IP is blacklisted
 5. `APIRouter` — short-circuits requests for the secret API hostname to the management API handler; all other requests pass through
 6. `PhishletRouter` — matches the request hostname to an enabled phishlet; spoofs and short-circuits for unrecognised hostnames. Sets `ctx.Phishlet` and `ctx.Lure` (lure may be nil if no lure path matches)
-7. `SessionGate` — combines session resolution with lure validation into a single step. For requests with an existing `__ss` cookie, the session is loaded and all lure checks are skipped. For new visitors (no cookie), lure rules are enforced before a session is created: no matching lure, a paused lure, or a UA filter mismatch all result in a spoof. A session is only created after lure validation passes, so no orphaned sessions accumulate for spoofed requests. Sets `ctx.Session` and `ctx.IsNewSession`.
-8. `LureRedirector` — on the initial lure hit (request path matches `ctx.Lure.Path`), transparently rewrites the path to the phishlet's `login.path` so the upstream serves the login page at the lure URL
-9. `PuppetOverrideResolver` — looks up cached puppet telemetry for the active phishlet and attaches the JS override script to `ctx.PuppetOverride`
-10. `TelemetryScoreCheck` — scores the JA4 fingerprint for bot likelihood; spoofs and short-circuits if the score exceeds the configured threshold
-11. `URLRewriter` — rewrites the request `Host` and URL to the real upstream domain; strips the `__ss` cookie so it is never forwarded to the target site
-12. `CredentialExtractor` — captures username and password from POST bodies and JSON payloads matching the phishlet's credential rules; writes to `ctx.Session`
-13. `ForcePostInjector` — injects or overrides POST parameters required by some phishlets before the request reaches the upstream
+7. `InterceptHandler` — returns a custom static response for paths matching the phishlet's intercept rules; prevents telemetry and bot-detection requests from reaching upstream
+8. `SessionGate` — combines session resolution with lure validation into a single step. For requests with an existing `__ss` cookie, the session is loaded and all lure checks are skipped. If the session is already complete, the victim is immediately redirected to the lure's redirect URL via 302 — no further requests are proxied. For new visitors (no cookie), lure rules are enforced before a session is created: no matching lure, a paused lure, or a UA filter mismatch all result in a spoof. A session is only created after lure validation passes, so no orphaned sessions accumulate for spoofed requests. Sets `ctx.Session` and `ctx.IsNewSession`.
+9. `LureRedirector` — on the initial lure hit (request path matches `ctx.Lure.Path`), transparently rewrites the path to the phishlet's `login.path` so the upstream serves the login page at the lure URL
+10. `PuppetOverrideResolver` — looks up cached puppet telemetry for the active phishlet and attaches the JS override script to `ctx.PuppetOverride`
+11. `TelemetryScoreCheck` — scores the JA4 fingerprint for bot likelihood; spoofs and short-circuits if the score exceeds the configured threshold
+12. `URLRewriter` — rewrites the request `Host`, URL, `Origin`, and `Referer` headers from the phishing domain to the real upstream domain; strips the `__ss` cookie so it is never forwarded to the target site
+13. `CredentialExtractor` — captures username and password from POST bodies and JSON payloads matching the phishlet's credential rules; writes to `ctx.Session`
+14. `ForcePostInjector` — injects or overrides POST parameters required by some phishlets before the request reaches the upstream
 
 ### Response handlers (in order)
 
