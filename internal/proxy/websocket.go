@@ -21,23 +21,33 @@ type eventSubscriber interface {
 	Subscribe(eventType aitm.EventType) <-chan aitm.Event
 }
 
+type sessionGetter interface {
+	Get(id string) (*aitm.Session, error)
+}
+
+type lureGetter interface {
+	Get(id string) (*aitm.Lure, error)
+}
+
 // WSHub manages active WebSocket connections waiting for session completion.
 // When EventSessionCompleted fires, the hub sends the redirect URL to all
 // WebSocket connections waiting on that session ID.
 type WSHub struct {
 	upgrader websocket.Upgrader
 	sessions sessionGetter
+	lures    lureGetter
 	mu       sync.Mutex
 	waiting  map[string][]chan redirectMsg // session ID → waiting channels
 	logger   *slog.Logger
 }
 
-func NewWSHub(bus eventSubscriber, sessions sessionGetter, logger *slog.Logger) *WSHub {
+func NewWSHub(bus eventSubscriber, sessions sessionGetter, lures lureGetter, logger *slog.Logger) *WSHub {
 	hub := &WSHub{
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
 		sessions: sessions,
+		lures:    lures,
 		waiting:  make(map[string][]chan redirectMsg),
 		logger:   logger,
 	}
@@ -60,7 +70,7 @@ func (h *WSHub) listenCompletions(bus eventSubscriber) {
 		delete(h.waiting, session.ID)
 		h.mu.Unlock()
 
-		msg := redirectMsg{RedirectURL: session.LureRedirectURL()}
+		msg := redirectMsg{RedirectURL: h.redirectURL(session.LureID)}
 		for _, waiterCh := range waiters {
 			waiterCh <- msg
 		}
@@ -84,7 +94,7 @@ func (h *WSHub) HandleUpgrade(w http.ResponseWriter, r *http.Request, sessionID 
 	// the default branch is taken and the event's message is used instead.
 	if session, err := h.sessions.Get(sessionID); err == nil && session.IsDone() {
 		select {
-		case resultCh <- redirectMsg{RedirectURL: session.LureRedirectURL()}:
+		case resultCh <- redirectMsg{RedirectURL: h.redirectURL(session.LureID)}:
 		default: // concurrent completion event already filled the channel
 		}
 	}
@@ -109,6 +119,37 @@ func (h *WSHub) HandleUpgrade(w http.ResponseWriter, r *http.Request, sessionID 
 	}
 }
 
+// HandleTelemetryDone is the fallback polling endpoint GET /t/{sid}/done.
+// Returns {"redirect_url":"..."} if the session is complete, {"done":false} otherwise.
+func (h *WSHub) HandleTelemetryDone(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	var sessionID string
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '/' {
+			if i+1 < len(path) {
+				if path[i:] == "/done" {
+					rest := path[:i]
+					for j := len(rest) - 1; j >= 0; j-- {
+						if rest[j] == '/' {
+							sessionID = rest[j+1:]
+							break
+						}
+					}
+				}
+			}
+			break
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	sess, err := h.sessions.Get(sessionID)
+	if err != nil || !sess.IsDone() {
+		json.NewEncoder(w).Encode(map[string]bool{"done": false})
+		return
+	}
+	json.NewEncoder(w).Encode(redirectMsg{RedirectURL: h.redirectURL(sess.LureID)})
+}
+
 func (h *WSHub) removeWaiter(sessionID string, ch chan redirectMsg) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -124,40 +165,10 @@ func (h *WSHub) removeWaiter(sessionID string, ch chan redirectMsg) {
 	}
 }
 
-type sessionGetter interface {
-	Get(id string) (*aitm.Session, error)
-}
-
-// HandleTelemetryDone is the fallback polling endpoint GET /t/{sid}/done.
-// Returns {"redirect_url":"..."} if the session is complete, {"done":false} otherwise.
-func HandleTelemetryDone(sessions sessionGetter) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		var sessionID string
-		for i := len(path) - 1; i >= 0; i-- {
-			if path[i] == '/' {
-				if i+1 < len(path) {
-					// Check if this is the /done suffix
-					if path[i:] == "/done" {
-						rest := path[:i]
-						for j := len(rest) - 1; j >= 0; j-- {
-							if rest[j] == '/' {
-								sessionID = rest[j+1:]
-								break
-							}
-						}
-					}
-				}
-				break
-			}
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		sess, err := sessions.Get(sessionID)
-		if err != nil || !sess.IsDone() {
-			json.NewEncoder(w).Encode(map[string]bool{"done": false})
-			return
-		}
-		json.NewEncoder(w).Encode(redirectMsg{RedirectURL: sess.LureRedirectURL()})
+// redirectURL returns the redirect URL for a lure ID, or "" if the lure is not found.
+func (h *WSHub) redirectURL(lureID string) string {
+	if lure, err := h.lures.Get(lureID); err == nil {
+		return lure.RedirectURL
 	}
+	return ""
 }

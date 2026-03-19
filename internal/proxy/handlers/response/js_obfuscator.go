@@ -24,7 +24,7 @@ type JSObfuscator struct {
 func (h *JSObfuscator) Name() string { return "JSObfuscator" }
 
 func (h *JSObfuscator) Handle(ctx *aitm.ProxyContext, resp *http.Response) error {
-	if !isHTMLResponse(resp) {
+	if ctx.Session == nil || !isHTMLResponse(resp) {
 		return nil
 	}
 	body, err := readBody(resp)

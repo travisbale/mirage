@@ -45,8 +45,9 @@ func TestJSObfuscator_PassesThroughUnmarkedHTML(t *testing.T) {
 	h := &response.JSObfuscator{Obfuscator: stub, Logger: discardLogger()}
 	body := "<html><body><script>var x = 1;</script></body></html>"
 	resp := newResp(http.StatusOK, "text/html", body)
+	ctx := &aitm.ProxyContext{Session: &aitm.Session{ID: "s1"}}
 
-	if err := h.Handle(&aitm.ProxyContext{}, resp); err != nil {
+	if err := h.Handle(ctx, resp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	result, _ := io.ReadAll(resp.Body)
@@ -65,8 +66,9 @@ func TestJSObfuscator_ObfuscatesMarkedBlock(t *testing.T) {
 	marked := "<script>" + obfuscator.MarkerStart + "var injected=1;" + obfuscator.MarkerEnd + "</script>"
 	body := "<html><body>" + marked + "</body></html>"
 	resp := newResp(http.StatusOK, "text/html", body)
+	ctx := &aitm.ProxyContext{Session: &aitm.Session{ID: "s1"}}
 
-	if err := h.Handle(&aitm.ProxyContext{}, resp); err != nil {
+	if err := h.Handle(ctx, resp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	result, _ := io.ReadAll(resp.Body)
@@ -87,8 +89,9 @@ func TestJSObfuscator_DegradeGracefullyOnError(t *testing.T) {
 	marked := "<script>" + obfuscator.MarkerStart + "var x=1;" + obfuscator.MarkerEnd + "</script>"
 	body := "<html><body>" + marked + "</body></html>"
 	resp := newResp(http.StatusOK, "text/html", body)
+	ctx := &aitm.ProxyContext{Session: &aitm.Session{ID: "s1"}}
 
-	if err := h.Handle(&aitm.ProxyContext{}, resp); err != nil {
+	if err := h.Handle(ctx, resp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	result, _ := io.ReadAll(resp.Body)

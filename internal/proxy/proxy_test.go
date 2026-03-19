@@ -148,9 +148,12 @@ func publishCompletion(bus *testEventBus, sess *aitm.Session) {
 // redirect JSON message.
 func TestWSHub_WebSocketClientReceivesRedirect(t *testing.T) {
 	bus := newTestEventBus()
-	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, discardLogger())
+	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
+		"lure-001": {ID: "lure-001", RedirectURL: "https://real.example.com/dashboard"},
+	}}
+	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, lures, discardLogger())
 
-	sess := &aitm.Session{ID: "ws-sess-001", RedirectURL: "https://real.example.com/dashboard"}
+	sess := &aitm.Session{ID: "ws-sess-001", LureID: "lure-001"}
 	sess.Complete()
 
 	_, wsURL := newWSHubServer(t, hub, sess.ID)
@@ -178,9 +181,12 @@ func TestWSHub_WebSocketClientReceivesRedirect(t *testing.T) {
 // waiting for the same session, both receive the redirect message.
 func TestWSHub_MultipleWaiters(t *testing.T) {
 	bus := newTestEventBus()
-	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, discardLogger())
+	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
+		"lure-multi": {ID: "lure-multi", RedirectURL: "https://real.example.com/home"},
+	}}
+	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, lures, discardLogger())
 
-	sess := &aitm.Session{ID: "ws-multi-001", RedirectURL: "https://real.example.com/home"}
+	sess := &aitm.Session{ID: "ws-multi-001", LureID: "lure-multi"}
 	sess.Complete()
 
 	_, wsURL := newWSHubServer(t, hub, sess.ID)
@@ -222,10 +228,13 @@ func TestWSHub_MultipleWaiters(t *testing.T) {
 // list is empty.
 func TestWSHub_AlreadyCompleteSession(t *testing.T) {
 	bus := newTestEventBus()
-	sess := &aitm.Session{ID: "already-done", RedirectURL: "https://real.example.com/home"}
+	sess := &aitm.Session{ID: "already-done", LureID: "lure-done"}
 	sess.Complete()
 	store := &stubSessionGetter{sessions: map[string]*aitm.Session{sess.ID: sess}}
-	hub := proxy.NewWSHub(bus, store, discardLogger())
+	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
+		"lure-done": {ID: "lure-done", RedirectURL: "https://real.example.com/home"},
+	}}
+	hub := proxy.NewWSHub(bus, store, lures, discardLogger())
 
 	_, wsURL := newWSHubServer(t, hub, sess.ID)
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
@@ -251,7 +260,7 @@ func TestWSHub_AlreadyCompleteSession(t *testing.T) {
 // shuts down.
 func TestWSHub_UnknownSession_CleanedOnServerClose(t *testing.T) {
 	bus := newTestEventBus()
-	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, discardLogger())
+	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
 
 	srv, wsURL := newWSHubServer(t, hub, "ghost-session")
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
@@ -324,11 +333,11 @@ func TestHandleTelemetryDone_NotDone(t *testing.T) {
 	store := &stubSessionGetter{sessions: map[string]*aitm.Session{
 		"sid1": {ID: "sid1"},
 	}}
-	handler := proxy.HandleTelemetryDone(store)
+	hub := proxy.NewWSHub(newTestEventBus(), store, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/t/sid1/done", nil)
 	rec := httptest.NewRecorder()
-	handler(rec, req)
+	hub.HandleTelemetryDone(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rec.Code)
@@ -340,14 +349,17 @@ func TestHandleTelemetryDone_NotDone(t *testing.T) {
 }
 
 func TestHandleTelemetryDone_Done(t *testing.T) {
-	sess := &aitm.Session{ID: "sid2", RedirectURL: "https://example.com/done"}
+	sess := &aitm.Session{ID: "sid2", LureID: "lure-sid2"}
 	sess.Complete()
 	store := &stubSessionGetter{sessions: map[string]*aitm.Session{"sid2": sess}}
-	handler := proxy.HandleTelemetryDone(store)
+	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
+		"lure-sid2": {ID: "lure-sid2", RedirectURL: "https://example.com/done"},
+	}}
+	hub := proxy.NewWSHub(newTestEventBus(), store, lures, discardLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/t/sid2/done", nil)
 	rec := httptest.NewRecorder()
-	handler(rec, req)
+	hub.HandleTelemetryDone(rec, req)
 
 	body := rec.Body.String()
 	if !strings.Contains(body, "https://example.com/done") {
@@ -408,6 +420,18 @@ func (s *stubSessionGetter) Get(id string) (*aitm.Session, error) {
 		return nil, io.ErrUnexpectedEOF
 	}
 	return sess, nil
+}
+
+type stubLureGetter struct {
+	lures map[string]*aitm.Lure
+}
+
+func (s *stubLureGetter) Get(id string) (*aitm.Lure, error) {
+	lure, ok := s.lures[id]
+	if !ok {
+		return nil, io.ErrUnexpectedEOF
+	}
+	return lure, nil
 }
 
 // fakeConn is a minimal net.Conn backed by a bytes.Reader.

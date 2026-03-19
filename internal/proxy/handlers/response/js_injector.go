@@ -54,8 +54,13 @@ func (h *JSInjector) Handle(ctx *aitm.ProxyContext, resp *http.Response) error {
 			[]byte(markedScript(ctx.PuppetOverride)+"\n</head>"), 1)
 	}
 
-	bodyBytes = bytes.Replace(bodyBytes, []byte("</body>"),
-		[]byte(markedScript(scriptContent.String())+"\n</body>"), 1)
+	scriptBlock := []byte(markedScript(scriptContent.String()))
+	if i := bytes.Index(bodyBytes, []byte("</body>")); i >= 0 {
+		bodyBytes = append(bodyBytes[:i], append(append(scriptBlock, '\n'), bodyBytes[i:]...)...)
+	} else {
+		bodyBytes = append(bodyBytes, '\n')
+		bodyBytes = append(bodyBytes, scriptBlock...)
+	}
 	replaceBody(resp, bodyBytes)
 	return nil
 }
