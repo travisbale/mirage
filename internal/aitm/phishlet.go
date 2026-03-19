@@ -69,7 +69,7 @@ func (p *Phishlet) applyOperatorConfig(src *Phishlet) {
 // MatchesHost reports whether hostname belongs to this phishlet under baseDomain.
 func (p *Phishlet) MatchesHost(hostname, baseDomain string) bool {
 	for _, host := range p.ProxyHosts {
-		if hostname == host.PhishSubdomain+"."+baseDomain {
+		if hostname == host.PhishHost(baseDomain) {
 			return true
 		}
 	}
@@ -95,7 +95,7 @@ func (p *Phishlet) FindProxyHost(phishHost string) *ProxyHost {
 	}
 	lowerHost := strings.ToLower(host)
 	for i := range p.ProxyHosts {
-		if strings.EqualFold(p.ProxyHosts[i].PhishSubdomain+"."+p.BaseDomain, lowerHost) {
+		if strings.EqualFold(p.ProxyHosts[i].PhishHost(p.BaseDomain), lowerHost) {
 			return &p.ProxyHosts[i]
 		}
 	}
@@ -121,6 +121,12 @@ type ProxyHost struct {
 	IsSession      bool
 	AutoFilter     bool
 	UpstreamScheme string // "http" or "https"
+}
+
+// PhishHost returns the fully qualified phishing hostname
+// (e.g. "login.phish.example.com").
+func (h *ProxyHost) PhishHost(baseDomain string) string {
+	return h.PhishSubdomain + "." + baseDomain
 }
 
 // OriginHost returns the fully qualified upstream hostname

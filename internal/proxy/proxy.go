@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -39,6 +40,9 @@ type AITMProxy struct {
 	SecretHostname    string            // SNI hostname that triggers mTLS; empty disables mTLS
 	ClientCAs         *x509.CertPool    // required client CA pool when SecretHostname is set
 	UpstreamTransport http.RoundTripper // if non-nil, used instead of a default transport; intended for testing
+
+	clientOnce     sync.Once
+	upstreamClient *http.Client
 }
 
 // Start begins listening on addr (e.g. ":443") and blocks until ctx is cancelled.
@@ -192,33 +196,37 @@ func (p *AITMProxy) serveOneRequest(pctx *aitm.ProxyContext, req *http.Request, 
 	return !req.Close && !resp.Close
 }
 
-func (p *AITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
-	transport := p.UpstreamTransport
-	if transport == nil {
-		transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
-			DialContext: (&net.Dialer{
-				Timeout:   upstreamTimeout,
-				KeepAlive: upstreamTimeout,
-			}).DialContext,
-			ResponseHeaderTimeout: upstreamTimeout,
+func (p *AITMProxy) getClient() *http.Client {
+	p.clientOnce.Do(func() {
+		transport := p.UpstreamTransport
+		if transport == nil {
+			transport = &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+				DialContext: (&net.Dialer{
+					Timeout:   upstreamTimeout,
+					KeepAlive: upstreamTimeout,
+				}).DialContext,
+				ResponseHeaderTimeout: upstreamTimeout,
+			}
 		}
-	}
+		p.upstreamClient = &http.Client{
+			Transport: transport,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+	})
+	return p.upstreamClient
+}
 
-	client := &http.Client{
-		Transport: transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // victim's browser handles redirects
-		},
-	}
-
+func (p *AITMProxy) forwardRequest(req *http.Request) (*http.Response, error) {
 	upstreamReq := req.Clone(req.Context())
 	upstreamReq.RequestURI = ""
 	if upstreamReq.URL.Host == "" {
 		upstreamReq.URL.Host = req.Host
 	}
 
-	resp, err := client.Do(upstreamReq)
+	resp, err := p.getClient().Do(upstreamReq)
 	if err != nil {
 		return nil, fmt.Errorf("upstream request: %w", err)
 	}

