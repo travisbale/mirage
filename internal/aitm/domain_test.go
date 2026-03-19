@@ -306,6 +306,84 @@ func TestHasRequiredTokens_EmptyValueHTTPHeaderToken(t *testing.T) {
 	}
 }
 
+func TestHasRequiredTokens_BodyToken(t *testing.T) {
+	session := &aitm.Session{
+		BodyTokens: map[string]string{"access_token": "tok123"},
+	}
+	phishlet := &aitm.Phishlet{
+		AuthTokens: []aitm.TokenRule{
+			{Type: aitm.TokenTypeBody, Name: regexp.MustCompile(`access_token`)},
+		},
+	}
+	if !session.HasRequiredTokens(phishlet) {
+		t.Error("expected true when body token is captured")
+	}
+}
+
+func TestHasRequiredTokens_MissingBodyToken(t *testing.T) {
+	session := &aitm.Session{
+		BodyTokens: map[string]string{},
+	}
+	phishlet := &aitm.Phishlet{
+		AuthTokens: []aitm.TokenRule{
+			{Type: aitm.TokenTypeBody, Name: regexp.MustCompile(`access_token`)},
+		},
+	}
+	if session.HasRequiredTokens(phishlet) {
+		t.Error("expected false when body token is missing")
+	}
+}
+
+func TestHasRequiredTokens_EmptyValueBodyToken(t *testing.T) {
+	session := &aitm.Session{
+		BodyTokens: map[string]string{"access_token": ""},
+	}
+	phishlet := &aitm.Phishlet{
+		AuthTokens: []aitm.TokenRule{
+			{Type: aitm.TokenTypeBody, Name: regexp.MustCompile(`access_token`)},
+		},
+	}
+	if session.HasRequiredTokens(phishlet) {
+		t.Error("expected false when body token has empty value")
+	}
+}
+
+func TestHasRequiredTokens_MixedTokenTypes(t *testing.T) {
+	session := &aitm.Session{
+		CookieTokens: map[string]map[string]*aitm.CookieToken{
+			"example.com": {"session": {Name: "session", Value: "abc"}},
+		},
+		BodyTokens: map[string]string{"access_token": "tok456"},
+	}
+	phishlet := &aitm.Phishlet{
+		AuthTokens: []aitm.TokenRule{
+			{Type: aitm.TokenTypeCookie, Domain: "example.com", Name: regexp.MustCompile(`^session$`)},
+			{Type: aitm.TokenTypeBody, Name: regexp.MustCompile(`access_token`)},
+		},
+	}
+	if !session.HasRequiredTokens(phishlet) {
+		t.Error("expected true when both cookie and body tokens are captured")
+	}
+}
+
+func TestHasRequiredTokens_MixedTokenTypes_OneMissing(t *testing.T) {
+	session := &aitm.Session{
+		CookieTokens: map[string]map[string]*aitm.CookieToken{
+			"example.com": {"session": {Name: "session", Value: "abc"}},
+		},
+		BodyTokens: map[string]string{},
+	}
+	phishlet := &aitm.Phishlet{
+		AuthTokens: []aitm.TokenRule{
+			{Type: aitm.TokenTypeCookie, Domain: "example.com", Name: regexp.MustCompile(`^session$`)},
+			{Type: aitm.TokenTypeBody, Name: regexp.MustCompile(`access_token`)},
+		},
+	}
+	if session.HasRequiredTokens(phishlet) {
+		t.Error("expected false when body token is missing even though cookie is present")
+	}
+}
+
 // ── SubFilter.MatchesMIME ────────────────────────────────────────────────────
 
 func TestMatchesMIME_Match(t *testing.T) {

