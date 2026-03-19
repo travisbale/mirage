@@ -48,7 +48,11 @@ type ProxyContext struct {
 	// Set by PuppetOverrideResolver; injected by JSInjector before </head>.
 	PuppetOverride string
 
-	// RequestID is a random hex string assigned at connection time for log correlation.
+	// RequestBody caches the request body after the first handler reads it,
+	// so subsequent handlers don't re-read from the wire.
+	RequestBody []byte
+
+	// RequestID is a UUID assigned at connection time for log correlation.
 	RequestID string
 }
 

@@ -496,7 +496,7 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 				Capturer: d.sessionSvc,
 				Logger:   logger,
 			},
-			&request.ForcePostInjector{},
+			&request.ForcePostInjector{Logger: logger},
 		},
 		ResponseHandlers: []proxy.ResponseHandler{
 			&response.SecurityHeaderStripper{},

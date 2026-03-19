@@ -74,7 +74,7 @@ func (p *Pipeline) RunRequest(ctx *aitm.ProxyContext, req *http.Request) error {
 				return ErrShortCircuit
 			}
 
-			p.Logger.Error("request handler error", "handler", handler.Name(), "error", err)
+			p.Logger.Error("request handler error", "handler", handler.Name(), "request_id", ctx.RequestID, "error", err)
 
 			return err
 		}
@@ -93,7 +93,7 @@ func (p *Pipeline) RunResponse(ctx *aitm.ProxyContext, resp *http.Response) erro
 			if errors.Is(err, ErrShortCircuit) {
 				return ErrShortCircuit
 			}
-			p.Logger.Error("response handler error", "handler", handler.Name(), "error", err)
+			p.Logger.Error("response handler error", "handler", handler.Name(), "request_id", ctx.RequestID, "error", err)
 			return err
 		}
 	}

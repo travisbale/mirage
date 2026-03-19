@@ -3,10 +3,8 @@ package proxy
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
@@ -109,7 +108,7 @@ func (p *AITMProxy) handleConn(rawConn net.Conn) {
 	defer tlsConn.Close()
 
 	pctx := &aitm.ProxyContext{
-		RequestID:        newRequestID(),
+		RequestID:        uuid.New().String(),
 		ClientHelloBytes: peeked.ClientHelloBytes(),
 	}
 
@@ -243,12 +242,6 @@ func isWebSocketUpgrade(req *http.Request) bool {
 
 func isConnReset(err error) bool {
 	return strings.Contains(err.Error(), "connection reset")
-}
-
-func newRequestID() string {
-	buf := make([]byte, 8)
-	rand.Read(buf)
-	return hex.EncodeToString(buf)
 }
 
 // bufferedResponseWriter is a minimal http.ResponseWriter that writes to a net.Conn.

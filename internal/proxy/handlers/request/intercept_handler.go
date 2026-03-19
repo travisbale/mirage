@@ -25,7 +25,7 @@ func (h *InterceptHandler) Handle(ctx *aitm.ProxyContext, req *http.Request) err
 			continue
 		}
 		if rule.BodySearch != nil {
-			body, err := readAndRestoreBody(req)
+			body, err := getRequestBody(ctx, req)
 			if err != nil || !rule.BodySearch.Match(body) {
 				continue
 			}
