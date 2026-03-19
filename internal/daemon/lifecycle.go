@@ -13,6 +13,8 @@ import (
 // Run starts the proxy and blocks until the context is cancelled or the proxy
 // errors out. SIGHUP triggers a live config reload without stopping the proxy.
 func (d *Daemon) Run(ctx context.Context) {
+	d.puppetSvc.Start(ctx)
+
 	proxyErr := make(chan error, 1)
 	go func() {
 		proxyErr <- d.proxy.Start(ctx, fmt.Sprintf(":%d", d.cfg.HTTPSPort))

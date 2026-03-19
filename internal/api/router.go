@@ -26,6 +26,7 @@ type lureManager interface {
 	List() ([]*aitm.Lure, error)
 	Pause(id string, d time.Duration) (*aitm.Lure, error)
 	Unpause(id string) (*aitm.Lure, error)
+	URLWithParams(lure *aitm.Lure, httpsPort int, params map[string]string) (string, error)
 }
 
 type phishletManager interface {

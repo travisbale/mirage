@@ -37,6 +37,9 @@ func (s *stubLures) Delete(_ string) error                               { retur
 func (s *stubLures) List() ([]*aitm.Lure, error)                         { return nil, nil }
 func (s *stubLures) Pause(_ string, _ time.Duration) (*aitm.Lure, error) { return nil, nil }
 func (s *stubLures) Unpause(_ string) (*aitm.Lure, error)                { return nil, nil }
+func (s *stubLures) URLWithParams(_ *aitm.Lure, _ int, _ map[string]string) (string, error) {
+	return "", nil
+}
 
 type stubPhishlets struct{}
 

