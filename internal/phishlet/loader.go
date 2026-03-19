@@ -158,7 +158,6 @@ func (l *Loader) compileProxyHosts(path string, raw []rawProxyHost) ([]aitm.Prox
 			OrigSubdomain:  rawHost.OrigSub,
 			Domain:         rawHost.Domain,
 			IsLanding:      rawHost.IsLanding,
-			IsSession:      rawHost.IsSession,
 			AutoFilter:     autoFilter,
 			UpstreamScheme: upstreamScheme,
 		})

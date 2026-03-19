@@ -119,7 +119,6 @@ type ProxyHost struct {
 	OrigSubdomain  string
 	Domain         string
 	IsLanding      bool
-	IsSession      bool
 	AutoFilter     bool
 	UpstreamScheme string // "http" or "https"
 }

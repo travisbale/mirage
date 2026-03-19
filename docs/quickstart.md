@@ -62,7 +62,7 @@ api:
 Since there's no real DNS, point all hostnames at localhost:
 
 ```bash
-echo "127.0.0.1  login.phish.local  api.phish.local  login.target.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1  login.phish.local  api.phish.local  login.target.local  api.target.local" | sudo tee -a /etc/hosts
 ```
 
 ---
@@ -165,3 +165,8 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
   `/api-login`. Copy `examples/phishlets/api-login.yaml` into your phishlets
   directory, enable it, and create a lure with `--path /api-login`. This phishlet
   captures bearer tokens from JSON responses instead of cookies.
+- Try the multi-host phishlet: copy `examples/phishlets/multi-host.yaml` into your
+  phishlets directory, enable it, and create a lure pointing to `/multi-login`. This
+  phishlet proxies two subdomains (`login` and `api`) — the login page submits
+  credentials cross-origin to `api.phish.local/auth`, demonstrating multi-host
+  routing and auto_filter domain rewriting.

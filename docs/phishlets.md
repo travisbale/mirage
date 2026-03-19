@@ -33,7 +33,6 @@ proxy_hosts:
     orig_sub:   login          # subdomain under the real target domain
     domain:     example.com    # the real target's base domain
     is_landing: true           # true on the host that receives lure traffic
-    is_session: false          # true if this host sets the session cookie
     auto_filter: true          # auto-rewrite domain references in responses (default: true)
     upstream_scheme: https     # "http" or "https" (default: "https")
 ```
@@ -43,8 +42,6 @@ At least one entry is required. `phish_sub`, `orig_sub`, and `domain` are all re
 **How it works:** When a victim visits `login.phish.example.com`, miraged forwards the request to `login.example.com`, rewrites the response, and serves it back. All configured hosts are intercepted; all others return 404.
 
 **`is_landing`** — exactly one host should be marked `is_landing: true`. This is where lure URLs point and where session creation begins.
-
-**`is_session`** — mark the host that sets the primary session cookie. Used by `auth_tokens` with no explicit domain to determine where to look.
 
 **`auto_filter`** — when `true` (the default), miraged automatically rewrites occurrences of `orig_sub.domain` to `phish_sub.phish_domain` in HTML and JavaScript responses. Disable it for hosts where auto-rewriting breaks the page and you want to rely solely on explicit `sub_filters`.
 

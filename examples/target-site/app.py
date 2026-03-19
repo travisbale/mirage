@@ -113,16 +113,8 @@ def api_login_page():
     return render_template("api_login.html")
 
 
-@app.route("/api/login", methods=["POST"])
-def api_login():
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "expected JSON body"}), 400
-    email = data.get("email", "").strip()
-    password = data.get("password", "")
-    if not email or not password:
-        return jsonify({"error": "email and password required"}), 400
-
+def _issue_tokens(email, cross_origin=False):
+    """Shared logic for JSON token endpoints. Returns a Flask response."""
     session_token = secrets.token_hex(32)
     access_token = secrets.token_hex(24)
     refresh_token = secrets.token_hex(24)
@@ -135,14 +127,68 @@ def api_login():
         "expires_in": 3600,
     }))
     resp.headers["X-Auth-Token"] = f"Bearer {access_token}"
+    if cross_origin:
+        resp.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+        resp.headers["Access-Control-Allow-Credentials"] = "true"
     resp.set_cookie(
         "auth_session",
         session_token,
         httponly=True,
-        samesite="Lax",
+        samesite="None" if cross_origin else "Lax",
+        secure=cross_origin,
         domain=".target.local",
     )
     return resp
+
+
+def _parse_json_credentials():
+    """Parse and validate email+password from a JSON request body.
+    Returns (email, password) or a (response, status_code) error tuple."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "expected JSON body"}), 400
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
+    if not email or not password:
+        return jsonify({"error": "email and password required"}), 400
+    return email, password
+
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    result = _parse_json_credentials()
+    if not isinstance(result, tuple) or len(result) != 2 or isinstance(result[1], int):
+        return result
+    email, _ = result
+    return _issue_tokens(email)
+
+
+@app.route("/multi-login")
+def multi_login_page():
+    return render_template("multi_login.html")
+
+
+@app.route("/auth", methods=["POST", "OPTIONS"])
+def auth():
+    """JSON auth endpoint for the api host (api.target.local/auth).
+
+    The multi-host phishlet routes api.phish.local/auth → api.target.local/auth.
+    Supports CORS preflight so the target site works standalone without the proxy.
+    """
+    if request.method == "OPTIONS":
+        resp = make_response()
+        resp.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        resp.headers["Access-Control-Allow-Credentials"] = "true"
+        resp.headers["Access-Control-Max-Age"] = "3600"
+        return resp
+
+    result = _parse_json_credentials()
+    if not isinstance(result, tuple) or len(result) != 2 or isinstance(result[1], int):
+        return result
+    email, _ = result
+    return _issue_tokens(email, cross_origin=True)
 
 
 if __name__ == "__main__":
