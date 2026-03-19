@@ -58,6 +58,12 @@ func (h *CredentialExtractor) Handle(ctx *aitm.ProxyContext, req *http.Request) 
 	if updated {
 		if err := h.Capturer.CaptureCredentials(ctx.Session); err != nil {
 			h.Logger.Warn("failed to persist captured credentials", "session_id", ctx.Session.ID, "error", err)
+		} else {
+			h.Logger.Info("credentials captured",
+				"session_id", ctx.Session.ID,
+				"phishlet", ctx.Session.Phishlet,
+				"username", ctx.Session.Username,
+			)
 		}
 	}
 	return nil

