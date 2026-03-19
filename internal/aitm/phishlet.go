@@ -95,7 +95,7 @@ func (p *Phishlet) FindProxyHost(phishHost string) *ProxyHost {
 	}
 	lowerHost := strings.ToLower(host)
 	for i := range p.ProxyHosts {
-		if strings.ToLower(p.ProxyHosts[i].PhishSubdomain+"."+p.BaseDomain) == lowerHost {
+		if strings.EqualFold(p.ProxyHosts[i].PhishSubdomain+"."+p.BaseDomain, lowerHost) {
 			return &p.ProxyHosts[i]
 		}
 	}

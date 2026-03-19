@@ -344,20 +344,6 @@ func (ini *initializer) initWatcher() {
 	ini.watcher.Start()
 }
 
-func (ini *initializer) countActive() int {
-	phishlets, err := ini.phishletSvc.List()
-	if err != nil {
-		return 0
-	}
-	n := 0
-	for _, p := range phishlets {
-		if p.Enabled {
-			n++
-		}
-	}
-	return n
-}
-
 // SetUpstreamTransport replaces the transport used to forward requests to the
 // upstream origin. Intended for testing only — inject a transport that dials a
 // local httptest.Server so tests don't need real DNS or internet access.
