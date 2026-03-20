@@ -7,14 +7,14 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-// TelemetryScorer returns the accumulated bot score for a session.
-type TelemetryScorer interface {
+// telemetryScorer returns the accumulated bot score for a session.
+type telemetryScorer interface {
 	ScoreSession(sessionID string) float64
 }
 
 // TelemetryScoreCheck re-evaluates sessions that have accumulated telemetry data.
 type TelemetryScoreCheck struct {
-	Scorer    TelemetryScorer
+	Scorer    telemetryScorer
 	Spoof     spoofer
 	Threshold float64
 }

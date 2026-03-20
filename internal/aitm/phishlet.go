@@ -1,6 +1,7 @@
 package aitm
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -238,14 +239,20 @@ type JSInject struct {
 // It is the single point of truth for which phishlets are active: every
 // enable/disable writes to the store AND updates the in-memory resolver,
 // so the proxy router never falls out of sync with the database.
+// dnsReconciler manages DNS records for phishlet proxy hosts.
+type dnsReconciler interface {
+	Reconcile(ctx context.Context, records []PhishletRecord) error
+	RemoveRecords(ctx context.Context, records []PhishletRecord) error
+}
+
 type PhishletService struct {
 	store    phishletStore
 	bus      eventBus
-	dns      *DNSService
+	dns      dnsReconciler
 	resolver *phishletResolver
 }
 
-func NewPhishletService(store phishletStore, bus eventBus, dns *DNSService, lureStore lureStore, logger *slog.Logger) *PhishletService {
+func NewPhishletService(store phishletStore, bus eventBus, dns dnsReconciler, lureStore lureStore, logger *slog.Logger) *PhishletService {
 	return &PhishletService{
 		store:    store,
 		bus:      bus,

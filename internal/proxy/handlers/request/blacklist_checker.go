@@ -7,14 +7,14 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-// IPBlocker checks whether an IP is on the blocklist.
-type IPBlocker interface {
+// ipBlocker checks whether an IP is on the blocklist.
+type ipBlocker interface {
 	IsBlocked(ip string) bool
 }
 
 // BlacklistChecker drops or spoofs connections from blocked IPs.
 type BlacklistChecker struct {
-	Service IPBlocker
+	Service ipBlocker
 	Spoof   spoofer
 }
 

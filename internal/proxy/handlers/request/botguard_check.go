@@ -7,15 +7,15 @@ import (
 	"github.com/travisbale/mirage/internal/proxy"
 )
 
-// BotEvaluator evaluates a JA4 hash against the bot signature database.
-type BotEvaluator interface {
+// botEvaluator evaluates a JA4 hash against the bot signature database.
+type botEvaluator interface {
 	Evaluate(ja4 string, telemetry *aitm.BotTelemetry) aitm.BotVerdict
 }
 
 // BotGuardCheck short-circuits to the spoofer when a connection's JA4 hash
 // matches a known-bad signature.
 type BotGuardCheck struct {
-	Service BotEvaluator
+	Service botEvaluator
 	Spoof   spoofer
 }
 
