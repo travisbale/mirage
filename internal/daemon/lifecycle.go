@@ -17,7 +17,7 @@ func (d *Daemon) Run(ctx context.Context) {
 
 	proxyErr := make(chan error, 1)
 	go func() {
-		proxyErr <- d.proxy.Start(ctx, fmt.Sprintf(":%d", d.cfg.HTTPSPort))
+		proxyErr <- d.proxy.ListenAndServe(ctx)
 	}()
 
 	sighup := make(chan os.Signal, 1)

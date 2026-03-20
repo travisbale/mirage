@@ -1,6 +1,6 @@
 // minify minifies the injected JavaScript source files using the esbuild Go API.
 // Run via: go run ./tools/minify
-// Output is written to internal/proxy/handlers/response/dist/
+// Output is written to internal/proxy/dist/
 package main
 
 import (
@@ -18,7 +18,7 @@ func main() {
 	_, toolFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(toolFile), "..", "..")
 	scriptsDir := filepath.Join(repoRoot, "scripts")
-	distDir := filepath.Join(repoRoot, "internal", "proxy", "handlers", "response", "dist")
+	distDir := filepath.Join(repoRoot, "internal", "proxy", "dist")
 
 	if err := os.MkdirAll(distDir, 0755); err != nil {
 		fatalf("creating dist dir: %v", err)

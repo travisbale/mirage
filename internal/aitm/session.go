@@ -250,21 +250,15 @@ func (s *SessionService) Delete(id string) error {
 	return s.Store.DeleteSession(id)
 }
 
-// NewSession satisfies the request.SessionFactory interface.
-func (s *SessionService) NewSession(ctx *ProxyContext) (*Session, error) {
+// NewSession creates a new session and persists it to the store.
+func (s *SessionService) NewSession(clientIP, ja4Hash, lureID, phishletName string) (*Session, error) {
 	sess := &Session{
 		ID:         uuid.New().String(),
-		RemoteAddr: ctx.ClientIP,
-		JA4Hash:    ctx.JA4Hash,
+		RemoteAddr: clientIP,
+		JA4Hash:    ja4Hash,
+		LureID:     lureID,
+		Phishlet:   phishletName,
 		StartedAt:  time.Now(),
-	}
-
-	if ctx.Lure != nil {
-		sess.LureID = ctx.Lure.ID
-	}
-
-	if ctx.Phishlet != nil {
-		sess.Phishlet = ctx.Phishlet.Name
 	}
 
 	if err := s.Store.CreateSession(sess); err != nil {

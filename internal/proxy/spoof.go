@@ -78,11 +78,8 @@ func (s *SpoofProxy) reverseProxyFor(spoofURL string) (*httputil.ReverseProxy, e
 }
 
 func stripSpoofResponseHeaders(resp *http.Response) error {
-	resp.Header.Del("Content-Security-Policy")
-	resp.Header.Del("Content-Security-Policy-Report-Only")
-	resp.Header.Del("Strict-Transport-Security")
-	resp.Header.Del("X-Frame-Options")
-	resp.Header.Del("X-Content-Type-Options")
-
+	for _, name := range headersToStrip {
+		resp.Header.Del(name)
+	}
 	return nil
 }

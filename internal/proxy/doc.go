@@ -5,7 +5,7 @@ Package proxy implements the HTTPS AiTM (adversary-in-the-middle) reverse proxy.
 
 Every inbound TCP connection goes through the same sequence:
 
- 1. Wrapped in a [PeekedConn] that tees the first TLS record into a buffer, so
+ 1. Wrapped in a [peekedConn] that tees the first TLS record into a buffer, so
     the raw ClientHello bytes are available for JA4 fingerprinting before the
     handshake consumes them.
 
@@ -14,76 +14,58 @@ Every inbound TCP connection goes through the same sequence:
     the ClientHello SNI matches the configured secret management hostname —
     phishing victims are never prompted for a client certificate.
 
- 3. A [aitm.ProxyContext] is allocated for the connection and threaded through
-    every handler that follows.
+ 3. A connection is created via [Server.newConnection]. The constructor sets up
+    immutable TLS-level state (JA4 hash, TLS connection state). The handleInit
+    method then processes the first HTTP request to perform connection-level
+    setup: IP extraction, bot detection, blacklist check, phishlet/lure
+    resolution, and session creation.
 
- 4. HTTP/1.1 requests are read in a keep-alive loop by serveDecrypted. Each
-    request is run through the request pipeline, forwarded upstream if no
-    handler short-circuits, then the response is run through the response
-    pipeline before being written back to the client.
+ 4. HTTP/1.1 requests are read in a keep-alive loop by [connection.serve]. Each
+    request is handled by [connection.handleRequest], which runs the per-request
+    logic, forwards to upstream, and processes the response.
 
-# Request pipeline
+# Connection setup (handleInit)
 
-Handlers run in the order listed below. Any handler may return
-[ErrShortCircuit] to halt the chain — the request is not forwarded upstream
-and the handler is responsible for writing a complete response to
-[aitm.ProxyContext.ResponseWriter].
+These checks run once per connection during handleInit:
 
- 1. JA4Extractor      — parses ClientHelloBytes into a JA4 hash; sets ctx.JA4Hash
- 2. BotGuardCheck     — L1 signature check; spoofs or blocks known-bad JA4 hashes
- 3. IPExtractor       — resolves client IP from socket or trusted CDN headers; sets ctx.ClientIP
- 4. BlacklistChecker  — spoofs blocked IPs
- 5. APIRouter         — routes management-hostname requests to the REST API handler
- 6. PhishletRouter    — matches hostname against active phishlets; sets ctx.Phishlet,
-    ctx.Lure; spoofs unrecognised hostnames
- 7. InterceptHandler  — returns a custom static response for paths matching the
-    phishlet's intercept rules; prevents telemetry and bot-detection requests
-    from reaching upstream
- 8. SessionGate        — validates the lure (spoofs paused lures or filtered
-    user-agents), then loads or creates the session from the tracking cookie;
-    redirects completed sessions to the lure's redirect URL via 302;
-    sets ctx.Session, ctx.IsNewSession
- 9. LureRedirector    — on the initial lure hit (request path matches the lure
-    path), transparently rewrites the path to the phishlet's login path
- 10. PuppetOverrideResolver — looks up cached puppet telemetry for the active
-    phishlet and sets ctx.PuppetOverride
- 11. TelemetryScoreCheck — L2 bot score; spoofs sessions that exceed the threshold
- 12. URLRewriter       — rewrites Host, URL, Origin, and Referer from the phishing
-    domain back to the real upstream domain; strips the session tracking cookie
- 13. CredentialExtractor — captures username/password from POST bodies matching
-    the phishlet login spec; persists and logs the event
- 14. ForcePostInjector — injects or overrides POST parameters on matching paths
+  - JA4 hash computed from ClientHello bytes
+  - Client IP extracted from socket or trusted CDN headers
+  - Bot guard check (L1) — JA4 signature lookup; spoofs or blocks known bots
+  - Blacklist check — spoofs blocked IPs
+  - Phishlet/lure resolution from hostname
+  - Lure validation (paused, UA filter)
+  - Session creation or loading from tracking cookie
+  - Puppet override lookup
 
-# Response pipeline
+# Per-request handling (handleRequest)
 
-Response handlers run after the upstream response is received. Unlike request
-handlers, a short-circuit does not prevent the response from being forwarded to
-the client — it only stops subsequent handlers from running.
+All response writing is centralized in handleRequest. Handler methods only make
+decisions or mutate the request/response in place.
 
- 1. SecurityHeaderStripper — removes CSP, HSTS, X-Frame-Options, and related
-    headers that would interfere with the proxy
- 2. TokenExtractor          — captures auth cookies and HTTP headers; marks the
-    session complete and publishes EventSessionCompleted
-    when all required tokens are captured
- 3. CookieRewriter         — rewrites upstream Set-Cookie domains to the
-    phishing domain; injects the session tracking cookie
-    on the first response
- 4. SubFilterApplier       — applies the phishlet's search/replace rules to
-    rewrite domain references in response bodies
- 5. JSInjector             — injects the puppet override before </head> (if
-    ctx.PuppetOverride is set) and the telemetry collector and WebSocket
-    redirect scripts before </body> (falling back to appending if absent)
- 6. JSObfuscator           — passes injected script blocks through the Node.js
-    obfuscator sidecar to defeat static fingerprinting
+  - Completed session redirect — 302 to lure redirect URL if session is done
+  - Intercept — returns static response for matching paths
+  - Lure path rewrite — rewrites lure URL to login path
+  - Telemetry score check (L2) — spoofs high-scoring sessions
+  - URL rewrite — rewrites Host, URL, Origin, Referer to upstream domain
+  - Credential extraction — captures username/password from POST bodies
+  - Force POST injection — injects/overrides POST parameters
+
+After forwarding upstream:
+
+  - Security header stripping — removes CSP, HSTS, X-Frame-Options, etc.
+  - Token extraction — captures auth cookies, headers, and body tokens
+  - Cookie rewriting — rewrites Set-Cookie domains; injects tracking cookie
+  - Sub-filter application — regex search/replace on response bodies
+  - JS injection — telemetry, redirect, puppet override, and custom scripts
+  - JS obfuscation — transforms injected scripts via Node.js sidecar
 
 # Post-capture redirect flow
 
-When TokenExtractor marks a session complete it publishes
+When token extraction marks a session complete it publishes
 [aitm.EventSessionCompleted]. The [WSHub] subscribes to this event and fans
 the redirect URL out to all WebSocket connections waiting on that session ID.
-The injected redirect script in the victim's browser holds a WebSocket open to
-GET /ws/{sessionID}; when the message arrives the browser navigates to the
-configured redirect URL, completing the attack flow.
+On the next request, handleRequest detects the completed session and returns a
+302 redirect to the lure's redirect URL.
 
 A fallback polling endpoint GET /t/{sessionID}/done is also available for
 environments where WebSocket connections are not reliable.

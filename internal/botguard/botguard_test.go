@@ -3,7 +3,6 @@ package botguard_test
 import (
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -77,39 +76,6 @@ func TestComputeJA4_InvalidBytes(t *testing.T) {
 	}
 }
 
-// ── helloConn ─────────────────────────────────────────────────────────────────
-
-func TestHelloConn_CapturesFirstRecord(t *testing.T) {
-	payload := buildTestClientHello(t, clientHelloParams{
-		version:      0x0303,
-		cipherSuites: []uint16{0x1301},
-		suppVersions: []uint16{0x0304},
-		extensions:   []uint16{0x0000},
-	})
-
-	clientConn, serverConn := net.Pipe()
-	hc := botguard.NewHelloConnForTest(serverConn)
-
-	go func() {
-		clientConn.Write(payload)
-		clientConn.Close()
-	}()
-
-	buf := make([]byte, 4096)
-	n, _ := hc.Read(buf)
-	if n == 0 {
-		t.Fatal("expected to read bytes, got 0")
-	}
-
-	captured := hc.Hello()
-	if captured == nil {
-		t.Fatal("Hello() returned nil after read")
-	}
-	if len(captured) < n {
-		t.Errorf("captured %d bytes, read %d", len(captured), n)
-	}
-}
-
 // ── Scorer (verdict) ──────────────────────────────────────────────────────────
 
 func TestScorer_DisabledAlwaysAllows(t *testing.T) {
@@ -150,7 +116,7 @@ func TestSpoofProxy_RewritesDomainsInResponse(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Host = "phishing.attacker.com"
 
-	sp.ServeHTTP(rec, req, backend.URL, &aitm.ProxyContext{})
+	sp.ServeHTTP(rec, req, backend.URL)
 
 	body := rec.Body.String()
 	// The backend's host (127.0.0.1:port) must be replaced with the phishing domain.
@@ -163,7 +129,7 @@ func TestSpoofProxy_EmptySpoofURLReturns200(t *testing.T) {
 	sp := botguard.NewSpoofProxy(slog.Default())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	sp.ServeHTTP(rec, req, "", &aitm.ProxyContext{})
+	sp.ServeHTTP(rec, req, "")
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200 OK, got %d", rec.Code)
 	}
@@ -180,13 +146,44 @@ func TestSpoofProxy_StripsCORSHeaders(t *testing.T) {
 	sp := botguard.NewSpoofProxy(slog.Default())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	sp.ServeHTTP(rec, req, backend.URL, &aitm.ProxyContext{})
+	sp.ServeHTTP(rec, req, backend.URL)
 
 	if rec.Header().Get("Content-Security-Policy") != "" {
 		t.Errorf("expected CSP header to be stripped, got: %s", rec.Header().Get("Content-Security-Policy"))
 	}
 	if rec.Header().Get("Strict-Transport-Security") != "" {
 		t.Errorf("expected HSTS header to be stripped, got: %s", rec.Header().Get("Strict-Transport-Security"))
+	}
+}
+
+func TestSpoofProxy_StripsSessionCookie(t *testing.T) {
+	var receivedCookies []*http.Cookie
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedCookies = r.Cookies()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	sp := botguard.NewSpoofProxy(slog.Default())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "__ss", Value: "sess-123"})
+	req.AddCookie(&http.Cookie{Name: "other", Value: "keep"})
+	sp.ServeHTTP(rec, req, backend.URL)
+
+	for _, cookie := range receivedCookies {
+		if cookie.Name == "__ss" {
+			t.Error("expected __ss cookie to be stripped from spoofed request")
+		}
+	}
+	found := false
+	for _, cookie := range receivedCookies {
+		if cookie.Name == "other" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected non-session cookies to be preserved")
 	}
 }
 

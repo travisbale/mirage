@@ -268,7 +268,7 @@ func TestTelemetryScript_PostsToEndpoint(t *testing.T) {
 	pool := newTestPool(t)
 
 	// Read the telemetry script and substitute a test session ID.
-	telemetryJS, err := os.ReadFile("../proxy/handlers/response/dist/telemetry.min.js")
+	telemetryJS, err := os.ReadFile("../proxy/dist/telemetry.min.js")
 	if err != nil {
 		t.Fatalf("reading telemetry script: %v", err)
 	}

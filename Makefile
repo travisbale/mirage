@@ -28,7 +28,7 @@ build-daemon: scripts
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf build/
-	@rm -rf internal/proxy/handlers/response/dist/
+	@rm -rf internal/proxy/dist/
 
 test: scripts
 	@echo "Running tests..."

