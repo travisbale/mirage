@@ -15,7 +15,7 @@ func NewPhishletStore(db *DB) *Phishlets { return &Phishlets{db: db} }
 
 func (s *Phishlets) GetPhishlet(name string) (*aitm.Phishlet, error) {
 	row := s.db.db.QueryRow(`SELECT
-		name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden
+		name, base_domain, dns_provider, hostname, spoof_url, enabled, hidden
 		FROM phishlet_configs WHERE name = ?`, name)
 	p, err := scanPhishlet(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -27,25 +27,24 @@ func (s *Phishlets) GetPhishlet(name string) (*aitm.Phishlet, error) {
 func (s *Phishlets) SetPhishlet(p *aitm.Phishlet) error {
 	_, err := s.db.db.Exec(`
 		INSERT INTO phishlet_configs
-			(name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden)
-		VALUES (?,?,?,?,?,?,?,?)
+			(name, base_domain, dns_provider, hostname, spoof_url, enabled, hidden)
+		VALUES (?,?,?,?,?,?,?)
 		ON CONFLICT(name) DO UPDATE SET
 			base_domain=excluded.base_domain,
 			dns_provider=excluded.dns_provider,
 			hostname=excluded.hostname,
-			unauth_url=excluded.unauth_url,
 			spoof_url=excluded.spoof_url,
 			enabled=excluded.enabled,
 			hidden=excluded.hidden`,
 		p.Name, p.BaseDomain, p.DNSProvider, p.Hostname,
-		p.UnauthURL, p.SpoofURL, p.Enabled, p.Hidden,
+		p.SpoofURL, p.Enabled, p.Hidden,
 	)
 	return err
 }
 
 func (s *Phishlets) ListPhishlets() ([]*aitm.Phishlet, error) {
 	rows, err := s.db.db.Query(`SELECT
-		name, base_domain, dns_provider, hostname, unauth_url, spoof_url, enabled, hidden
+		name, base_domain, dns_provider, hostname, spoof_url, enabled, hidden
 		FROM phishlet_configs ORDER BY name ASC`)
 	if err != nil {
 		return nil, err
@@ -75,7 +74,7 @@ func scanPhishlet(row scanner) (*aitm.Phishlet, error) {
 	var p aitm.Phishlet
 	err := row.Scan(
 		&p.Name, &p.BaseDomain, &p.DNSProvider, &p.Hostname,
-		&p.UnauthURL, &p.SpoofURL, &p.Enabled, &p.Hidden,
+		&p.SpoofURL, &p.Enabled, &p.Hidden,
 	)
 	return &p, err
 }

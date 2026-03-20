@@ -68,22 +68,12 @@ type CreateLureRequest struct {
 	RedirectURL string `json:"redirect_url,omitempty"`
 	SpoofURL    string `json:"spoof_url,omitempty"`
 	UAFilter    string `json:"ua_filter,omitempty"`
-	OGTitle     string `json:"og_title,omitempty"`
-	OGDesc      string `json:"og_desc,omitempty"`
-	OGImage     string `json:"og_image,omitempty"`
-	OGURL       string `json:"og_url,omitempty"`
-	Redirector  string `json:"redirector,omitempty"`
 }
 
 type UpdateLureRequest struct {
 	RedirectURL *string `json:"redirect_url,omitempty"`
 	SpoofURL    *string `json:"spoof_url,omitempty"`
 	UAFilter    *string `json:"ua_filter,omitempty"`
-	OGTitle     *string `json:"og_title,omitempty"`
-	OGDesc      *string `json:"og_desc,omitempty"`
-	OGImage     *string `json:"og_image,omitempty"`
-	OGURL       *string `json:"og_url,omitempty"`
-	Redirector  *string `json:"redirector,omitempty"`
 }
 
 type LureResponse struct {
@@ -94,11 +84,6 @@ type LureResponse struct {
 	SpoofURL    string     `json:"spoof_url"`
 	UAFilter    string     `json:"ua_filter"`
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
-	OGTitle     string     `json:"og_title"`
-	OGDesc      string     `json:"og_desc"`
-	OGImage     string     `json:"og_image"`
-	OGURL       string     `json:"og_url"`
-	Redirector  string     `json:"redirector"`
 }
 
 type GenerateURLRequest struct {
@@ -121,7 +106,6 @@ type PhishletResponse struct {
 	BaseDomain  string `json:"base_domain"`
 	Hostname    string `json:"hostname"`
 	DNSProvider string `json:"dns_provider"`
-	UnauthURL   string `json:"unauth_url"`
 	SpoofURL    string `json:"spoof_url"`
 	Enabled     bool   `json:"enabled"`
 	Hidden      bool   `json:"hidden"`

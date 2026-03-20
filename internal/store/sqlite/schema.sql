@@ -31,11 +31,6 @@ CREATE TABLE IF NOT EXISTS lures (
     spoof_url       TEXT    NOT NULL DEFAULT '',
     ua_filter       TEXT    NOT NULL DEFAULT '',
     paused_until    INTEGER NOT NULL DEFAULT 0,
-    og_title        TEXT    NOT NULL DEFAULT '',
-    og_desc         TEXT    NOT NULL DEFAULT '',
-    og_image        TEXT    NOT NULL DEFAULT '',
-    og_url          TEXT    NOT NULL DEFAULT '',
-    redirector      TEXT    NOT NULL DEFAULT '',
     params_key      BLOB
 );
 
@@ -46,7 +41,6 @@ CREATE TABLE IF NOT EXISTS phishlet_configs (
     base_domain     TEXT    NOT NULL DEFAULT '',
     dns_provider    TEXT    NOT NULL DEFAULT '',
     hostname        TEXT    NOT NULL DEFAULT '',
-    unauth_url      TEXT    NOT NULL DEFAULT '',
     spoof_url       TEXT    NOT NULL DEFAULT '',
     enabled         INTEGER NOT NULL DEFAULT 0,
     hidden          INTEGER NOT NULL DEFAULT 0

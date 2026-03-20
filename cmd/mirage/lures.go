@@ -71,7 +71,6 @@ func newLuresCreateCmd() *cobra.Command {
 		redirectURL string
 		spoofURL    string
 		uaFilter    string
-		redirector  string
 		path        string
 	)
 	cmd := &cobra.Command{
@@ -89,7 +88,6 @@ func newLuresCreateCmd() *cobra.Command {
 				RedirectURL: redirectURL,
 				SpoofURL:    spoofURL,
 				UAFilter:    uaFilter,
-				Redirector:  redirector,
 			}
 			if err := req.Validate(); err != nil {
 				return err
@@ -109,7 +107,6 @@ func newLuresCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&redirectURL, "redirect", "", "URL to redirect unauthenticated visitors")
 	cmd.Flags().StringVar(&spoofURL, "spoof", "", "URL to display in the browser address bar")
 	cmd.Flags().StringVar(&uaFilter, "ua-filter", "", "user-agent regex filter")
-	cmd.Flags().StringVar(&redirector, "redirector", "", "redirector name")
 	return cmd
 }
 
@@ -118,11 +115,6 @@ func newLuresUpdateCmd() *cobra.Command {
 		redirectURL string
 		spoofURL    string
 		uaFilter    string
-		redirector  string
-		ogTitle     string
-		ogDesc      string
-		ogImage     string
-		ogURL       string
 	)
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -143,21 +135,6 @@ func newLuresUpdateCmd() *cobra.Command {
 			if cmd.Flags().Changed("ua-filter") {
 				req.UAFilter = &uaFilter
 			}
-			if cmd.Flags().Changed("redirector") {
-				req.Redirector = &redirector
-			}
-			if cmd.Flags().Changed("og-title") {
-				req.OGTitle = &ogTitle
-			}
-			if cmd.Flags().Changed("og-desc") {
-				req.OGDesc = &ogDesc
-			}
-			if cmd.Flags().Changed("og-image") {
-				req.OGImage = &ogImage
-			}
-			if cmd.Flags().Changed("og-url") {
-				req.OGURL = &ogURL
-			}
 			if err := req.Validate(); err != nil {
 				return err
 			}
@@ -175,11 +152,6 @@ func newLuresUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&redirectURL, "redirect", "", "URL to redirect unauthenticated visitors")
 	cmd.Flags().StringVar(&spoofURL, "spoof", "", "URL to display in the browser address bar")
 	cmd.Flags().StringVar(&uaFilter, "ua-filter", "", "user-agent regex filter")
-	cmd.Flags().StringVar(&redirector, "redirector", "", "redirector name")
-	cmd.Flags().StringVar(&ogTitle, "og-title", "", "Open Graph title")
-	cmd.Flags().StringVar(&ogDesc, "og-desc", "", "Open Graph description")
-	cmd.Flags().StringVar(&ogImage, "og-image", "", "Open Graph image URL")
-	cmd.Flags().StringVar(&ogURL, "og-url", "", "Open Graph URL")
 	return cmd
 }
 

@@ -20,7 +20,6 @@ dns_port: {{ .DNSPort }}
 autocert: {{ .AutoCert }}
 data_dir: /var/lib/mirage
 phishlets_dir: {{ .RemoteConfigDir }}/phishlets
-redirectors_dir: {{ .RemoteConfigDir }}/redirectors
 
 api:
   secret_hostname: {{ .SecretHostname }}

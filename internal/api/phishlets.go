@@ -134,7 +134,6 @@ func phishletToResponse(p *aitm.Phishlet) sdk.PhishletResponse {
 		BaseDomain:  p.BaseDomain,
 		Hostname:    p.Hostname,
 		DNSProvider: p.DNSProvider,
-		UnauthURL:   p.UnauthURL,
 		SpoofURL:    p.SpoofURL,
 		Enabled:     p.Enabled,
 		Hidden:      p.Hidden,

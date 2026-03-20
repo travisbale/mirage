@@ -81,11 +81,6 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 		RedirectURL: body.RedirectURL,
 		SpoofURL:    body.SpoofURL,
 		UAFilter:    body.UAFilter,
-		OGTitle:     body.OGTitle,
-		OGDesc:      body.OGDesc,
-		OGImage:     body.OGImage,
-		OGURL:       body.OGURL,
-		Redirector:  body.Redirector,
 	}
 
 	if err := r.Lures.Create(lure); err != nil {
@@ -129,22 +124,6 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	if body.SpoofURL != nil {
 		lure.SpoofURL = *body.SpoofURL
 	}
-	if body.OGTitle != nil {
-		lure.OGTitle = *body.OGTitle
-	}
-	if body.OGDesc != nil {
-		lure.OGDesc = *body.OGDesc
-	}
-	if body.OGImage != nil {
-		lure.OGImage = *body.OGImage
-	}
-	if body.OGURL != nil {
-		lure.OGURL = *body.OGURL
-	}
-	if body.Redirector != nil {
-		lure.Redirector = *body.Redirector
-	}
-
 	if err := r.Lures.Update(lure); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update lure")
 		return
@@ -246,11 +225,6 @@ func (r *Router) lureToResponse(lure *aitm.Lure) sdk.LureResponse {
 		SpoofURL:    lure.SpoofURL,
 		UAFilter:    lure.UAFilter,
 		PausedUntil: lure.PausedUntilPtr(),
-		OGTitle:     lure.OGTitle,
-		OGDesc:      lure.OGDesc,
-		OGImage:     lure.OGImage,
-		OGURL:       lure.OGURL,
-		Redirector:  lure.Redirector,
 	}
 }
 

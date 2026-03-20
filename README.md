@@ -46,7 +46,6 @@ https_port: 443
 dns_port: 53
 data_dir: /var/lib/mirage
 phishlets_dir: /etc/mirage/phishlets
-redirectors_dir: /etc/mirage/redirectors
 
 # Set to true to use self-signed certificates instead of ACME (useful for local testing).
 # When false, acme.email and acme.directory_url are required.
@@ -100,7 +99,7 @@ The Docker image contains only `miraged`. Config, phishlets, and data are suppli
 
 | Mount | Contents |
 |-------|----------|
-| `/etc/mirage` | `miraged.yaml`, `phishlets/`, `redirectors/` |
+| `/etc/mirage` | `miraged.yaml`, `phishlets/` |
 | `/var/lib/mirage` | SQLite database, generated TLS certs |
 
 Build the image:

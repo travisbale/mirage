@@ -4,7 +4,6 @@ https_port: 8443
 dns_port: 5353
 data_dir: /var/lib/mirage
 phishlets_dir: /etc/mirage/phishlets
-redirectors_dir: /etc/mirage/redirectors
 api:
   secret_hostname: api.phish.example.com
 acme:

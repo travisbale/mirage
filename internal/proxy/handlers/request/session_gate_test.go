@@ -25,6 +25,7 @@ func TestSessionGate_ExistingCookie_LoadsSession_SkipsLureChecks(t *testing.T) {
 	existing := &aitm.Session{ID: "existing-sess"}
 	spoofer := &stubSpoofer{}
 	h := &request.SessionGate{
+		Logger:   discardLogger(),
 		Sessions: &stubSessionManager{getSession: existing},
 		Spoof:    spoofer,
 	}
@@ -49,6 +50,7 @@ func TestSessionGate_ExistingCookie_LoadsSession_SkipsLureChecks(t *testing.T) {
 func TestSessionGate_NoLure_Spoofs(t *testing.T) {
 	spoofer := &stubSpoofer{}
 	h := &request.SessionGate{
+		Logger:   discardLogger(),
 		Sessions: &stubSessionManager{newSession: &aitm.Session{ID: "new"}},
 		Spoof:    spoofer,
 	}
@@ -69,6 +71,7 @@ func TestSessionGate_NoLure_Spoofs(t *testing.T) {
 func TestSessionGate_PausedLure_Spoofs(t *testing.T) {
 	spoofer := &stubSpoofer{}
 	h := &request.SessionGate{
+		Logger:   discardLogger(),
 		Sessions: &stubSessionManager{newSession: &aitm.Session{ID: "new"}},
 		Spoof:    spoofer,
 	}
@@ -92,6 +95,7 @@ func TestSessionGate_PausedLure_Spoofs(t *testing.T) {
 func TestSessionGate_UAFilterNoMatch_Spoofs(t *testing.T) {
 	spoofer := &stubSpoofer{}
 	h := &request.SessionGate{
+		Logger:   discardLogger(),
 		Sessions: &stubSessionManager{newSession: &aitm.Session{ID: "new"}},
 		Spoof:    spoofer,
 	}
@@ -116,6 +120,7 @@ func TestSessionGate_UAFilterNoMatch_Spoofs(t *testing.T) {
 func TestSessionGate_ValidLure_CreatesSession(t *testing.T) {
 	newSess := &aitm.Session{ID: "new-sess"}
 	h := &request.SessionGate{
+		Logger:   discardLogger(),
 		Sessions: &stubSessionManager{newSession: newSess},
 		Spoof:    &stubSpoofer{},
 	}
@@ -138,6 +143,7 @@ func TestSessionGate_CompletedSession_RedirectsToLureURL(t *testing.T) {
 	now := time.Now()
 	completedSess := &aitm.Session{ID: "done-sess", CompletedAt: &now}
 	h := &request.SessionGate{
+		Logger:   discardLogger(),
 		Sessions: &stubSessionManager{getSession: completedSess},
 		Spoof:    &stubSpoofer{},
 	}
@@ -165,6 +171,7 @@ func TestSessionGate_CompletedSession_NoLure_ContinuesNormally(t *testing.T) {
 	now := time.Now()
 	completedSess := &aitm.Session{ID: "done-sess", CompletedAt: &now}
 	h := &request.SessionGate{
+		Logger:   discardLogger(),
 		Sessions: &stubSessionManager{getSession: completedSess},
 		Spoof:    &stubSpoofer{},
 	}
@@ -182,6 +189,7 @@ func TestSessionGate_CompletedSession_NoLure_ContinuesNormally(t *testing.T) {
 
 func TestSessionGate_SessionFactoryError_ReturnsError(t *testing.T) {
 	h := &request.SessionGate{
+		Logger:   discardLogger(),
 		Sessions: &stubSessionManager{newErr: errors.New("db down")},
 		Spoof:    &stubSpoofer{},
 	}

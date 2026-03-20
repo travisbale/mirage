@@ -39,7 +39,7 @@ func TestPublishReachesAllSubscribers(t *testing.T) {
 func TestPublishDoesNotReachOtherTypes(t *testing.T) {
 	bus := events.NewBus(8)
 
-	wrongCh := bus.Subscribe(aitm.EventLureHit)
+	wrongCh := bus.Subscribe(aitm.EventBotDetected)
 	rightCh := bus.Subscribe(aitm.EventSessionCreated)
 
 	bus.Publish(aitm.Event{Type: aitm.EventSessionCreated})
@@ -250,13 +250,13 @@ func TestOccurredAtIsSetByPublish(t *testing.T) {
 func TestBufferSizeRespected(t *testing.T) {
 	const bufSize = 3
 	bus := events.NewBus(bufSize)
-	ch := bus.Subscribe(aitm.EventLureHit)
+	ch := bus.Subscribe(aitm.EventBotDetected)
 
 	for range bufSize {
-		bus.Publish(aitm.Event{Type: aitm.EventLureHit})
+		bus.Publish(aitm.Event{Type: aitm.EventBotDetected})
 	}
 	// One more publish should drop (channel full).
-	bus.Publish(aitm.Event{Type: aitm.EventLureHit})
+	bus.Publish(aitm.Event{Type: aitm.EventBotDetected})
 
 	time.Sleep(5 * time.Millisecond)
 
@@ -275,5 +275,5 @@ drain:
 		t.Errorf("expected %d buffered events, got %d", bufSize, count)
 	}
 
-	bus.Unsubscribe(aitm.EventLureHit, ch)
+	bus.Unsubscribe(aitm.EventBotDetected, ch)
 }

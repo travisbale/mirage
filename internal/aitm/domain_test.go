@@ -73,42 +73,6 @@ func TestFindLanding_Absent(t *testing.T) {
 	}
 }
 
-// ── Phishlet.MatchesAuthURL ──────────────────────────────────────────────────
-
-func TestMatchesAuthURL_Match(t *testing.T) {
-	phishlet := &aitm.Phishlet{
-		AuthURLs: []*regexp.Regexp{
-			regexp.MustCompile(`/authorize\?`),
-		},
-	}
-	if !phishlet.MatchesAuthURL("https://login.example.com/authorize?client_id=abc") {
-		t.Error("expected auth URL to match")
-	}
-}
-
-func TestMatchesAuthURL_NoMatch(t *testing.T) {
-	phishlet := &aitm.Phishlet{
-		AuthURLs: []*regexp.Regexp{
-			regexp.MustCompile(`/authorize\?`),
-		},
-	}
-	if phishlet.MatchesAuthURL("https://login.example.com/logout") {
-		t.Error("expected auth URL not to match")
-	}
-}
-
-func TestMatchesAuthURL_MultiplePatterns(t *testing.T) {
-	phishlet := &aitm.Phishlet{
-		AuthURLs: []*regexp.Regexp{
-			regexp.MustCompile(`/authorize\?`),
-			regexp.MustCompile(`/oauth2/token`),
-		},
-	}
-	if !phishlet.MatchesAuthURL("https://login.example.com/oauth2/token") {
-		t.Error("expected second pattern to match")
-	}
-}
-
 // ── ProxyHost.OriginHost ─────────────────────────────────────────────────────
 
 func TestOriginHost_WithSubdomain(t *testing.T) {

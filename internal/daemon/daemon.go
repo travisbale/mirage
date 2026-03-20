@@ -486,6 +486,7 @@ func buildPipeline(d pipelineDeps, logger *slog.Logger) *proxy.Pipeline {
 			&request.SessionGate{
 				Sessions: d.sessionSvc,
 				Spoof:    d.spoofProxy,
+				Logger:   logger,
 			},
 			&request.LureRedirector{},
 			&request.PuppetOverrideResolver{

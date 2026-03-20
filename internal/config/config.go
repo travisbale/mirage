@@ -13,20 +13,19 @@ import (
 
 // Config is the top-level configuration for miraged.
 type Config struct {
-	Domain         string              `yaml:"domain"`
-	ExternalIPv4   string              `yaml:"external_ipv4"`
-	HTTPSPort      int                 `yaml:"https_port"`
-	DNSPort        int                 `yaml:"dns_port"`
-	SpoofURL       string              `yaml:"spoof_url"` // default spoof target; overridden per-phishlet and per-lure
-	DataDir        string              `yaml:"data_dir"`
-	PhishletsDir   string              `yaml:"phishlets_dir"`
-	RedirectorsDir string              `yaml:"redirectors_dir"`
-	SelfSigned     bool                `yaml:"self_signed"`
-	DNSProviders   []DNSProviderConfig `yaml:"dns_providers"`
-	API            APIConfig           `yaml:"api"`
-	ACME           ACMEConfig          `yaml:"acme"`
-	Obfuscator     ObfuscatorConfig    `yaml:"obfuscator"`
-	Puppet         PuppetConfig        `yaml:"puppet"`
+	Domain       string              `yaml:"domain"`
+	ExternalIPv4 string              `yaml:"external_ipv4"`
+	HTTPSPort    int                 `yaml:"https_port"`
+	DNSPort      int                 `yaml:"dns_port"`
+	SpoofURL     string              `yaml:"spoof_url"` // default spoof target; overridden per-phishlet and per-lure
+	DataDir      string              `yaml:"data_dir"`
+	PhishletsDir string              `yaml:"phishlets_dir"`
+	SelfSigned   bool                `yaml:"self_signed"`
+	DNSProviders []DNSProviderConfig `yaml:"dns_providers"`
+	API          APIConfig           `yaml:"api"`
+	ACME         ACMEConfig          `yaml:"acme"`
+	Obfuscator   ObfuscatorConfig    `yaml:"obfuscator"`
+	Puppet       PuppetConfig        `yaml:"puppet"`
 }
 
 // ACMEConfig holds settings for automatic certificate provisioning via ACME
@@ -105,9 +104,6 @@ func (c *Config) applyDefaults() {
 	}
 	if c.PhishletsDir == "" {
 		c.PhishletsDir = "/etc/mirage/phishlets"
-	}
-	if c.RedirectorsDir == "" {
-		c.RedirectorsDir = "/etc/mirage/redirectors"
 	}
 	if c.Puppet.MinInstances <= 0 {
 		c.Puppet.MinInstances = 1

