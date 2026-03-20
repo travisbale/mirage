@@ -143,7 +143,7 @@ All fields are optional. Omit `credentials` entirely if the target uses only coo
 
 ## `login`
 
-Identifies where the login form is submitted. Used to trigger credential extraction only on the right endpoint.
+Identifies the login endpoint. `domain` scopes credential extraction to POSTs matching this domain. `path` is used by the lure redirector to rewrite the lure URL to the login page.
 
 ```yaml
 login:

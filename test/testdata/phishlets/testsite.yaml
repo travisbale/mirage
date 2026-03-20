@@ -14,6 +14,23 @@ sub_filters:
     search: "login\\.testsite\\.internal"
     replace: "{hostname}"
 
+force_post:
+  # Injects login_source=web on login POSTs that contain an email field.
+  # Existing tests POST username=... so they won't trigger this condition.
+  - path: "^/login$"
+    conditions:
+      - key:    "^email$"
+        search: "^.+$"
+    params:
+      - key:   login_source
+        value: web
+
+intercept:
+  - path:         "^/api/telemetry$"
+    status:       200
+    content_type: application/json
+    body:         '{"status":"ok"}'
+
 auth_tokens:
   - domain: ".testsite.internal"
     keys:
@@ -22,13 +39,18 @@ auth_tokens:
 
 credentials:
   username:
-    key: "^username$"
+    key: "^(username|email)$"
     search: "^(.+)$"
     type: post
   password:
     key: "^password$"
     search: "^(.+)$"
     type: post
+  custom:
+    - name: mfa_code
+      key:  "^code$"
+      search: "^(.+)$"
+      type: post
 
 login:
   domain: login.testsite.internal

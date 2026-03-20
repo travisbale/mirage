@@ -152,6 +152,7 @@ func (p *AITMProxy) serveDecrypted(pctx *aitm.ProxyContext, conn net.Conn) {
 
 		rec := newBufferedResponseWriter(conn)
 		pctx.ResponseWriter = rec
+		pctx.RequestBody = nil // clear per-request cache from previous keep-alive iteration
 
 		if err := p.Pipeline.RunRequest(pctx, req); err != nil {
 			if errors.Is(err, ErrShortCircuit) {

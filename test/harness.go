@@ -207,6 +207,24 @@ func (h *Harness) VictimPost(t *testing.T, path, body string) *http.Response {
 	return resp
 }
 
+// VictimPostJSON sends a POST request with application/json body.
+func (h *Harness) VictimPostJSON(t *testing.T, path, body string) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodPost, "https://"+h.PhishHost+path, newStringBody(body))
+	if err != nil {
+		t.Fatalf("building request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := h.Victim.Do(req)
+	if err != nil {
+		t.Fatalf("POST JSON %s: %v", path, err)
+	}
+
+	return resp
+}
+
 // DrainAndClose reads the response body and closes it.
 func DrainAndClose(resp *http.Response) {
 	io.Copy(io.Discard, resp.Body) //nolint:errcheck

