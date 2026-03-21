@@ -216,8 +216,8 @@ mirage --server prod
 ## Testing
 
 ```bash
-make test               # unit tests only
-make test-integration   # unit + integration tests (requires Chromium)
+make test   # full suite — unit + integration tests (requires Chromium)
+make unit   # unit tests only (fast)
 ```
 
 ## License
