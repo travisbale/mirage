@@ -62,10 +62,11 @@ After forwarding upstream:
 # Post-capture redirect flow
 
 When token extraction marks a session complete it publishes
-[aitm.EventSessionCompleted]. The [WSHub] subscribes to this event and fans
-the redirect URL out to all WebSocket connections waiting on that session ID.
-On the next request, handleRequest detects the completed session and returns a
-302 redirect to the lure's redirect URL.
+[aitm.EventSessionCompleted]. The redirect notifier (see internal/redirect)
+subscribes to this event and fans the redirect URL out to all WebSocket
+connections waiting on that session ID. On the next request, handleRequest
+detects the completed session and returns a 302 redirect to the lure's
+redirect URL.
 
 A fallback polling endpoint GET /t/{sessionID}/done is also available for
 environments where WebSocket connections are not reliable.

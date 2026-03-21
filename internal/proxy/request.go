@@ -50,7 +50,7 @@ func (c *connection) serve(ctx context.Context) {
 			}
 
 			rec := newHijackableResponseWriter(c.rawConn)
-			c.server.WSHub.HandleUpgrade(rec, req, sessionID)
+			c.server.Notifier.WaitForRedirect(rec, req, sessionID)
 
 			return
 		}

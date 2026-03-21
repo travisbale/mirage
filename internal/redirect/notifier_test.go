@@ -1,4 +1,4 @@
-package proxy_test
+package redirect_test
 
 import (
 	"io"
@@ -12,29 +12,24 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/proxy"
+	"github.com/travisbale/mirage/internal/redirect"
 )
-
-// ---- helpers ----------------------------------------------------------------
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-// ---- WSHub ------------------------------------------------------------------
-
-// newWSHubServer starts an httptest.Server that upgrades every connection via hub
-// for the given sessionID. Returns the server and its ws:// URL.
-func newWSHubServer(t *testing.T, hub *proxy.WSHub, sessionID string) (*httptest.Server, string) {
+// newTestServer starts an httptest.Server that upgrades every connection via
+// the notifier for the given sessionID. Returns the server and its ws:// URL.
+func newTestServer(t *testing.T, notifier *redirect.Notifier, sessionID string) (*httptest.Server, string) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hub.HandleUpgrade(w, r, sessionID)
+		notifier.WaitForRedirect(w, r, sessionID)
 	}))
 	t.Cleanup(srv.Close)
 	return srv, "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
 }
 
-// publishCompletion fires EventSessionCompleted on bus for the given session.
 func publishCompletion(bus *testEventBus, sess *aitm.Session) {
 	bus.Publish(aitm.Event{
 		Type:       aitm.EventSessionCompleted,
@@ -43,20 +38,17 @@ func publishCompletion(bus *testEventBus, sess *aitm.Session) {
 	})
 }
 
-// TestWSHub_WebSocketClientReceivesRedirect verifies the full WebSocket flow:
-// a real client connects, the session completes, and the client receives the
-// redirect JSON message.
-func TestWSHub_WebSocketClientReceivesRedirect(t *testing.T) {
+func TestNotifier_WebSocketClientReceivesRedirect(t *testing.T) {
 	bus := newTestEventBus()
 	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
 		"lure-001": {ID: "lure-001", RedirectURL: "https://real.example.com/dashboard"},
 	}}
-	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, lures, discardLogger())
+	notifier := redirect.NewNotifier(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, lures, discardLogger())
 
 	sess := &aitm.Session{ID: "ws-sess-001", LureID: "lure-001"}
 	sess.Complete()
 
-	_, wsURL := newWSHubServer(t, hub, sess.ID)
+	_, wsURL := newTestServer(t, notifier, sess.ID)
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
@@ -77,19 +69,17 @@ func TestWSHub_WebSocketClientReceivesRedirect(t *testing.T) {
 	}
 }
 
-// TestWSHub_MultipleWaiters verifies that when two WebSocket clients are
-// waiting for the same session, both receive the redirect message.
-func TestWSHub_MultipleWaiters(t *testing.T) {
+func TestNotifier_MultipleWaiters(t *testing.T) {
 	bus := newTestEventBus()
 	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
 		"lure-multi": {ID: "lure-multi", RedirectURL: "https://real.example.com/home"},
 	}}
-	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, lures, discardLogger())
+	notifier := redirect.NewNotifier(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, lures, discardLogger())
 
 	sess := &aitm.Session{ID: "ws-multi-001", LureID: "lure-multi"}
 	sess.Complete()
 
-	_, wsURL := newWSHubServer(t, hub, sess.ID)
+	_, wsURL := newTestServer(t, notifier, sess.ID)
 
 	conn1, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
@@ -119,14 +109,7 @@ func TestWSHub_MultipleWaiters(t *testing.T) {
 	}
 }
 
-// TestWSHub_AlreadyCompleteSession verifies that a WebSocket connection for an
-// already-complete session receives the redirect immediately without waiting for
-// an event. This covers the MFA post-auth race: the session completes while the
-// MFA page is being submitted, the victim's browser navigates to the dashboard,
-// and the redirect script on the dashboard page opens a fresh WebSocket — by
-// which point the completion event has already been processed and the waiter
-// list is empty.
-func TestWSHub_AlreadyCompleteSession(t *testing.T) {
+func TestNotifier_AlreadyCompleteSession(t *testing.T) {
 	bus := newTestEventBus()
 	sess := &aitm.Session{ID: "already-done", LureID: "lure-done"}
 	sess.Complete()
@@ -134,9 +117,9 @@ func TestWSHub_AlreadyCompleteSession(t *testing.T) {
 	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
 		"lure-done": {ID: "lure-done", RedirectURL: "https://real.example.com/home"},
 	}}
-	hub := proxy.NewWSHub(bus, store, lures, discardLogger())
+	notifier := redirect.NewNotifier(bus, store, lures, discardLogger())
 
-	_, wsURL := newWSHubServer(t, hub, sess.ID)
+	_, wsURL := newTestServer(t, notifier, sess.ID)
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
@@ -155,24 +138,19 @@ func TestWSHub_AlreadyCompleteSession(t *testing.T) {
 	}
 }
 
-// TestWSHub_UnknownSession_CleanedOnServerClose verifies that a WebSocket
-// connection for a session that never completes is cleaned up when the server
-// shuts down.
-func TestWSHub_UnknownSession_CleanedOnServerClose(t *testing.T) {
+func TestNotifier_UnknownSession_CleanedOnServerClose(t *testing.T) {
 	bus := newTestEventBus()
-	hub := proxy.NewWSHub(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
+	notifier := redirect.NewNotifier(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
 
-	srv, wsURL := newWSHubServer(t, hub, "ghost-session")
+	srv, wsURL := newTestServer(t, notifier, "ghost-session")
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
 	defer conn.Close()
 
-	// Close the server — the underlying connection drops, HandleUpgrade returns.
 	srv.Close()
 
-	// The client should see a connection close error on the next read.
 	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	_, _, readErr := conn.ReadMessage()
 	if readErr == nil {
@@ -180,17 +158,15 @@ func TestWSHub_UnknownSession_CleanedOnServerClose(t *testing.T) {
 	}
 }
 
-// ---- HandleTelemetryDone ----------------------------------------------------
-
-func TestHandleTelemetryDone_NotDone(t *testing.T) {
+func TestPollForRedirect_NotDone(t *testing.T) {
 	store := &stubSessionGetter{sessions: map[string]*aitm.Session{
 		"sid1": {ID: "sid1"},
 	}}
-	hub := proxy.NewWSHub(newTestEventBus(), store, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
+	notifier := redirect.NewNotifier(newTestEventBus(), store, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/t/sid1/done", nil)
 	rec := httptest.NewRecorder()
-	hub.HandleTelemetryDone(rec, req)
+	notifier.PollForRedirect(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rec.Code)
@@ -201,18 +177,18 @@ func TestHandleTelemetryDone_NotDone(t *testing.T) {
 	}
 }
 
-func TestHandleTelemetryDone_Done(t *testing.T) {
+func TestPollForRedirect_Done(t *testing.T) {
 	sess := &aitm.Session{ID: "sid2", LureID: "lure-sid2"}
 	sess.Complete()
 	store := &stubSessionGetter{sessions: map[string]*aitm.Session{"sid2": sess}}
 	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
 		"lure-sid2": {ID: "lure-sid2", RedirectURL: "https://example.com/done"},
 	}}
-	hub := proxy.NewWSHub(newTestEventBus(), store, lures, discardLogger())
+	notifier := redirect.NewNotifier(newTestEventBus(), store, lures, discardLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/t/sid2/done", nil)
 	rec := httptest.NewRecorder()
-	hub.HandleTelemetryDone(rec, req)
+	notifier.PollForRedirect(rec, req)
 
 	body := rec.Body.String()
 	if !strings.Contains(body, "https://example.com/done") {
@@ -222,7 +198,6 @@ func TestHandleTelemetryDone_Done(t *testing.T) {
 
 // ---- stubs ------------------------------------------------------------------
 
-// testEventBus is an in-memory EventBus for tests.
 type testEventBus struct {
 	mu   sync.Mutex
 	subs map[aitm.EventType][]chan aitm.Event
