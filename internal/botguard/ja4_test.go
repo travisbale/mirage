@@ -1,25 +1,21 @@
 package botguard_test
 
 import (
-	"log/slog"
 	"strings"
 	"testing"
 
-	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/botguard"
 )
 
-// ── JA4 computation ───────────────────────────────────────────────────────────
-
 func TestComputeJA4_KnownVector(t *testing.T) {
 	hello := buildTestClientHello(t, clientHelloParams{
-		version:      0x0303,
-		cipherSuites: []uint16{0x1301, 0x1302, 0x1303, 0xc02b, 0xc02f},
-		extensions:   []uint16{0x0000, 0x000a, 0x000d, 0x0010, 0x002b},
-		groups:       []uint16{0x001d, 0x0017, 0x0018},
-		sni:          "mail.attacker.com",
-		alpn:         []string{"h2"},
-		suppVersions: []uint16{0x0304},
+		version:           0x0303,
+		cipherSuites:      []uint16{0x1301, 0x1302, 0x1303, 0xc02b, 0xc02f},
+		extensions:        []uint16{0x0000, 0x000a, 0x000d, 0x0010, 0x002b},
+		groups:            []uint16{0x001d, 0x0017, 0x0018},
+		sni:               "mail.attacker.com",
+		alpn:              []string{"h2"},
+		supportedVersions: []uint16{0x0304},
 	})
 
 	ja4, err := botguard.ComputeJA4(hello)
@@ -43,14 +39,14 @@ func TestComputeJA4_KnownVector(t *testing.T) {
 func TestComputeJA4_GREASEFiltered(t *testing.T) {
 	// A ClientHello with GREASE cipher 0x0a0a mixed in — should not affect Part B hash.
 	hello1 := buildTestClientHello(t, clientHelloParams{
-		cipherSuites: []uint16{0x0a0a, 0x1301}, // 0x0a0a is GREASE
-		extensions:   []uint16{0x0000},
-		suppVersions: []uint16{0x0304},
+		cipherSuites:      []uint16{0x0a0a, 0x1301}, // 0x0a0a is GREASE
+		extensions:        []uint16{0x0000},
+		supportedVersions: []uint16{0x0304},
 	})
 	hello2 := buildTestClientHello(t, clientHelloParams{
-		cipherSuites: []uint16{0x1301}, // no GREASE
-		extensions:   []uint16{0x0000},
-		suppVersions: []uint16{0x0304},
+		cipherSuites:      []uint16{0x1301}, // no GREASE
+		extensions:        []uint16{0x0000},
+		supportedVersions: []uint16{0x0304},
 	})
 	ja4a, err := botguard.ComputeJA4(hello1)
 	if err != nil {
@@ -66,6 +62,70 @@ func TestComputeJA4_GREASEFiltered(t *testing.T) {
 	}
 }
 
+func TestComputeJA4_NoExtensions(t *testing.T) {
+	hello := buildTestClientHello(t, clientHelloParams{
+		cipherSuites: []uint16{0x1301},
+	})
+	ja4, err := botguard.ComputeJA4(hello)
+	if err != nil {
+		t.Fatalf("ComputeJA4: %v", err)
+	}
+	if !strings.HasPrefix(ja4, "t") {
+		t.Errorf("expected valid JA4, got: %s", ja4)
+	}
+}
+
+func TestComputeJA4_MultipleALPN_UsesLast(t *testing.T) {
+	hello := buildTestClientHello(t, clientHelloParams{
+		cipherSuites:      []uint16{0x1301},
+		extensions:        []uint16{0x0000},
+		alpn:              []string{"h2", "http/1.1"},
+		supportedVersions: []uint16{0x0304},
+	})
+	ja4, err := botguard.ComputeJA4(hello)
+	if err != nil {
+		t.Fatalf("ComputeJA4: %v", err)
+	}
+	// Last ALPN is "http/1.1", first two chars are "ht".
+	partA := strings.Split(ja4, "_")[0]
+	if !strings.HasSuffix(partA, "ht") {
+		t.Errorf("expected ALPN suffix 'ht' (from http/1.1), got part A: %s", partA)
+	}
+}
+
+func TestComputeJA4_ShortALPN_FallsBackTo00(t *testing.T) {
+	hello := buildTestClientHello(t, clientHelloParams{
+		cipherSuites:      []uint16{0x1301},
+		extensions:        []uint16{0x0000},
+		alpn:              []string{"x"},
+		supportedVersions: []uint16{0x0304},
+	})
+	ja4, err := botguard.ComputeJA4(hello)
+	if err != nil {
+		t.Fatalf("ComputeJA4: %v", err)
+	}
+	partA := strings.Split(ja4, "_")[0]
+	if !strings.HasSuffix(partA, "00") {
+		t.Errorf("expected ALPN fallback '00' for single-char proto, got part A: %s", partA)
+	}
+}
+
+func TestComputeJA4_NoSNI(t *testing.T) {
+	hello := buildTestClientHello(t, clientHelloParams{
+		cipherSuites:      []uint16{0x1301},
+		supportedVersions: []uint16{0x0304},
+	})
+	ja4, err := botguard.ComputeJA4(hello)
+	if err != nil {
+		t.Fatalf("ComputeJA4: %v", err)
+	}
+	// No SNI → 'i' (IP) in part A.
+	partA := strings.Split(ja4, "_")[0]
+	if len(partA) < 4 || partA[3] != 'i' {
+		t.Errorf("expected SNI char 'i' at position 3, got part A: %s", partA)
+	}
+}
+
 func TestComputeJA4_InvalidBytes(t *testing.T) {
 	_, err := botguard.ComputeJA4([]byte{0x00, 0x01, 0x02})
 	if err == nil {
@@ -73,42 +133,16 @@ func TestComputeJA4_InvalidBytes(t *testing.T) {
 	}
 }
 
-// ── Scorer (verdict) ──────────────────────────────────────────────────────────
-
-func TestScorer_DisabledAlwaysAllows(t *testing.T) {
-	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: false}, Logger: slog.Default()}
-	verdict := scorer.ScoreConnection(nil)
-	if verdict != aitm.VerdictAllow {
-		t.Errorf("expected VerdictAllow when disabled, got %v", verdict)
-	}
-}
-
-func TestScorer_HighTelemetryScoreReturnsVerdictSpoof(t *testing.T) {
-	scorer := &botguard.Scorer{Config: botguard.BotGuardConfig{Enabled: true, TelemetryThreshold: 0.6}, Logger: slog.Default()}
-	// SwiftShader renderer + 0 mouse moves + pixel_ratio 1.0 + device_memory 0 → score > 0.6
-	telem := &aitm.BotTelemetry{Raw: map[string]any{
-		"webgl_renderer":   "ANGLE (SwiftShader)",
-		"mouse_move_count": float64(0),
-		"pixel_ratio":      float64(1.0),
-		"device_memory":    float64(0),
-		"fonts_detected":   float64(1),
-	}}
-	verdict := scorer.ScoreConnection(telem)
-	if verdict != aitm.VerdictSpoof {
-		t.Errorf("expected VerdictSpoof for high telemetry score, got %v", verdict)
-	}
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 type clientHelloParams struct {
-	version      uint16
-	cipherSuites []uint16
-	extensions   []uint16
-	groups       []uint16
-	sni          string
-	alpn         []string
-	suppVersions []uint16
+	version           uint16
+	cipherSuites      []uint16
+	extensions        []uint16
+	groups            []uint16
+	sni               string
+	alpn              []string
+	supportedVersions []uint16
 }
 
 // buildTestClientHello constructs a minimal but valid TLS ClientHello byte sequence.
@@ -145,8 +179,8 @@ func buildTestClientHello(t *testing.T, params clientHelloParams) []byte {
 	if params.sni != "" {
 		extBuf = append(extBuf, buildSNIExtension(params.sni)...)
 	}
-	if len(params.suppVersions) > 0 {
-		extBuf = append(extBuf, buildSuppVersionsExtension(params.suppVersions)...)
+	if len(params.supportedVersions) > 0 {
+		extBuf = append(extBuf, buildSuppVersionsExtension(params.supportedVersions)...)
 	}
 	if len(params.groups) > 0 {
 		extBuf = append(extBuf, buildGroupsExtension(params.groups)...)

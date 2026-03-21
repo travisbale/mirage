@@ -1,3 +1,11 @@
+// Package botguard provides TLS ClientHello fingerprinting (JA4) and
+// heuristic-based bot detection scoring.
+//
+// Bot detection operates in two layers:
+//   - L1: Known-bad JA4 signature lookup (deterministic, per-connection).
+//     Handled by [aitm.BotGuardService] using signatures from this package.
+//   - L2: Behavioral heuristics from browser telemetry (probabilistic,
+//     configurable threshold). Implemented by [Scorer].
 package botguard
 
 import (
@@ -5,8 +13,23 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"sort"
+	"slices"
+	"strconv"
 	"strings"
+)
+
+// TLS record and handshake type constants.
+const (
+	tlsRecordTypeHandshake  = 0x16
+	tlsHandshakeClientHello = 0x01
+)
+
+// TLS extension type IDs.
+const (
+	extServerName        = 0x0000
+	extSupportedGroups   = 0x000a
+	extALPN              = 0x0010
+	extSupportedVersions = 0x002b
 )
 
 // greaseValues contains all GREASE values defined in RFC 8701.
@@ -18,9 +41,9 @@ var greaseValues = map[uint16]bool{
 	0xcaca: true, 0xdada: true, 0xeaea: true, 0xfafa: true,
 }
 
-// ParsedHello holds the fields extracted from a raw TLS ClientHello record
+// parsedHello holds the fields extracted from a raw TLS ClientHello record
 // needed to compute the JA4 fingerprint.
-type ParsedHello struct {
+type parsedHello struct {
 	TLSVersion      uint16   // highest supported version (from supported_versions ext if present)
 	CipherSuites    []uint16 // wire order, GREASE included (filtered during hash)
 	Extensions      []uint16 // extension type IDs in wire order, GREASE included
@@ -29,8 +52,10 @@ type ParsedHello struct {
 	ALPNLast        string // last protocol in ALPN extension list
 }
 
-// ComputeJA4 parses helloBytes and returns the JA4 fingerprint string of the
-// form "t13d1516h2_<cipherhash>_<exthash>".
+// ComputeJA4 parses helloBytes and returns the JA4 fingerprint string.
+// Format: t<TLSver><SNI><#Ciphers><#Exts><ALPN>_<CipherHash>_<ExtGroupHash>
+// Example: "t13d0505h2_1234567890ab_abcdef123456"
+//
 // Returns an empty string and a non-nil error if helloBytes is not a valid ClientHello.
 func ComputeJA4(helloBytes []byte) (string, error) {
 	parsed, err := parseClientHello(helloBytes)
@@ -59,77 +84,52 @@ func ComputeJA4(helloBytes []byte) (string, error) {
 		sniChar = "d" // d = domain
 	}
 
-	cipherCount := 0
-	for _, cipherSuite := range parsed.CipherSuites {
-		if !greaseValues[cipherSuite] {
-			cipherCount++
-		}
-	}
-	extCount := 0
-	for _, extType := range parsed.Extensions {
-		if !greaseValues[extType] {
-			extCount++
-		}
-	}
+	ciphers := filterGREASE(parsed.CipherSuites)
+	extensions := filterGREASE(parsed.Extensions)
+	groups := filterGREASE(parsed.SupportedGroups)
 
 	alpnLabel := "00"
 	if parsed.ALPNLast != "" && len(parsed.ALPNLast) >= 2 {
 		alpnLabel = parsed.ALPNLast[:2]
 	}
 
-	partA := fmt.Sprintf("t%s%s%02d%02d%s", tlsVer, sniChar, cipherCount, extCount, alpnLabel)
+	partA := fmt.Sprintf("t%s%s%02d%02d%s", tlsVer, sniChar, len(ciphers), len(extensions), alpnLabel)
 
 	// --- Part B: cipher suite hash ---
-	var ciphers []uint16
-	for _, cipherSuite := range parsed.CipherSuites {
-		if !greaseValues[cipherSuite] {
-			ciphers = append(ciphers, cipherSuite)
-		}
-	}
-	sort.Slice(ciphers, func(i, j int) bool { return ciphers[i] < ciphers[j] })
-	partB := truncHash(joinUint16s(ciphers, ","))
+	slices.Sort(ciphers)
+	partB := hashAndTruncate(joinUint16s(ciphers, ","))
 
 	// --- Part C: extension + curve hash ---
-	var filteredExts []uint16
-	for _, extType := range parsed.Extensions {
-		if !greaseValues[extType] {
-			filteredExts = append(filteredExts, extType)
-		}
-	}
-	sort.Slice(filteredExts, func(i, j int) bool { return filteredExts[i] < filteredExts[j] })
+	slices.Sort(extensions)
+	slices.Sort(groups)
 
-	var filteredGroups []uint16
-	for _, group := range parsed.SupportedGroups {
-		if !greaseValues[group] {
-			filteredGroups = append(filteredGroups, group)
-		}
-	}
-	sort.Slice(filteredGroups, func(i, j int) bool { return filteredGroups[i] < filteredGroups[j] })
-
-	combined := joinUint16s(filteredExts, ",") + "_" + joinUint16s(filteredGroups, ",")
-	partC := truncHash(combined)
+	combined := joinUint16s(extensions, ",") + "_" + joinUint16s(groups, ",")
+	partC := hashAndTruncate(combined)
 
 	return partA + "_" + partB + "_" + partC, nil
 }
 
 // parseClientHello parses the raw bytes of a TLS ClientHello record.
-// The record starts with the TLS record header (5 bytes) followed by the
-// handshake message header (4 bytes) followed by the ClientHello body.
-func parseClientHello(b []byte) (*ParsedHello, error) {
+// The record format is: 5-byte TLS record header + 4-byte handshake header + ClientHello body.
+//
+// For TLS 1.3, if a supported_versions extension is present, its highest
+// non-GREASE version overrides the legacy_version field. Extensions are
+// optional; a ClientHello without extensions is valid.
+func parseClientHello(b []byte) (*parsedHello, error) {
 	// Minimum: 5 (record hdr) + 4 (hs hdr) + 2 (client_version) + 32 (random)
 	// + 1 (session_id_len) + 2 (cipher_suites_len) + 1 (compression_methods_len) = 47
 	if len(b) < 47 {
 		return nil, fmt.Errorf("too short: %d bytes", len(b))
 	}
-	if b[0] != 0x16 { // ContentType: Handshake
+	if b[0] != tlsRecordTypeHandshake {
 		return nil, fmt.Errorf("not a TLS handshake record (got 0x%02x)", b[0])
 	}
-	if b[5] != 0x01 { // HandshakeType: ClientHello
+	if b[5] != tlsHandshakeClientHello {
 		return nil, fmt.Errorf("not a ClientHello (got 0x%02x)", b[5])
 	}
 
 	// Skip: record header (5) + handshake header (4); then read legacy_version (2).
-	parsed := &ParsedHello{
+	parsed := &parsedHello{
 		TLSVersion: binary.BigEndian.Uint16(b[5+4 : 5+4+2]),
 	}
 
@@ -141,7 +141,11 @@ func parseClientHello(b []byte) (*ParsedHello, error) {
 		return nil, fmt.Errorf("truncated at session_id_len")
 	}
 	sidLen := int(b[offset])
-	offset += 1 + sidLen
+	offset++
+	if offset+sidLen > len(b) {
+		return nil, fmt.Errorf("truncated in session_id")
+	}
+	offset += sidLen
 
 	// Cipher suites.
 	if offset+2 > len(b) {
@@ -183,9 +187,9 @@ func parseClientHello(b []byte) (*ParsedHello, error) {
 		parsed.Extensions = append(parsed.Extensions, extType)
 
 		switch extType {
-		case 0x0000: // server_name
+		case extServerName:
 			parsed.HasSNI = true
-		case 0x000a: // supported_groups
+		case extSupportedGroups:
 			if len(extData) >= 2 {
 				listLen := int(binary.BigEndian.Uint16(extData[:2]))
 				for i := 2; i+1 < 2+listLen; i += 2 {
@@ -193,8 +197,7 @@ func parseClientHello(b []byte) (*ParsedHello, error) {
 					parsed.SupportedGroups = append(parsed.SupportedGroups, group)
 				}
 			}
-		case 0x0010: // application_layer_protocol_negotiation
-			// ALPN list: 2-byte outer length, then 1-byte proto length + proto string.
+		case extALPN:
 			if len(extData) >= 2 {
 				listLen := int(binary.BigEndian.Uint16(extData[:2]))
 				pos := 2
@@ -207,8 +210,7 @@ func parseClientHello(b []byte) (*ParsedHello, error) {
 					pos += protoLen
 				}
 			}
-		case 0x002b: // supported_versions
-			// Override TLSVersion with the highest non-GREASE value from this extension.
+		case extSupportedVersions:
 			if len(extData) >= 1 {
 				listLen := int(extData[0])
 				for i := 1; i+1 < 1+listLen; i += 2 {
@@ -224,7 +226,18 @@ func parseClientHello(b []byte) (*ParsedHello, error) {
 	return parsed, nil
 }
 
-func truncHash(input string) string {
+// filterGREASE returns vals with all GREASE values (RFC 8701) removed.
+func filterGREASE(vals []uint16) []uint16 {
+	var out []uint16
+	for _, v := range vals {
+		if !greaseValues[v] {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+func hashAndTruncate(input string) string {
 	sum := sha256.Sum256([]byte(input))
 	return hex.EncodeToString(sum[:])[:12]
 }
@@ -232,7 +245,7 @@ func truncHash(input string) string {
 func joinUint16s(vals []uint16, sep string) string {
 	parts := make([]string, len(vals))
 	for i, val := range vals {
-		parts[i] = fmt.Sprintf("%d", val)
+		parts[i] = strconv.FormatUint(uint64(val), 10)
 	}
 	return strings.Join(parts, sep)
 }

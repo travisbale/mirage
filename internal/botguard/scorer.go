@@ -8,10 +8,13 @@ import (
 )
 
 // BotGuardConfig holds runtime-adjustable settings for bot detection.
+// BotGuardConfig holds runtime-adjustable settings for bot detection.
 type BotGuardConfig struct {
-	Enabled            bool
-	TelemetryThreshold float64 // [0.0, 1.0]; default 0.6
-	GlobalSpoofURL     string
+	// Enabled controls whether bot detection is active.
+	Enabled bool
+	// TelemetryThreshold is the score threshold [0.0, 1.0] above which a
+	// connection is considered a bot. Default is 0.6.
+	TelemetryThreshold float64
 }
 
 // Scorer evaluates L2 (telemetry heuristic) signals into a BotVerdict.
@@ -43,12 +46,13 @@ func (s *Scorer) scoreTelemetry(telemetry *aitm.BotTelemetry) float64 {
 	score := 0.0
 
 	// SwiftShader/llvmpipe/Mesa are software renderers used by headless Chrome.
-	renderer, _ := raw["webgl_renderer"].(string)
-	rendererLower := strings.ToLower(renderer)
-	if strings.Contains(rendererLower, "swiftshader") ||
-		strings.Contains(rendererLower, "llvmpipe") ||
-		strings.Contains(rendererLower, "mesa") {
-		score += 0.4
+	if renderer, ok := raw["webgl_renderer"].(string); ok {
+		rendererLower := strings.ToLower(renderer)
+		if strings.Contains(rendererLower, "swiftshader") ||
+			strings.Contains(rendererLower, "llvmpipe") ||
+			strings.Contains(rendererLower, "mesa") {
+			score += 0.4
+		}
 	}
 
 	if pluginsHash, ok := raw["plugins_hash"].(string); ok && pluginsHash == "" {
@@ -69,10 +73,11 @@ func (s *Scorer) scoreTelemetry(telemetry *aitm.BotTelemetry) float64 {
 	}
 
 	// UTC timezone with non-zero offset indicates a spoofed/misconfigured environment.
-	tz, _ := raw["timezone"].(string)
-	offset, _ := raw["timezone_offset"].(float64)
-	if tz == "UTC" && offset != 0 {
-		score += 0.2
+	if tz, ok := raw["timezone"].(string); ok {
+		tzOffset, _ := raw["timezone_offset"].(float64)
+		if tz == "UTC" && tzOffset != 0 {
+			score += 0.2
+		}
 	}
 
 	if fonts, ok := raw["fonts_detected"].(float64); ok && fonts < 3 {
