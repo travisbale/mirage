@@ -26,7 +26,8 @@ type FileCertSource struct {
 	BaseDir string // e.g. "/home/operator/.mirage/crt"
 }
 
-// GetCertificate returns the PEM-loaded certificate for hello.ServerName,
+// GetCertificate returns the PEM-loaded certificate for hello.ServerName, or
+// (nil, nil) if no PEM files exist for that hostname.
 func (s *FileCertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	hostname := strings.ToLower(hello.ServerName)
 

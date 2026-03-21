@@ -22,6 +22,9 @@ type PerHostACMECertSource struct {
 // NewPerHostACMECertSource constructs the source. email is the ACME contact
 // address. storageDir overrides CertMagic's default storage path.
 func NewPerHostACMECertSource(email, acmeDir, storageDir string, logger *slog.Logger) *PerHostACMECertSource {
+	// CertMagic's API requires configuring the global DefaultACME before
+	// calling NewDefault(), which copies the global into the local config.
+	// This is safe because we create only one PerHostACMECertSource at startup.
 	certmagic.DefaultACME.Email = email
 	certmagic.DefaultACME.Agreed = true
 	if acmeDir != "" {
@@ -39,11 +42,7 @@ func NewPerHostACMECertSource(email, acmeDir, storageDir string, logger *slog.Lo
 // GetCertificate returns the certificate for hello.ServerName, issuing one
 // via ACME if not already cached by CertMagic.
 func (s *PerHostACMECertSource) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	cert, err := s.magic.GetCertificate(hello)
-	if err != nil {
-		return nil, err
-	}
-	return cert, nil
+	return s.magic.GetCertificate(hello)
 }
 
 // ManageAsync tells CertMagic to begin managing a hostname proactively

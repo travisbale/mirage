@@ -102,7 +102,10 @@ func (s *SelfSignedCertSource) initCA() error {
 		return fmt.Errorf("generating CA key: %w", err)
 	}
 
-	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return fmt.Errorf("generating CA serial: %w", err)
+	}
 	caTemplate := &x509.Certificate{
 		SerialNumber:          serial,
 		Subject:               pkix.Name{CommonName: "Mirage Dev CA", Organization: []string{"Mirage"}},
@@ -120,17 +123,17 @@ func (s *SelfSignedCertSource) initCA() error {
 	}
 	caCert, err := x509.ParseCertificate(caDER)
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing CA cert: %w", err)
 	}
 	s.caKey = caKey
 	s.caCert = caCert
 
 	if err := writePEMFile(caCertPath, "CERTIFICATE", caDER, 0644); err != nil {
-		return err
+		return fmt.Errorf("writing CA cert: %w", err)
 	}
 	keyDER, err := x509.MarshalECPrivateKey(caKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshalling CA key: %w", err)
 	}
 	return writePEMFile(caKeyPath, "EC PRIVATE KEY", keyDER, 0600)
 }
@@ -142,7 +145,7 @@ func (s *SelfSignedCertSource) loadCA(keyPath, certPath string) error {
 	}
 	s.caCert, err = x509.ParseCertificate(tlsCert.Certificate[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing existing CA cert: %w", err)
 	}
 	s.caKey = tlsCert.PrivateKey.(*ecdsa.PrivateKey)
 	return nil
@@ -151,9 +154,12 @@ func (s *SelfSignedCertSource) loadCA(keyPath, certPath string) error {
 func (s *SelfSignedCertSource) signLeaf(hostname string) (*tls.Certificate, error) {
 	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generating leaf key: %w", err)
 	}
-	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return nil, fmt.Errorf("generating leaf serial: %w", err)
+	}
 	leafTemplate := &x509.Certificate{
 		SerialNumber: serial,
 		Subject:      pkix.Name{CommonName: hostname},
@@ -169,7 +175,7 @@ func (s *SelfSignedCertSource) signLeaf(hostname string) (*tls.Certificate, erro
 	}
 	keyDER, err := x509.MarshalECPrivateKey(leafKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshalling leaf key: %w", err)
 	}
 
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafDER})
@@ -177,7 +183,7 @@ func (s *SelfSignedCertSource) signLeaf(hostname string) (*tls.Certificate, erro
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("building leaf TLS cert: %w", err)
 	}
 	return &tlsCert, nil
 }
