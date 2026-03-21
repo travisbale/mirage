@@ -50,14 +50,26 @@ func startTestServer(t *testing.T) *httptest.Server {
 
 func newTestPool(t *testing.T) *puppet.Pool {
 	t.Helper()
-	pool, err := puppet.NewPool(config.PuppetConfig{
+	cfg := config.PuppetConfig{
 		ChromiumPath: findChromium(t),
 		UserAgent:    testUA,
 		MinInstances: 1,
 		MaxInstances: 1,
-	}, testLogger())
+	}
+	// Chromium startup can be slow under CI resource pressure.
+	// Retry up to 3 times before giving up.
+	var pool *puppet.Pool
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		pool, err = puppet.NewPool(cfg, testLogger())
+		if err == nil {
+			break
+		}
+		t.Logf("NewPool attempt %d failed: %v", attempt+1, err)
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
-		t.Fatalf("NewPool: %v", err)
+		t.Fatalf("NewPool: %v (after 3 attempts)", err)
 	}
 	t.Cleanup(func() { pool.Shutdown(context.Background()) })
 	return pool
