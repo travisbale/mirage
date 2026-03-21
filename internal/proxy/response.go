@@ -12,7 +12,7 @@ import (
 	"github.com/travisbale/mirage/internal/obfuscator"
 )
 
-var headersToStrip = []string{
+var securityHeaders = []string{
 	"Content-Security-Policy",
 	"Content-Security-Policy-Report-Only",
 	"Strict-Transport-Security",
@@ -27,7 +27,7 @@ var headersToStrip = []string{
 }
 
 func (c *connection) stripSecurityHeaders(resp *http.Response) {
-	for _, name := range headersToStrip {
+	for _, name := range securityHeaders {
 		resp.Header.Del(name)
 	}
 }

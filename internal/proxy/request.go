@@ -83,14 +83,14 @@ func (c *connection) handleRequest(r *http.Request) {
 		if err := c.initSession(r); err != nil {
 			switch {
 			case errors.Is(err, errSpoof):
-				c.server.Spoof.ServeHTTP(w, r)
+				c.server.Spoofer.Spoof(w, r)
 			case errors.Is(err, errSpoofLure):
-				c.server.Spoof.ServeWithTarget(w, r, c.spoofURL())
+				c.server.Spoofer.SpoofTarget(w, r, c.spoofURL())
 			case errors.Is(err, errBlock):
 				http.Error(w, "Not Found", http.StatusNotFound)
 			default:
 				c.server.Logger.Error("connection setup failed", "error", err)
-				c.server.Spoof.ServeHTTP(w, r)
+				c.server.Spoofer.Spoof(w, r)
 			}
 
 			w.flush()
@@ -128,7 +128,7 @@ func (c *connection) handleRequest(r *http.Request) {
 
 	// 4. Telemetry score check (L2 — accumulated telemetry).
 	if c.shouldSpoof() {
-		c.server.Spoof.ServeWithTarget(w, r, c.spoofURL())
+		c.server.Spoofer.SpoofTarget(w, r, c.spoofURL())
 		w.flush()
 		return
 	}

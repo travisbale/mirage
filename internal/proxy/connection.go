@@ -1,10 +1,8 @@
 package proxy
 
 import (
-	"context"
 	"crypto/tls"
 	"net"
-	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/botguard"
@@ -35,45 +33,6 @@ type connection struct {
 
 	// server holds all service dependencies shared across connections.
 	server *Server
-}
-
-// Interfaces consumed by connection — defined here at the consumer site.
-
-type botEvaluator interface {
-	Evaluate(ja4 string, telemetry *aitm.BotTelemetry) aitm.BotVerdict
-}
-
-type ipBlocker interface {
-	IsBlocked(ip string) bool
-}
-
-type phishletResolver interface {
-	ResolveHostname(hostname, urlPath string) (*aitm.Phishlet, *aitm.Lure, error)
-}
-
-type sessionManager interface {
-	Get(id string) (*aitm.Session, error)
-	NewSession(clientIP, ja4Hash, lureID, phishletName string) (*aitm.Session, error)
-	Update(session *aitm.Session) error
-	Complete(session *aitm.Session) error
-	IsComplete(sess *aitm.Session, def *aitm.Phishlet) bool
-	CaptureCredentials(session *aitm.Session) error
-}
-
-type temporaryWhitelister interface {
-	WhitelistTemporary(ip string, dur time.Duration)
-}
-
-type puppetOverrideSource interface {
-	GetOverride(phishletName string) string
-}
-
-type telemetryScorer interface {
-	ScoreSession(sessionID string) float64
-}
-
-type bodyObfuscator interface {
-	Obfuscate(ctx context.Context, html []byte) ([]byte, error)
 }
 
 // newConnection creates a new connection with TLS-level state.

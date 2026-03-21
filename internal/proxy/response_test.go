@@ -141,7 +141,7 @@ func TestStripSecurityHeaders(t *testing.T) {
 
 	c.stripSecurityHeaders(resp)
 
-	for _, header := range headersToStrip {
+	for _, header := range securityHeaders {
 		if resp.Header.Get(header) != "" {
 			t.Errorf("expected %s to be stripped", header)
 		}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/spoof"
 )
 
 // ── test helpers ─────────────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ func testConn(phishlet *aitm.Phishlet, session *aitm.Session) *connection {
 		session:  session,
 		server: &Server{
 			Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
-			Spoof:          NewSpoofSite("", slog.New(slog.NewTextHandler(io.Discard, nil))),
+			Spoofer:        spoof.NewServer("", SessionCookieName, slog.New(slog.NewTextHandler(io.Discard, nil))),
 			ScoreThreshold: 0.6,
 		},
 	}

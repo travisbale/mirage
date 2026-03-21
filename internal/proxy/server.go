@@ -13,12 +13,58 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/travisbale/mirage/internal/aitm"
 )
 
 const upstreamTimeout = 30 * time.Second
 
 type certSource interface {
 	GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error)
+}
+
+// Service interfaces consumed by Server and connection.
+
+type spoofer interface {
+	Spoof(w http.ResponseWriter, r *http.Request)
+	SpoofTarget(w http.ResponseWriter, r *http.Request, spoofURL string)
+}
+
+type botEvaluator interface {
+	Evaluate(ja4 string, telemetry *aitm.BotTelemetry) aitm.BotVerdict
+}
+
+type ipBlocker interface {
+	IsBlocked(ip string) bool
+}
+
+type phishletResolver interface {
+	ResolveHostname(hostname, urlPath string) (*aitm.Phishlet, *aitm.Lure, error)
+}
+
+type sessionManager interface {
+	Get(id string) (*aitm.Session, error)
+	NewSession(clientIP, ja4Hash, lureID, phishletName string) (*aitm.Session, error)
+	Update(session *aitm.Session) error
+	Complete(session *aitm.Session) error
+	IsComplete(sess *aitm.Session, def *aitm.Phishlet) bool
+	CaptureCredentials(session *aitm.Session) error
+}
+
+type temporaryWhitelister interface {
+	WhitelistTemporary(ip string, dur time.Duration)
+}
+
+type puppetOverrideSource interface {
+	GetOverride(phishletName string) string
+}
+
+type telemetryScorer interface {
+	ScoreSession(sessionID string) float64
+}
+
+type bodyObfuscator interface {
+	Obfuscate(ctx context.Context, html []byte) ([]byte, error)
 }
 
 // Server is a reverse-proxy HTTPS server.
@@ -81,7 +127,7 @@ type Server struct {
 	// Services
 	BotGuard       botEvaluator
 	Blacklist      ipBlocker
-	Spoof          *SpoofSite
+	Spoofer        spoofer
 	PhishletSvc    phishletResolver
 	SessionSvc     sessionManager
 	PuppetSvc      puppetOverrideSource
