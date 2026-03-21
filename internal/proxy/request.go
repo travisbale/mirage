@@ -75,7 +75,7 @@ func (c *connection) handleRequest(r *http.Request) {
 
 	// 0. Connection setup on first request.
 	if c.session == nil {
-		if err := c.handleInit(r); err != nil {
+		if err := c.initSession(r); err != nil {
 			switch {
 			case errors.Is(err, errSpoof):
 				c.server.Spoof.ServeHTTP(w, r)
@@ -157,11 +157,11 @@ func (c *connection) handleRequest(r *http.Request) {
 	}
 }
 
-// handleInit performs connection-level setup using the first HTTP request: IP
+// initSession performs connection-level setup using the first HTTP request: IP
 // extraction, bot detection, blacklist check, phishlet/lure resolution, and
 // session creation. Returns a sentinel error (errSpoof, errSpoofLure, errBlock)
 // to signal the response type, or a wrapped error for unexpected failures.
-func (c *connection) handleInit(firstReq *http.Request) error {
+func (c *connection) initSession(firstReq *http.Request) error {
 	// 1. Extract client IP.
 	c.clientIP = extractClientIP(firstReq, c.server.TrustedCIDRs)
 
