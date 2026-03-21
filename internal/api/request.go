@@ -28,20 +28,28 @@ func decodeAndValidate[T validatable](w http.ResponseWriter, req *http.Request) 
 
 func parsePagination(req *http.Request) (limit, offset int) {
 	limit = 50
-	if v := req.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+	if limitStr := req.URL.Query().Get("limit"); limitStr != "" {
+		if n, err := strconv.Atoi(limitStr); err == nil && n > 0 {
 			limit = n
 		}
 	}
 	if limit > 500 {
 		limit = 500
 	}
-	if v := req.URL.Query().Get("offset"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+	if offsetStr := req.URL.Query().Get("offset"); offsetStr != "" {
+		if n, err := strconv.Atoi(offsetStr); err == nil && n >= 0 {
 			offset = n
 		}
 	}
 	return
+}
+
+// paginateSlice returns the page of items defined by limit and offset.
+func paginateSlice[T any](items []T, limit, offset int) []T {
+	total := len(items)
+	start := min(offset, total)
+	end := min(start+limit, total)
+	return items[start:end]
 }
 
 // parseRFC3339Param parses an RFC3339 timestamp query parameter. It writes a

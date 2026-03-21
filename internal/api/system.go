@@ -14,11 +14,19 @@ import (
 func (r *Router) getStatus(w http.ResponseWriter, req *http.Request) {
 	uptime := time.Since(r.startedAt)
 
-	total, _ := r.Sessions.Count(aitm.SessionFilter{})
-	active, _ := r.Sessions.Count(aitm.SessionFilter{
+	total, err := r.Sessions.Count(aitm.SessionFilter{})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get session count")
+		return
+	}
+	active, err := r.Sessions.Count(aitm.SessionFilter{
 		IncompleteOnly: true,
 		After:          time.Now().Add(-time.Hour),
 	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get active session count")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, sdk.StatusResponse{
 		Version:        r.Version,

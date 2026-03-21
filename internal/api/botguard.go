@@ -17,10 +17,7 @@ func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	total := len(sigs)
-	start := min(offset, total)
-	end := min(start+limit, total)
-	page := sigs[start:end]
+	page := paginateSlice(sigs, limit, offset)
 
 	items := make([]sdk.BotSignatureResponse, len(page))
 	for i, sig := range page {
@@ -32,7 +29,7 @@ func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.BotSignatureResponse]{
 		Items:  items,
-		Total:  total,
+		Total:  len(sigs),
 		Limit:  limit,
 		Offset: offset,
 	})

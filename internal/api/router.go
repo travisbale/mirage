@@ -55,8 +55,7 @@ type eventBus interface {
 	Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event)
 }
 
-// Router is the top-level handler for the management API. It implements
-// http.Handler and is passed to the APIRouter pipeline step.
+// Router is the HTTP handler for the management API.
 type Router struct {
 	Sessions  sessionManager
 	Lures     lureManager

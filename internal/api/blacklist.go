@@ -11,18 +11,15 @@ func (r *Router) listBlacklist(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
 	entries := r.Blacklist.List()
 
-	total := len(entries)
-	start := min(offset, total)
-	end := min(start+limit, total)
-	page := entries[start:end]
+	page := paginateSlice(entries, limit, offset)
 
 	items := make([]sdk.BlacklistEntryResponse, len(page))
-	for i, v := range page {
-		items[i] = sdk.BlacklistEntryResponse{Value: v}
+	for i, entry := range page {
+		items[i] = sdk.BlacklistEntryResponse{Value: entry}
 	}
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.BlacklistEntryResponse]{
 		Items:  items,
-		Total:  total,
+		Total:  len(entries),
 		Limit:  limit,
 		Offset: offset,
 	})

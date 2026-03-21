@@ -29,10 +29,7 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	total := len(filtered)
-	start := min(offset, total)
-	end := min(start+limit, total)
-	page := filtered[start:end]
+	page := paginateSlice(filtered, limit, offset)
 
 	items := make([]sdk.LureResponse, len(page))
 	for i, lure := range page {
@@ -41,7 +38,7 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.LureResponse]{
 		Items:  items,
-		Total:  total,
+		Total:  len(filtered),
 		Limit:  limit,
 		Offset: offset,
 	})
@@ -230,6 +227,8 @@ func (r *Router) lureToResponse(lure *aitm.Lure) sdk.LureResponse {
 
 func randomPath() string {
 	b := make([]byte, 6)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand: " + err.Error())
+	}
 	return "/" + hex.EncodeToString(b)
 }

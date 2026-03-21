@@ -33,18 +33,15 @@ func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	total := len(phishlets)
-	start := min(offset, total)
-	end := min(start+limit, total)
-	page := phishlets[start:end]
+	page := paginateSlice(phishlets, limit, offset)
 
 	items := make([]sdk.PhishletResponse, len(page))
-	for i, p := range page {
-		items[i] = phishletToResponse(p)
+	for i, phishlet := range page {
+		items[i] = phishletToResponse(phishlet)
 	}
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.PhishletResponse]{
 		Items:  items,
-		Total:  total,
+		Total:  len(phishlets),
 		Limit:  limit,
 		Offset: offset,
 	})

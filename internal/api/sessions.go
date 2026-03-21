@@ -23,15 +23,15 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 	} else if q.Get("completed") == "false" {
 		filter.IncompleteOnly = true
 	}
-	if s := q.Get("since"); s != "" {
-		t, ok := parseRFC3339Param(w, "since", s)
+	if sinceParam := q.Get("since"); sinceParam != "" {
+		t, ok := parseRFC3339Param(w, "since", sinceParam)
 		if !ok {
 			return
 		}
 		filter.After = t
 	}
-	if s := q.Get("until"); s != "" {
-		t, ok := parseRFC3339Param(w, "until", s)
+	if untilParam := q.Get("until"); untilParam != "" {
+		t, ok := parseRFC3339Param(w, "until", untilParam)
 		if !ok {
 			return
 		}
@@ -135,36 +135,37 @@ func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 		select {
 		case <-ctx.Done():
 			return
-		case e := <-chCreated:
-			if sess, ok := e.Payload.(*aitm.Session); ok {
-				data, _ := json.Marshal(sessionToResponse(sess))
-				if sse.WriteEvent("session.created", data) != nil {
-					return
-				}
+		case event := <-chCreated:
+			if err := r.sendSessionEvent(sse, "session.created", event); err != nil {
+				return
 			}
-		case e := <-chCreds:
-			if sess, ok := e.Payload.(*aitm.Session); ok {
-				data, _ := json.Marshal(sessionToResponse(sess))
-				if sse.WriteEvent("session.creds_captured", data) != nil {
-					return
-				}
+		case event := <-chCreds:
+			if err := r.sendSessionEvent(sse, "session.creds_captured", event); err != nil {
+				return
 			}
-		case e := <-chTokens:
-			if sess, ok := e.Payload.(*aitm.Session); ok {
-				data, _ := json.Marshal(sessionToResponse(sess))
-				if sse.WriteEvent("session.tokens_captured", data) != nil {
-					return
-				}
+		case event := <-chTokens:
+			if err := r.sendSessionEvent(sse, "session.tokens_captured", event); err != nil {
+				return
 			}
-		case e := <-chCompleted:
-			if sess, ok := e.Payload.(*aitm.Session); ok {
-				data, _ := json.Marshal(sessionToResponse(sess))
-				if sse.WriteEvent("session.completed", data) != nil {
-					return
-				}
+		case event := <-chCompleted:
+			if err := r.sendSessionEvent(sse, "session.completed", event); err != nil {
+				return
 			}
 		}
 	}
+}
+
+func (r *Router) sendSessionEvent(sse *sseWriter, eventType string, event aitm.Event) error {
+	sess, ok := event.Payload.(*aitm.Session)
+	if !ok {
+		return nil
+	}
+	data, err := json.Marshal(sessionToResponse(sess))
+	if err != nil {
+		r.Logger.Error("failed to marshal session for SSE", "event", eventType, "error", err)
+		return nil // skip this event, don't close the stream
+	}
+	return sse.WriteEvent(eventType, data)
 }
 
 func sessionToResponse(s *aitm.Session) sdk.SessionResponse {
