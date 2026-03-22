@@ -93,7 +93,7 @@ func NewHarness(t *testing.T) *Harness {
 
 	go func() {
 		d.Run(ctx)
-		d.Shutdown()
+		d.Shutdown(context.Background())
 	}()
 
 	proxyAddr := fmt.Sprintf("127.0.0.1:%d", httpsPort)

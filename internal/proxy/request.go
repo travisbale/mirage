@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 )
@@ -25,15 +26,25 @@ var (
 // connection, routes WebSocket/API traffic directly, and dispatches
 // phishing requests to handleRequest.
 func (c *connection) serve(ctx context.Context) {
+	// When the context is cancelled (server shutdown), unblock any pending
+	// ReadRequest by setting a past deadline on the connection. This ensures
+	// serve() returns promptly so in-flight connections drain.
+	go func() {
+		<-ctx.Done()
+		c.rawConn.SetReadDeadline(time.Now())
+	}()
+
 	connReader := bufio.NewReader(c.rawConn)
 
 	for {
 		req, err := http.ReadRequest(connReader)
 		if err != nil {
+			if ctx.Err() != nil {
+				return // shutting down
+			}
 			if !errors.Is(err, io.EOF) && !isConnReset(err) {
 				c.server.Logger.Debug("aitm: reading request", "error", err)
 			}
-
 			return
 		}
 

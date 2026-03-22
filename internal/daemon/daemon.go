@@ -31,6 +31,9 @@ type scriptObfuscator interface {
 	Shutdown(ctx context.Context) error
 }
 
+// Bot detection score [0.0, 1.0] above which a connection is spoofed
+const defaultBotScoreThreshold = 0.6
+
 // Daemon is the fully-wired daemon. One instance per process.
 type Daemon struct {
 	configPath string
@@ -55,7 +58,7 @@ type Daemon struct {
 	// Puppet service — always non-nil after New (no-op when disabled).
 	puppetSvc *aitm.PuppetService
 
-	// Services needed by health check and reload.
+	// Services needed by the proxy, API, and config reload.
 	phishletSvc *aitm.PhishletService
 	sessionSvc  *aitm.SessionService
 }
@@ -195,7 +198,7 @@ func (ini *initializer) initCerts() error {
 		Providers:        zonedProviders,
 	}, ini.logger)
 	if err != nil {
-		return err
+		return fmt.Errorf("initializing cert source: %w", err)
 	}
 
 	ini.certSource = src
@@ -209,7 +212,7 @@ func (ini *initializer) initServices() error {
 		Scorer: &botguard.Scorer{
 			Config: botguard.BotGuardConfig{
 				Enabled:            true,
-				TelemetryThreshold: 0.6,
+				TelemetryThreshold: defaultBotScoreThreshold,
 			},
 			Logger: ini.logger,
 		},
@@ -312,7 +315,7 @@ func (ini *initializer) initProxy(version string) error {
 		Notifier:       ini.notifier,
 		APIHandler:     apiHandler,
 		Logger:         ini.logger,
-		ScoreThreshold: 0.6,
+		ScoreThreshold: defaultBotScoreThreshold,
 	}
 
 	apiCACertPath := filepath.Join(ini.cfg.DataDir, "api-ca.crt")
@@ -440,5 +443,9 @@ func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 		return ca, nil
 	}
 
-	return api.Load(certPath)
+	ca, err := api.Load(certPath)
+	if err != nil {
+		return nil, fmt.Errorf("loading API CA: %w", err)
+	}
+	return ca, nil
 }

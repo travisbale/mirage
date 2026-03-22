@@ -67,8 +67,9 @@ func (d *Daemon) Reload() error {
 }
 
 // Shutdown tears down all subsystems in reverse dependency order.
-// Called after Run returns.
-func (d *Daemon) Shutdown() {
+// Called after Run returns. The context controls the deadline for
+// services that perform cleanup (puppet, obfuscator).
+func (d *Daemon) Shutdown(ctx context.Context) {
 	if d.phishletReloadSub != nil {
 		d.bus.Unsubscribe(aitm.EventPhishletReloaded, d.phishletReloadSub)
 	}
@@ -80,7 +81,7 @@ func (d *Daemon) Shutdown() {
 	}
 
 	if d.puppetSvc != nil {
-		if err := d.puppetSvc.Shutdown(context.Background()); err != nil {
+		if err := d.puppetSvc.Shutdown(ctx); err != nil {
 			d.logger.Error("puppet shutdown error", "error", err)
 		}
 	}
@@ -90,7 +91,7 @@ func (d *Daemon) Shutdown() {
 	}
 
 	if d.obfuscator != nil {
-		if err := d.obfuscator.Shutdown(context.Background()); err != nil {
+		if err := d.obfuscator.Shutdown(ctx); err != nil {
 			d.logger.Error("obfuscator shutdown error", "error", err)
 		}
 	}

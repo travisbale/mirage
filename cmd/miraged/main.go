@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -92,7 +94,11 @@ func runServe(ctx context.Context, configPath string, debug bool) error {
 	}
 
 	d.Run(ctx)
-	d.Shutdown()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	d.Shutdown(shutdownCtx)
 
 	return nil
 }
