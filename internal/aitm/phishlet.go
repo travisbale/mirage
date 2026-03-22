@@ -275,8 +275,12 @@ func (s *PhishletService) LoadFromDB() error {
 
 // Register stores a compiled phishlet definition in the routing index.
 // Call this when loading phishlets from YAML files at startup or on live reload.
-// It does not persist anything — use Enable to activate a phishlet with operator config.
+// If the phishlet was previously enabled, operator config (hostname, enabled
+// state, etc.) is preserved so hot-reload doesn't disrupt active phishlets.
 func (s *PhishletService) Register(p *Phishlet) {
+	if existing := s.resolver.get(p.Name); existing != nil {
+		p.applyOperatorConfig(existing)
+	}
 	s.resolver.register(p)
 }
 
