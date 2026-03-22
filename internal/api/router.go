@@ -48,7 +48,7 @@ type blacklistManager interface {
 type botguardManager interface {
 	ListSignatures() ([]aitm.BotSignature, error)
 	AddSignature(sig aitm.BotSignature) error
-	RemoveSignature(ja4Hash string) (bool, error)
+	RemoveSignature(ja4Hash string) error
 }
 
 type eventBus interface {

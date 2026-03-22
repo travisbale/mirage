@@ -65,13 +65,12 @@ func (r *Router) addBotSignature(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) removeBotSignature(w http.ResponseWriter, req *http.Request) {
 	hash := req.PathValue("hash")
-	found, err := r.Botguard.RemoveSignature(hash)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to remove signature")
-		return
-	}
-	if !found {
-		writeError(w, http.StatusNotFound, "signature does not exist")
+	if err := r.Botguard.RemoveSignature(hash); err != nil {
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "signature does not exist")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to remove signature")
+		}
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

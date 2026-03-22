@@ -1,8 +1,7 @@
 package sqlite
 
 import (
-	"database/sql"
-	"errors"
+	"fmt"
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -51,7 +50,9 @@ func (s *Bots) GetBotTelemetry(sessionID string) ([]*aitm.BotTelemetry, error) {
 			return nil, err
 		}
 		t.CollectedAt = time.Unix(collectedAt, 0)
-		_ = unmarshalJSON(raw, &t.Raw)
+		if err := unmarshalJSON(raw, &t.Raw); err != nil {
+			return nil, fmt.Errorf("unmarshaling telemetry %s: %w", t.ID, err)
+		}
 		out = append(out, &t)
 	}
 	return out, rows.Err()
@@ -74,22 +75,12 @@ func (s *Bots) CreateBotSignature(sig aitm.BotSignature) error {
 	return err
 }
 
-func (s *Bots) LookupBotSignature(ja4Hash string) (aitm.BotSignature, error) {
-	row := s.db.db.QueryRow(`SELECT ja4_hash, description, added_at FROM bot_signatures WHERE ja4_hash = ?`, ja4Hash)
-	sig, err := scanBotSignature(row)
-	if errors.Is(err, sql.ErrNoRows) {
-		return aitm.BotSignature{}, aitm.ErrNotFound
-	}
-	return sig, err
-}
-
-func (s *Bots) DeleteBotSignature(ja4Hash string) (bool, error) {
+func (s *Bots) DeleteBotSignature(ja4Hash string) error {
 	res, err := s.db.db.Exec(`DELETE FROM bot_signatures WHERE ja4_hash = ?`, ja4Hash)
 	if err != nil {
-		return false, err
+		return err
 	}
-	n, err := res.RowsAffected()
-	return n > 0, err
+	return requireOneRow(res)
 }
 
 func (s *Bots) ListBotSignatures() ([]aitm.BotSignature, error) {
