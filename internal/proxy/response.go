@@ -111,6 +111,7 @@ func (c *connection) rewriteCookies(resp *http.Response) {
 			Name:     SessionCookieName,
 			Value:    c.session.ID,
 			Path:     "/",
+			MaxAge:   7 * 24 * 60 * 60, // 1 week — covers a typical campaign; completed sessions redirect silently
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteNoneMode,

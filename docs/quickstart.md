@@ -161,6 +161,8 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
 
 ## Next steps
 
+> **Note:** When a session is created, a tracking cookie (`__ss`) is set in the browser that lasts one week. If a completed session exists for that cookie, the proxy automatically redirects the victim to the real site instead of showing the login page. To test a different phishlet on the same hostname, either delete the completed session (`./build/mirage sessions delete <id>`) or use an incognito window.
+
 - Try the API login phishlet: the target site also has a JSON-based login page at
   `/api-login`. Copy `examples/phishlets/api-login.yaml` into your phishlets
   directory, enable it, and create a lure. This phishlet captures bearer tokens
