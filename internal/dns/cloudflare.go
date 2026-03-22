@@ -9,6 +9,9 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
+// cloudflareTTLAuto tells the Cloudflare API to use automatic TTL management.
+const cloudflareTTLAuto = 1
+
 // CloudflareDNSProvider manages records via the Cloudflare API v4.
 type CloudflareDNSProvider struct {
 	client *cloudflare.API
@@ -24,7 +27,10 @@ func NewCloudflareDNSProvider(apiToken string, opts ...cloudflare.Option) (*Clou
 	return &CloudflareDNSProvider{client: api}, nil
 }
 
-func (p *CloudflareDNSProvider) zoneID(ctx context.Context, zone string) (string, error) {
+// lookupZoneID resolves a zone name to its Cloudflare zone ID.
+// Note: ZoneIDByName does not accept a context (SDK limitation), so the
+// ctx parameter is accepted for signature consistency but not honoured here.
+func (p *CloudflareDNSProvider) lookupZoneID(ctx context.Context, zone string) (string, error) {
 	id, err := p.client.ZoneIDByName(zone)
 	if err != nil {
 		return "", fmt.Errorf("cloudflare: resolving zone ID for %q: %w", zone, err)
@@ -32,14 +38,13 @@ func (p *CloudflareDNSProvider) zoneID(ctx context.Context, zone string) (string
 	return id, nil
 }
 
-func (p *CloudflareDNSProvider) CreateRecord(zone, name, typ, value string, ttl int) error {
-	ctx := context.Background()
-	zoneID, err := p.zoneID(ctx, zone)
+func (p *CloudflareDNSProvider) CreateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
+	zoneID, err := p.lookupZoneID(ctx, zone)
 	if err != nil {
 		return err
 	}
 	if ttl == 0 {
-		ttl = 1 // Cloudflare: 1 = auto
+		ttl = cloudflareTTLAuto
 	}
 	_, err = p.client.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
 		Type:    typ,
@@ -53,9 +58,8 @@ func (p *CloudflareDNSProvider) CreateRecord(zone, name, typ, value string, ttl 
 	return nil
 }
 
-func (p *CloudflareDNSProvider) UpdateRecord(zone, name, typ, value string, ttl int) error {
-	ctx := context.Background()
-	zoneID, err := p.zoneID(ctx, zone)
+func (p *CloudflareDNSProvider) UpdateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
+	zoneID, err := p.lookupZoneID(ctx, zone)
 	if err != nil {
 		return err
 	}
@@ -69,7 +73,7 @@ func (p *CloudflareDNSProvider) UpdateRecord(zone, name, typ, value string, ttl 
 		return fmt.Errorf("%w: %s %s", aitm.ErrRecordNotFound, typ, name)
 	}
 	if ttl == 0 {
-		ttl = 1
+		ttl = cloudflareTTLAuto
 	}
 	_, err = p.client.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.UpdateDNSRecordParams{
 		ID:      records[0].ID,
@@ -78,12 +82,14 @@ func (p *CloudflareDNSProvider) UpdateRecord(zone, name, typ, value string, ttl 
 		Content: value,
 		TTL:     ttl,
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("cloudflare: UpdateRecord %s %s: %w", typ, name, err)
+	}
+	return nil
 }
 
-func (p *CloudflareDNSProvider) DeleteRecord(zone, name, typ string) error {
-	ctx := context.Background()
-	zoneID, err := p.zoneID(ctx, zone)
+func (p *CloudflareDNSProvider) DeleteRecord(ctx context.Context, zone, name, typ string) error {
+	zoneID, err := p.lookupZoneID(ctx, zone)
 	if err != nil {
 		return err
 	}
@@ -96,23 +102,26 @@ func (p *CloudflareDNSProvider) DeleteRecord(zone, name, typ string) error {
 	if len(records) == 0 {
 		return nil // idempotent
 	}
-	return p.client.DeleteDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), records[0].ID)
+	if err := p.client.DeleteDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), records[0].ID); err != nil {
+		return fmt.Errorf("cloudflare: DeleteRecord %s %s: %w", typ, name, err)
+	}
+	return nil
 }
 
-func (p *CloudflareDNSProvider) Present(domain, token, keyAuth string) error {
+func (p *CloudflareDNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
 	zone := extractZone(domain)
 	label := acmeChallengeKey(domain, zone)
-	return p.CreateRecord(zone, label, "TXT", acmeTXTValue(keyAuth), 120)
+	return p.CreateRecord(ctx, zone, label, "TXT", acmeTXTValue(keyAuth), 120)
 }
 
-func (p *CloudflareDNSProvider) CleanUp(domain, token, keyAuth string) error {
+func (p *CloudflareDNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
 	zone := extractZone(domain)
 	label := acmeChallengeKey(domain, zone)
-	return p.DeleteRecord(zone, label, "TXT")
+	return p.DeleteRecord(ctx, zone, label, "TXT")
 }
 
-func (p *CloudflareDNSProvider) Ping() error {
-	_, err := p.client.UserDetails(context.Background())
+func (p *CloudflareDNSProvider) Ping(ctx context.Context) error {
+	_, err := p.client.UserDetails(ctx)
 	if err != nil {
 		return fmt.Errorf("cloudflare: ping failed: %w", err)
 	}

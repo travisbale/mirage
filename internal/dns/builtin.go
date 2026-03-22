@@ -1,6 +1,7 @@
 package dns
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -33,9 +34,11 @@ type BuiltInDNSProvider struct {
 	mu      sync.RWMutex
 	records map[recordKey]dns.RR
 
-	updates chan recordUpdate
-	server  *dns.Server
-	logger  *slog.Logger
+	updates  chan recordUpdate
+	stopOnce sync.Once
+	done     chan struct{} // closed by Stop; checked by upsert/DeleteRecord
+	server   *dns.Server
+	logger   *slog.Logger
 }
 
 // NewBuiltInDNSProvider constructs the provider. Call Start to begin listening.
@@ -45,6 +48,7 @@ func NewBuiltInDNSProvider(externalIP string, port int) (*BuiltInDNSProvider, er
 		port:       port,
 		records:    make(map[recordKey]dns.RR),
 		updates:    make(chan recordUpdate, 256),
+		done:       make(chan struct{}),
 		logger:     slog.Default().With("provider", "builtin"),
 	}, nil
 }
@@ -77,12 +81,18 @@ func (p *BuiltInDNSProvider) Start() error {
 	}
 }
 
-// Stop shuts down the UDP listener gracefully.
+// Stop shuts down the UDP listener and drains pending updates.
+// Safe to call multiple times.
 func (p *BuiltInDNSProvider) Stop() error {
-	if p.server != nil {
-		return p.server.Shutdown()
-	}
-	return nil
+	var serverErr error
+	p.stopOnce.Do(func() {
+		close(p.done)    // signals upsert/DeleteRecord to stop sending
+		close(p.updates) // signals drainUpdates goroutine to exit
+		if p.server != nil {
+			serverErr = p.server.Shutdown()
+		}
+	})
+	return serverErr
 }
 
 func (p *BuiltInDNSProvider) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
@@ -91,7 +101,7 @@ func (p *BuiltInDNSProvider) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 	reply.Authoritative = true
 
 	if len(r.Question) == 0 {
-		_ = w.WriteMsg(reply) // UDP write; packet loss is expected and unrecoverable
+		w.WriteMsg(reply)
 		return
 	}
 
@@ -108,9 +118,7 @@ func (p *BuiltInDNSProvider) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 		reply.Rcode = dns.RcodeNameError
 	}
 
-	if err := w.WriteMsg(reply); err != nil {
-		p.logger.Warn("dns write failed", "error", err)
-	}
+	w.WriteMsg(reply)
 }
 
 func (p *BuiltInDNSProvider) drainUpdates() {
@@ -126,22 +134,19 @@ func (p *BuiltInDNSProvider) drainUpdates() {
 	}
 }
 
-func fqdn(name, zone string) string {
-	if name == "@" || name == "" {
-		return dns.Fqdn(zone)
-	}
-	return dns.Fqdn(name + "." + zone)
-}
-
-func (p *BuiltInDNSProvider) upsert(zone, name, typ, value string, ttl int) error {
+func (p *BuiltInDNSProvider) upsert(ctx context.Context, zone, name, typ, value string, ttl int) error {
 	if ttl == 0 {
 		ttl = 300
 	}
 	recordName := fqdn(name, zone)
-	var record dns.RR
+	recordType, err := parseRecordType(typ)
+	if err != nil {
+		return fmt.Errorf("builtin dns: %w", err)
+	}
 
-	switch strings.ToUpper(typ) {
-	case "A":
+	var record dns.RR
+	switch recordType {
+	case dns.TypeA:
 		ip := net.ParseIP(value)
 		if ip == nil {
 			return fmt.Errorf("builtin dns: invalid A record value %q", value)
@@ -150,7 +155,7 @@ func (p *BuiltInDNSProvider) upsert(zone, name, typ, value string, ttl int) erro
 			Hdr: dns.RR_Header{Name: recordName, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: uint32(ttl)},
 			A:   ip.To4(),
 		}
-	case "AAAA":
+	case dns.TypeAAAA:
 		ip := net.ParseIP(value)
 		if ip == nil {
 			return fmt.Errorf("builtin dns: invalid AAAA record value %q", value)
@@ -159,70 +164,74 @@ func (p *BuiltInDNSProvider) upsert(zone, name, typ, value string, ttl int) erro
 			Hdr:  dns.RR_Header{Name: recordName, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: uint32(ttl)},
 			AAAA: ip.To16(),
 		}
-	case "TXT":
+	case dns.TypeTXT:
 		record = &dns.TXT{
 			Hdr: dns.RR_Header{Name: recordName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: uint32(ttl)},
 			Txt: []string{value},
 		}
-	case "NS":
+	case dns.TypeNS:
 		record = &dns.NS{
 			Hdr: dns.RR_Header{Name: recordName, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: uint32(ttl)},
 			Ns:  dns.Fqdn(value),
 		}
-	default:
-		return fmt.Errorf("builtin dns: unsupported record type %q", typ)
 	}
 
-	key := recordKey{Name: recordName, Type: record.Header().Rrtype}
-	p.updates <- recordUpdate{operation: "upsert", key: key, record: record}
-	return nil
+	key := recordKey{Name: recordName, Type: recordType}
+	select {
+	case p.updates <- recordUpdate{operation: "upsert", key: key, record: record}:
+		return nil
+	case <-p.done:
+		return fmt.Errorf("builtin dns: provider stopped")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
-func (p *BuiltInDNSProvider) CreateRecord(zone, name, typ, value string, ttl int) error {
-	return p.upsert(zone, name, typ, value, ttl)
+func (p *BuiltInDNSProvider) CreateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
+	return p.upsert(ctx, zone, name, typ, value, ttl)
 }
 
-func (p *BuiltInDNSProvider) UpdateRecord(zone, name, typ, value string, ttl int) error {
-	return p.upsert(zone, name, typ, value, ttl)
+func (p *BuiltInDNSProvider) UpdateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
+	return p.upsert(ctx, zone, name, typ, value, ttl)
 }
 
-func (p *BuiltInDNSProvider) DeleteRecord(zone, name, typ string) error {
+func (p *BuiltInDNSProvider) DeleteRecord(ctx context.Context, zone, name, typ string) error {
 	recordName := fqdn(name, zone)
-	var recordType uint16
-	switch strings.ToUpper(typ) {
-	case "A":
-		recordType = dns.TypeA
-	case "AAAA":
-		recordType = dns.TypeAAAA
-	case "TXT":
-		recordType = dns.TypeTXT
-	case "NS":
-		recordType = dns.TypeNS
-	default:
-		return fmt.Errorf("builtin dns: unsupported record type %q", typ)
+	recordType, err := parseRecordType(typ)
+	if err != nil {
+		return fmt.Errorf("builtin dns: %w", err)
 	}
-	p.updates <- recordUpdate{operation: "delete", key: recordKey{Name: recordName, Type: recordType}}
-	return nil
+	select {
+	case p.updates <- recordUpdate{operation: "delete", key: recordKey{Name: recordName, Type: recordType}}:
+		return nil
+	case <-p.done:
+		return fmt.Errorf("builtin dns: provider stopped")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
-func (p *BuiltInDNSProvider) Present(domain, token, keyAuth string) error {
+func (p *BuiltInDNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
 	zone := p.zoneOf(domain)
 	label := acmeChallengeKey(domain, zone)
-	return p.upsert(zone, label, "TXT", acmeTXTValue(keyAuth), 120)
+	return p.upsert(ctx, zone, label, "TXT", acmeTXTValue(keyAuth), 120)
 }
 
-func (p *BuiltInDNSProvider) CleanUp(domain, token, keyAuth string) error {
+func (p *BuiltInDNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
 	zone := p.zoneOf(domain)
 	label := acmeChallengeKey(domain, zone)
-	return p.DeleteRecord(zone, label, "TXT")
+	return p.DeleteRecord(ctx, zone, label, "TXT")
 }
 
-func (p *BuiltInDNSProvider) Ping() error { return nil }
+func (p *BuiltInDNSProvider) Ping(_ context.Context) error { return nil }
 
 func (p *BuiltInDNSProvider) Name() string { return "builtin" }
 
-// zoneOf extracts the base domain from a FQDN by finding the shortest suffix
-// that has an NS record. Falls back to the last two labels if none is found.
+// zoneOf extracts the base domain from a FQDN by walking up the label hierarchy
+// and returning the first suffix that has an NS record in the zone store.
+// For example, given "login.mail.attacker.com", it checks "mail.attacker.com",
+// then "attacker.com", returning whichever has an NS record first.
+// Falls back to the last two labels (e.g. "attacker.com") if no NS record is found.
 func (p *BuiltInDNSProvider) zoneOf(domain string) string {
 	parts := strings.Split(domain, ".")
 	for i := 1; i < len(parts)-1; i++ {

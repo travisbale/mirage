@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"io"
@@ -43,12 +44,16 @@ func (s *stubLures) URLWithParams(_ *aitm.Lure, _ int, _ map[string]string) (str
 
 type stubPhishlets struct{}
 
-func (s *stubPhishlets) Enable(_, _, _ string) (*aitm.Phishlet, error) { return nil, nil }
-func (s *stubPhishlets) Disable(_ string) (*aitm.Phishlet, error)      { return nil, nil }
-func (s *stubPhishlets) Hide(_ string) (*aitm.Phishlet, error)         { return nil, nil }
-func (s *stubPhishlets) Unhide(_ string) (*aitm.Phishlet, error)       { return nil, nil }
-func (s *stubPhishlets) Get(_ string) (*aitm.Phishlet, error)          { return nil, nil }
-func (s *stubPhishlets) List() ([]*aitm.Phishlet, error)               { return nil, nil }
+func (s *stubPhishlets) Enable(_ context.Context, _, _, _ string) (*aitm.Phishlet, error) {
+	return nil, nil
+}
+func (s *stubPhishlets) Disable(_ context.Context, _ string) (*aitm.Phishlet, error) {
+	return nil, nil
+}
+func (s *stubPhishlets) Hide(_ string) (*aitm.Phishlet, error)   { return nil, nil }
+func (s *stubPhishlets) Unhide(_ string) (*aitm.Phishlet, error) { return nil, nil }
+func (s *stubPhishlets) Get(_ string) (*aitm.Phishlet, error)    { return nil, nil }
+func (s *stubPhishlets) List() ([]*aitm.Phishlet, error)         { return nil, nil }
 
 type stubBlacklist struct{}
 

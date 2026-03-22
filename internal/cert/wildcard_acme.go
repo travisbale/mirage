@@ -130,12 +130,12 @@ func (s *WildcardACMECertSource) issue(ctx context.Context, baseDomain string, p
 		}
 
 		s.logger.Info("acme: presenting DNS-01 challenge", "domain", auth.Identifier.Value)
-		if err := provider.Present(auth.Identifier.Value, challenge.Token, keyAuth); err != nil {
+		if err := provider.Present(ctx, auth.Identifier.Value, challenge.Token, keyAuth); err != nil {
 			return nil, fmt.Errorf("acme: dns present: %w", err)
 		}
 		domain := auth.Identifier.Value
 		defer func() {
-			if err := provider.CleanUp(domain, challenge.Token, keyAuth); err != nil {
+			if err := provider.CleanUp(ctx, domain, challenge.Token, keyAuth); err != nil {
 				s.logger.Warn("acme: dns cleanup failed", "domain", domain, "error", err)
 			}
 		}()

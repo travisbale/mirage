@@ -167,7 +167,7 @@ func (ini *initializer) extractZones(externalIP string) (map[string]aitm.ZoneCon
 }
 
 func (ini *initializer) initDNS() error {
-	providers, err := dns.BuildProviders(ini.cfg.DNSProviders, ini.cfg.ExternalIPv4, ini.cfg.DNSPort)
+	providers, err := dns.BuildProviders(context.Background(), ini.cfg.DNSProviders, ini.cfg.ExternalIPv4, ini.cfg.DNSPort)
 	if err != nil {
 		return fmt.Errorf("initializing DNS providers: %w", err)
 	}

@@ -16,15 +16,15 @@ var ErrRecordNotFound = errors.New("dns: record not found")
 // It covers record management, ACME DNS-01 challenge support, and health checking.
 // Implementations must be safe for concurrent use.
 type DNSProvider interface {
-	CreateRecord(zone, name, typ, value string, ttl int) error
-	UpdateRecord(zone, name, typ, value string, ttl int) error
-	DeleteRecord(zone, name, typ string) error
+	CreateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error
+	UpdateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error
+	DeleteRecord(ctx context.Context, zone, name, typ string) error
 
 	// ACME DNS-01 challenge support.
-	Present(domain, token, keyAuth string) error
-	CleanUp(domain, token, keyAuth string) error
+	Present(ctx context.Context, domain, token, keyAuth string) error
+	CleanUp(ctx context.Context, domain, token, keyAuth string) error
 
-	Ping() error
+	Ping(ctx context.Context) error
 
 	// Name returns a short provider identifier, e.g. "builtin" or "cloudflare".
 	Name() string
@@ -104,58 +104,53 @@ func (s *DNSService) zoneForDomain(fqdn string) string {
 	return best
 }
 
-func (s *DNSService) CreateRecord(zone, name, typ, value string, ttl int) error {
+func (s *DNSService) CreateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
 	provider, _, err := s.providerFor(zone)
 	if err != nil {
 		return err
 	}
-
-	return provider.CreateRecord(zone, name, typ, value, ttl)
+	return provider.CreateRecord(ctx, zone, name, typ, value, ttl)
 }
 
-func (s *DNSService) UpdateRecord(zone, name, typ, value string, ttl int) error {
+func (s *DNSService) UpdateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
 	provider, _, err := s.providerFor(zone)
 	if err != nil {
 		return err
 	}
-
-	return provider.UpdateRecord(zone, name, typ, value, ttl)
+	return provider.UpdateRecord(ctx, zone, name, typ, value, ttl)
 }
 
-func (s *DNSService) DeleteRecord(zone, name, typ string) error {
+func (s *DNSService) DeleteRecord(ctx context.Context, zone, name, typ string) error {
 	provider, _, err := s.providerFor(zone)
 	if err != nil {
 		return err
 	}
-
-	return provider.DeleteRecord(zone, name, typ)
+	return provider.DeleteRecord(ctx, zone, name, typ)
 }
 
-func (s *DNSService) Present(domain, token, keyAuth string) error {
+func (s *DNSService) Present(ctx context.Context, domain, token, keyAuth string) error {
 	zone := s.zoneForDomain(domain)
 	provider, _, err := s.providerFor(zone)
 	if err != nil {
 		return err
 	}
-
-	return provider.Present(domain, token, keyAuth)
+	return provider.Present(ctx, domain, token, keyAuth)
 }
 
-func (s *DNSService) CleanUp(domain, token, keyAuth string) error {
+func (s *DNSService) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
 	zone := s.zoneForDomain(domain)
 	provider, _, err := s.providerFor(zone)
 	if err != nil {
 		return err
 	}
-
-	return provider.CleanUp(domain, token, keyAuth)
+	return provider.CleanUp(ctx, domain, token, keyAuth)
 }
 
 // Reconcile creates or updates DNS records to match the desired state.
 // It is idempotent — calling it twice with the same desired state is safe.
-func (s *DNSService) Reconcile(ctx context.Context, desiredRecord []PhishletRecord) error {
+func (s *DNSService) Reconcile(ctx context.Context, desiredRecords []PhishletRecord) error {
 	var errs []error
-	for _, record := range desiredRecord {
+	for _, record := range desiredRecords {
 		provider, zoneConfig, err := s.providerFor(record.Zone)
 		if err != nil {
 			errs = append(errs, err)
@@ -167,9 +162,9 @@ func (s *DNSService) Reconcile(ctx context.Context, desiredRecord []PhishletReco
 			ip = zoneConfig.ExternalIP
 		}
 
-		if err := provider.CreateRecord(record.Zone, record.Name, "A", ip, 300); err != nil {
+		if err := provider.CreateRecord(ctx, record.Zone, record.Name, "A", ip, 300); err != nil {
 			if errors.Is(err, ErrRecordExists) {
-				if uerr := provider.UpdateRecord(record.Zone, record.Name, "A", ip, 300); uerr != nil {
+				if uerr := provider.UpdateRecord(ctx, record.Zone, record.Name, "A", ip, 300); uerr != nil {
 					errs = append(errs, uerr)
 					continue
 				}
@@ -192,7 +187,7 @@ func (s *DNSService) Reconcile(ctx context.Context, desiredRecord []PhishletReco
 	}
 	s.bus.Publish(Event{
 		Type:    EventDNSRecordSynced,
-		Payload: desiredRecord,
+		Payload: desiredRecords,
 	})
 
 	return nil
@@ -208,7 +203,7 @@ func (s *DNSService) RemoveRecords(ctx context.Context, records []PhishletRecord
 			continue
 		}
 
-		if err := provider.DeleteRecord(record.Zone, record.Name, "A"); err != nil {
+		if err := provider.DeleteRecord(ctx, record.Zone, record.Name, "A"); err != nil {
 			errs = append(errs, err)
 			continue
 		}

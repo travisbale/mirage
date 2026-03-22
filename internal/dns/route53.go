@@ -19,11 +19,11 @@ type Route53DNSProvider struct {
 
 // NewRoute53DNSProvider constructs a provider using static access key credentials.
 // region should be "us-east-1"; Route 53 is a global service but the SDK requires a region.
-func NewRoute53DNSProvider(accessKey, secretKey, region string, optFns ...func(*route53.Options)) (*Route53DNSProvider, error) {
+func NewRoute53DNSProvider(ctx context.Context, accessKey, secretKey, region string, optFns ...func(*route53.Options)) (*Route53DNSProvider, error) {
 	if region == "" {
 		region = "us-east-1"
 	}
-	cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+	cfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithRegion(region),
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
 	)
@@ -76,19 +76,21 @@ func (p *Route53DNSProvider) change(ctx context.Context, zone, name, typ, value 
 			}},
 		},
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("route53: %s %s %s: %w", action, typ, name, err)
+	}
+	return nil
 }
 
-func (p *Route53DNSProvider) CreateRecord(zone, name, typ, value string, ttl int) error {
-	return p.change(context.Background(), zone, name, typ, value, ttl, types.ChangeActionCreate)
+func (p *Route53DNSProvider) CreateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
+	return p.change(ctx, zone, name, typ, value, ttl, types.ChangeActionCreate)
 }
 
-func (p *Route53DNSProvider) UpdateRecord(zone, name, typ, value string, ttl int) error {
-	return p.change(context.Background(), zone, name, typ, value, ttl, types.ChangeActionUpsert)
+func (p *Route53DNSProvider) UpdateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
+	return p.change(ctx, zone, name, typ, value, ttl, types.ChangeActionUpsert)
 }
 
-func (p *Route53DNSProvider) DeleteRecord(zone, name, typ string) error {
-	ctx := context.Background()
+func (p *Route53DNSProvider) DeleteRecord(ctx context.Context, zone, name, typ string) error {
 	zoneID, err := p.hostedZoneID(ctx, zone)
 	if err != nil {
 		return err
@@ -116,23 +118,26 @@ func (p *Route53DNSProvider) DeleteRecord(zone, name, typ string) error {
 			}},
 		},
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("route53: DeleteRecord %s %s: %w", typ, name, err)
+	}
+	return nil
 }
 
-func (p *Route53DNSProvider) Present(domain, token, keyAuth string) error {
+func (p *Route53DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
 	zone := extractZone(domain)
 	label := acmeChallengeKey(domain, zone)
-	return p.CreateRecord(zone, label, "TXT", `"`+acmeTXTValue(keyAuth)+`"`, 120)
+	return p.CreateRecord(ctx, zone, label, "TXT", `"`+acmeTXTValue(keyAuth)+`"`, 120)
 }
 
-func (p *Route53DNSProvider) CleanUp(domain, token, keyAuth string) error {
+func (p *Route53DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
 	zone := extractZone(domain)
 	label := acmeChallengeKey(domain, zone)
-	return p.DeleteRecord(zone, label, "TXT")
+	return p.DeleteRecord(ctx, zone, label, "TXT")
 }
 
-func (p *Route53DNSProvider) Ping() error {
-	_, err := p.client.ListHostedZones(context.Background(), &route53.ListHostedZonesInput{
+func (p *Route53DNSProvider) Ping(ctx context.Context) error {
+	_, err := p.client.ListHostedZones(ctx, &route53.ListHostedZonesInput{
 		MaxItems: aws.Int32(1),
 	})
 	if err != nil {

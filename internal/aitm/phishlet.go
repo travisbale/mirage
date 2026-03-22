@@ -296,7 +296,7 @@ func (s *PhishletService) InvalidateLures() {
 // domain, and DNS provider. The resolver is updated atomically so routing
 // takes effect immediately without a restart. If a DNS reconciler is configured,
 // A records are created for each proxy host's phishing FQDN.
-func (s *PhishletService) Enable(name, hostname, dnsProvider string) (*Phishlet, error) {
+func (s *PhishletService) Enable(ctx context.Context, name, hostname, dnsProvider string) (*Phishlet, error) {
 	p := s.currentOrNew(name)
 	if hostname != "" {
 		p.Hostname = hostname
@@ -317,7 +317,7 @@ func (s *PhishletService) Enable(name, hostname, dnsProvider string) (*Phishlet,
 	if err := s.store.SetPhishlet(p); err != nil {
 		return nil, err
 	}
-	if err := s.dns.Reconcile(context.Background(), phishletRecords(p)); err != nil {
+	if err := s.dns.Reconcile(ctx, phishletRecords(p)); err != nil {
 		return nil, fmt.Errorf("dns reconcile: %w", err)
 	}
 	s.resolver.register(p)
@@ -342,13 +342,13 @@ func deriveBaseDomain(def *Phishlet, hostname string) string {
 }
 
 // Disable marks a phishlet as inactive and removes its DNS records.
-func (s *PhishletService) Disable(name string) (*Phishlet, error) {
+func (s *PhishletService) Disable(ctx context.Context, name string) (*Phishlet, error) {
 	p, err := s.currentOrErr(name)
 	if err != nil {
 		return nil, err
 	}
 	if p.Enabled {
-		if err := s.dns.RemoveRecords(context.Background(), phishletRecords(p)); err != nil {
+		if err := s.dns.RemoveRecords(ctx, phishletRecords(p)); err != nil {
 			return nil, fmt.Errorf("dns cleanup: %w", err)
 		}
 	}

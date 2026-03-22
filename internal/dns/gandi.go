@@ -67,16 +67,15 @@ func (p *GandiDNSProvider) putRRSet(ctx context.Context, zone, name, typ, value 
 	return nil
 }
 
-func (p *GandiDNSProvider) CreateRecord(zone, name, typ, value string, ttl int) error {
-	return p.putRRSet(context.Background(), zone, name, typ, value, ttl)
+func (p *GandiDNSProvider) CreateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
+	return p.putRRSet(ctx, zone, name, typ, value, ttl)
 }
 
-func (p *GandiDNSProvider) UpdateRecord(zone, name, typ, value string, ttl int) error {
-	return p.putRRSet(context.Background(), zone, name, typ, value, ttl)
+func (p *GandiDNSProvider) UpdateRecord(ctx context.Context, zone, name, typ, value string, ttl int) error {
+	return p.putRRSet(ctx, zone, name, typ, value, ttl)
 }
 
-func (p *GandiDNSProvider) DeleteRecord(zone, name, typ string) error {
-	ctx := context.Background()
+func (p *GandiDNSProvider) DeleteRecord(ctx context.Context, zone, name, typ string) error {
 	endpoint := fmt.Sprintf("%s/domains/%s/records/%s/%s", p.baseURL, zone, name, typ)
 	resp, err := p.do(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
@@ -92,20 +91,19 @@ func (p *GandiDNSProvider) DeleteRecord(zone, name, typ string) error {
 	return nil
 }
 
-func (p *GandiDNSProvider) Present(domain, token, keyAuth string) error {
+func (p *GandiDNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
 	zone := extractZone(domain)
 	label := acmeChallengeKey(domain, zone)
-	return p.putRRSet(context.Background(), zone, label, "TXT", `"`+acmeTXTValue(keyAuth)+`"`, 120)
+	return p.putRRSet(ctx, zone, label, "TXT", `"`+acmeTXTValue(keyAuth)+`"`, 120)
 }
 
-func (p *GandiDNSProvider) CleanUp(domain, token, keyAuth string) error {
+func (p *GandiDNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
 	zone := extractZone(domain)
 	label := acmeChallengeKey(domain, zone)
-	return p.DeleteRecord(zone, label, "TXT")
+	return p.DeleteRecord(ctx, zone, label, "TXT")
 }
 
-func (p *GandiDNSProvider) Ping() error {
-	ctx := context.Background()
+func (p *GandiDNSProvider) Ping(ctx context.Context) error {
 	endpoint := fmt.Sprintf("%s/domains", p.baseURL)
 	resp, err := p.do(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {

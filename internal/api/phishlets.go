@@ -56,7 +56,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	p, err := r.Phishlets.Enable(name, body.Hostname, body.DNSProvider)
+	p, err := r.Phishlets.Enable(req.Context(), name, body.Hostname, body.DNSProvider)
 	if err != nil {
 		switch {
 		case errors.Is(err, aitm.ErrHostnameRequired):
@@ -74,7 +74,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
-	p, err := r.Phishlets.Disable(req.PathValue("name"))
+	p, err := r.Phishlets.Disable(req.Context(), req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "phishlet does not exist")

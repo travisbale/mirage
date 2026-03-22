@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -30,8 +31,8 @@ type lureManager interface {
 }
 
 type phishletManager interface {
-	Enable(name, hostname, dnsProvider string) (*aitm.Phishlet, error)
-	Disable(name string) (*aitm.Phishlet, error)
+	Enable(ctx context.Context, name, hostname, dnsProvider string) (*aitm.Phishlet, error)
+	Disable(ctx context.Context, name string) (*aitm.Phishlet, error)
 	Hide(name string) (*aitm.Phishlet, error)
 	Unhide(name string) (*aitm.Phishlet, error)
 	Get(name string) (*aitm.Phishlet, error)
