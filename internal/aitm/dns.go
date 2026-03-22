@@ -60,13 +60,15 @@ type DNSService struct {
 	providers map[string]DNSProvider // key: provider alias
 	zones     map[string]ZoneConfig  // key: zone (base domain)
 	bus       eventBus
+	logger    *slog.Logger
 }
 
-func NewDNSService(providers map[string]DNSProvider, zones map[string]ZoneConfig, bus eventBus) *DNSService {
+func NewDNSService(providers map[string]DNSProvider, zones map[string]ZoneConfig, bus eventBus, logger *slog.Logger) *DNSService {
 	return &DNSService{
 		providers: providers,
 		zones:     zones,
 		bus:       bus,
+		logger:    logger,
 	}
 }
 
@@ -164,8 +166,8 @@ func (s *DNSService) Reconcile(ctx context.Context, desiredRecords []PhishletRec
 
 		if err := provider.CreateRecord(ctx, record.Zone, record.Name, "A", ip, 300); err != nil {
 			if errors.Is(err, ErrRecordExists) {
-				if uerr := provider.UpdateRecord(ctx, record.Zone, record.Name, "A", ip, 300); uerr != nil {
-					errs = append(errs, uerr)
+				if updateErr := provider.UpdateRecord(ctx, record.Zone, record.Name, "A", ip, 300); updateErr != nil {
+					errs = append(errs, updateErr)
 					continue
 				}
 			} else {
@@ -174,7 +176,7 @@ func (s *DNSService) Reconcile(ctx context.Context, desiredRecords []PhishletRec
 			}
 		}
 
-		slog.Info("dns record ensured",
+		s.logger.Info("dns record ensured",
 			"zone", record.Zone,
 			"name", record.Name,
 			"ip", ip,
@@ -208,7 +210,7 @@ func (s *DNSService) RemoveRecords(ctx context.Context, records []PhishletRecord
 			continue
 		}
 
-		slog.Info("dns record removed",
+		s.logger.Info("dns record removed",
 			"zone", record.Zone,
 			"name", record.Name,
 			"provider", provider.Name(),

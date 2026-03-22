@@ -172,7 +172,7 @@ func (ini *initializer) initDNS() error {
 		return fmt.Errorf("initializing DNS providers: %w", err)
 	}
 	ini.dnsProviders = providers
-	ini.dnsService = aitm.NewDNSService(providers, ini.zones, ini.bus)
+	ini.dnsService = aitm.NewDNSService(providers, ini.zones, ini.bus, ini.logger)
 
 	return nil
 }

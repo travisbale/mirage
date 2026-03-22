@@ -194,7 +194,6 @@ type CookieExport struct {
 }
 
 // SessionService owns all business logic for session lifecycle.
-// SessionService owns all business logic for session lifecycle.
 // Sessions are persisted on creation (one write per victim) and on credential
 // capture / completion. The in-memory cache eliminates database reads from the
 // proxy hot path — Get checks the cache first and only falls back to the store

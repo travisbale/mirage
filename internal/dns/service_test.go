@@ -2,6 +2,8 @@ package dns_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -20,6 +22,7 @@ func TestDNSService_ReconcileRoutesToCorrectProvider(t *testing.T) {
 			"evil.net":     {Zone: "evil.net", ProviderName: "bi", ExternalIP: "5.6.7.8"},
 		},
 		&events.NoOpBus{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	)
 
 	err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
@@ -48,6 +51,7 @@ func TestDNSService_Reconcile_EmitsEvent(t *testing.T) {
 			"attacker.com": {Zone: "attacker.com", ProviderName: "bi", ExternalIP: "1.2.3.4"},
 		},
 		bus,
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	)
 
 	if err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
@@ -74,6 +78,7 @@ func TestDNSService_RemoveRecords(t *testing.T) {
 			"attacker.com": {Zone: "attacker.com", ProviderName: "bi", ExternalIP: "1.2.3.4"},
 		},
 		&events.NoOpBus{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	)
 
 	if err := svc.RemoveRecords(context.Background(), []aitm.PhishletRecord{

@@ -183,6 +183,31 @@ func TestSessionService_CaptureCredentials_PersistsAndPublishes(t *testing.T) {
 	}
 }
 
+func TestSessionService_Update_PersistsAndPublishesTokensCaptured(t *testing.T) {
+	svc, store, bus := newSessionService()
+	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
+	sess.HTTPTokens = map[string]string{"X-Auth": "bearer-abc"}
+
+	if err := svc.Update(sess); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	// Tokens should be persisted
+	stored := store.sessions[sess.ID]
+	if stored.HTTPTokens["X-Auth"] != "bearer-abc" {
+		t.Errorf("stored HTTP token = %q, want %q", stored.HTTPTokens["X-Auth"], "bearer-abc")
+	}
+
+	// Should publish EventTokensCaptured (index 1, after EventSessionCreated from NewSession)
+	if len(bus.published) != 2 || bus.published[1].Type != aitm.EventTokensCaptured {
+		types := make([]aitm.EventType, len(bus.published))
+		for i, e := range bus.published {
+			types[i] = e.Type
+		}
+		t.Errorf("expected [EventSessionCreated, EventTokensCaptured], got %v", types)
+	}
+}
+
 func TestSessionService_Delete_EvictsFromCacheAndStore(t *testing.T) {
 	svc, store, _ := newSessionService()
 	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
