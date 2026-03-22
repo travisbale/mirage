@@ -93,8 +93,11 @@ func readRequestBody(req *http.Request) ([]byte, error) {
 	}
 	b, err := io.ReadAll(req.Body)
 	req.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("reading request body: %w", err)
+	}
 	req.Body = io.NopCloser(bytes.NewReader(b))
-	return b, err
+	return b, nil
 }
 
 func readResponseBody(resp *http.Response) ([]byte, error) {

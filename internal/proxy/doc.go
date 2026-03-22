@@ -14,8 +14,8 @@ Every inbound TCP connection goes through the same sequence:
     the ClientHello SNI matches the configured secret management hostname —
     phishing victims are never prompted for a client certificate.
 
- 3. A connection is created via [Server.newConnection]. The constructor sets up
-    immutable TLS-level state (JA4 hash, TLS connection state). The handleInit
+ 3. A connection is created via newConnection. The constructor sets up
+    immutable TLS-level state (JA4 hash, TLS connection state). The initSession
     method then processes the first HTTP request to perform connection-level
     setup: IP extraction, bot detection, blacklist check, phishlet/lure
     resolution, and session creation.
@@ -24,9 +24,9 @@ Every inbound TCP connection goes through the same sequence:
     request is handled by [connection.handleRequest], which runs the per-request
     logic, forwards to upstream, and processes the response.
 
-# Connection setup (handleInit)
+# Connection setup (initSession)
 
-These checks run once per connection during handleInit:
+These checks run once per connection during initSession:
 
   - JA4 hash computed from ClientHello bytes
   - Client IP extracted from socket or trusted CDN headers
