@@ -90,10 +90,8 @@ func (d *Daemon) Shutdown(ctx context.Context) {
 		d.logger.Error("store close error", "error", err)
 	}
 
-	if d.obfuscator != nil {
-		if err := d.obfuscator.Shutdown(ctx); err != nil {
-			d.logger.Error("obfuscator shutdown error", "error", err)
-		}
+	if err := d.obfuscator.Shutdown(ctx); err != nil {
+		d.logger.Error("obfuscator shutdown error", "error", err)
 	}
 
 	d.logger.Info("shutdown complete")

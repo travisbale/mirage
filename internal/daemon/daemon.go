@@ -290,7 +290,7 @@ func (ini *initializer) initProxy(version string) error {
 		Logger:    ini.logger,
 	}
 
-	ini.obfuscator = &obfuscator.NoOpObfuscator{}
+	ini.obfuscator = &obfuscator.NopObfuscator{}
 	if ini.cfg.Obfuscator.Enabled {
 		nodeObfuscator, err := obfuscator.NewNodeObfuscator(ini.cfg.Obfuscator, ini.logger)
 		if err != nil {

@@ -21,15 +21,15 @@ import (
 	"github.com/travisbale/mirage/internal/config"
 )
 
-// NoOpObfuscator is the identity transform. Used when obfuscation is disabled
+// NopObfuscator is the identity transform. Used when obfuscation is disabled
 // or as a fallback when the Node sidecar is unavailable.
-type NoOpObfuscator struct{}
+type NopObfuscator struct{}
 
-func (n *NoOpObfuscator) Obfuscate(_ context.Context, html []byte) ([]byte, error) {
+func (n *NopObfuscator) Obfuscate(_ context.Context, html []byte) ([]byte, error) {
 	return html, nil
 }
 
-func (n *NoOpObfuscator) Shutdown(_ context.Context) error {
+func (n *NopObfuscator) Shutdown(_ context.Context) error {
 	return nil
 }
 
@@ -72,7 +72,7 @@ func newRequestID() string {
 
 // NewNodeObfuscator starts cfg.MaxConcurrent sidecar processes.
 // Returns an error if any process fails to start (e.g. node not in PATH,
-// sidecar/node_modules not installed). Callers should fall back to NoOpObfuscator on error.
+// sidecar/node_modules not installed). Callers should fall back to NopObfuscator on error.
 func NewNodeObfuscator(cfg config.ObfuscatorConfig, logger *slog.Logger) (*NodeObfuscator, error) {
 	if cfg.MaxConcurrent <= 0 {
 		cfg.MaxConcurrent = 4
@@ -108,21 +108,38 @@ func (ob *NodeObfuscator) Obfuscate(ctx context.Context, html []byte) ([]byte, e
 
 func (ob *NodeObfuscator) Shutdown(ctx context.Context) error {
 	ob.shutdownOnce.Do(func() { close(ob.shutdown) })
-	for {
+	// Drain all sidecar processes from the pool. In-flight requests will
+	// see the closed shutdown channel and return their sidecar to the pool
+	// (or mark it dead), so we wait for cap(pool) processes.
+	for i := 0; i < cap(ob.pool); i++ {
 		select {
 		case sp := <-ob.pool:
-			if !sp.dead {
-				sentinel, _ := json.Marshal(nodeRequest{ID: "__shutdown__", JS: ""})
-				sentinel = append(sentinel, '\n')
-				_, _ = sp.stdin.Write(sentinel) // best-effort shutdown signal
-				_ = sp.stdin.Close()
-				_ = sp.cmd.Wait()
-				ob.logger.Debug("sidecar shut down", "pid", sp.cmd.Process.Pid)
-			}
-		default:
-			return nil
+			ob.killSidecar(sp)
+		case <-ctx.Done():
+			return fmt.Errorf("shutdown timed out: %w", ctx.Err())
 		}
 	}
+	return nil
+}
+
+// killSidecar gracefully shuts down a sidecar process. For live processes,
+// it sends a shutdown sentinel and waits for exit. For dead processes, it
+// force-kills and reaps.
+func (ob *NodeObfuscator) killSidecar(sp *sidecarProcess) {
+	if sp.dead {
+		if sp.cmd.Process != nil {
+			_ = sp.cmd.Process.Kill()
+			_ = sp.cmd.Wait()
+		}
+		return
+	}
+	// Best-effort graceful shutdown: send sentinel, close stdin, wait for exit.
+	sentinel, _ := json.Marshal(nodeRequest{ID: "__shutdown__", JS: ""})
+	sentinel = append(sentinel, '\n')
+	_, _ = sp.stdin.Write(sentinel)
+	_ = sp.stdin.Close()
+	_ = sp.cmd.Wait()
+	ob.logger.Debug("sidecar shut down", "pid", sp.cmd.Process.Pid)
 }
 
 func (ob *NodeObfuscator) startSidecar() (*sidecarProcess, error) {
@@ -169,8 +186,9 @@ func (ob *NodeObfuscator) obfuscateJS(ctx context.Context, js string) (string, e
 
 	result, err := ob.callSidecar(ctx, sp, js)
 	if err != nil {
-		ob.logger.Warn("sidecar call failed, restarting", "pid", sp.cmd.Process.Pid, "error", err)
+		ob.logger.Warn("sidecar call failed, killing and restarting", "pid", sp.cmd.Process.Pid, "error", err)
 		sp.dead = true
+		ob.killSidecar(sp)
 		newSP, spawnErr := ob.startSidecar()
 		if spawnErr != nil {
 			ob.logger.Error("failed to restart sidecar", "error", spawnErr)
@@ -184,6 +202,9 @@ func (ob *NodeObfuscator) obfuscateJS(ctx context.Context, js string) (string, e
 	return result, nil
 }
 
+// callSidecar sends a JSON request to the sidecar's stdin and reads the JSON
+// response from stdout. Write and read are each done in a goroutine so they
+// can be cancelled via context timeout.
 func (ob *NodeObfuscator) callSidecar(ctx context.Context, sp *sidecarProcess, js string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, ob.cfg.RequestTimeout)
 	defer cancel()

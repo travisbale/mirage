@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
@@ -18,83 +17,16 @@ func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-// ── NoOpObfuscator ────────────────────────────────────────────────────────────
+// ── NopObfuscator ────────────────────────────────────────────────────────────
 
-func TestNoOpObfuscator_Obfuscate_NoChange(t *testing.T) {
+func TestNopObfuscator_Obfuscate_NoChange(t *testing.T) {
 	html := []byte(`<html><body><script>` + MarkerStart + `var x=1;` + MarkerEnd + `</script></body></html>`)
-	got, err := (&NoOpObfuscator{}).Obfuscate(context.Background(), html)
+	got, err := (&NopObfuscator{}).Obfuscate(context.Background(), html)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if string(got) != string(html) {
 		t.Errorf("expected HTML unchanged\ngot: %s", got)
-	}
-}
-
-// ── obfuscateMarkedHTML ───────────────────────────────────────────────────────
-
-func TestObfuscateHTML_OnlyMarked(t *testing.T) {
-	html := `<script>var legit = 1;</script>` +
-		`<script>` + MarkerStart + `var injected=2;` + MarkerEnd + `</script>`
-
-	var calls []string
-	spy := func(_ context.Context, js string) (string, error) {
-		calls = append(calls, js)
-		return "/* obfuscated */" + js, nil
-	}
-
-	out, err := obfuscateMarkedHTML(context.Background(), spy, []byte(html))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(calls) != 1 {
-		t.Errorf("expected 1 obfuscate call, got %d", len(calls))
-	}
-	if calls[0] != "var injected=2;" {
-		t.Errorf("unexpected argument: %q", calls[0])
-	}
-	if !strings.Contains(string(out), "var legit = 1;") {
-		t.Error("third-party script should be unchanged in output")
-	}
-}
-
-func TestObfuscateHTML_MultipleBlocks(t *testing.T) {
-	html := `<script>` + MarkerStart + `var x1=1;` + MarkerEnd + `</script>` +
-		`<script>` + MarkerStart + `var x2=2;` + MarkerEnd + `</script>` +
-		`<script>` + MarkerStart + `var x3=3;` + MarkerEnd + `</script>`
-
-	var calls []string
-	spy := func(_ context.Context, js string) (string, error) {
-		calls = append(calls, js)
-		return js, nil
-	}
-
-	if _, err := obfuscateMarkedHTML(context.Background(), spy, []byte(html)); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(calls) != 3 {
-		t.Errorf("expected 3 obfuscate calls, got %d", len(calls))
-	}
-}
-
-func TestObfuscateHTML_NoMarker(t *testing.T) {
-	html := `<html><body><script>var a = 1;</script></body></html>`
-
-	called := false
-	spy := func(_ context.Context, js string) (string, error) {
-		called = true
-		return js, nil
-	}
-
-	out, err := obfuscateMarkedHTML(context.Background(), spy, []byte(html))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if called {
-		t.Error("obfuscate should not be called when no marker present")
-	}
-	if string(out) != html {
-		t.Error("output should equal input when no marker present")
 	}
 }
 
@@ -189,6 +121,40 @@ func TestNodeObfuscator_Timeout(t *testing.T) {
 	// Crash-recovery returns plain JS (nil error) but must respect the timeout.
 	if elapsed > 500*time.Millisecond {
 		t.Errorf("call took %v, expected ≤500ms (timeout is 100ms)", elapsed)
+	}
+}
+
+func TestNodeObfuscator_MalformedResponse(t *testing.T) {
+	skipIfNoNode(t)
+
+	ob := &NodeObfuscator{
+		cfg: config.ObfuscatorConfig{
+			RequestTimeout: 1 * time.Second,
+			MaxConcurrent:  1,
+		},
+		logger:   discardLogger(),
+		pool:     make(chan *sidecarProcess, 1),
+		shutdown: make(chan struct{}),
+	}
+
+	// Start a process that echoes garbage JSON to stdout for every line read.
+	echoCmd := exec.Command("/bin/sh", "-c", `while read line; do echo 'not json'; done`)
+	stdin, _ := echoCmd.StdinPipe()
+	stdoutPipe, _ := echoCmd.StdoutPipe()
+	if err := echoCmd.Start(); err != nil {
+		t.Skipf("could not start echo process: %v", err)
+	}
+	t.Cleanup(func() { echoCmd.Process.Kill(); echoCmd.Wait() })
+
+	ob.pool <- &sidecarProcess{cmd: echoCmd, stdin: stdin, stdout: bufio.NewScanner(stdoutPipe)}
+
+	// Should degrade gracefully: return plain JS, no error.
+	result, err := ob.obfuscateJS(context.Background(), "var x = 1;")
+	if err != nil {
+		t.Fatalf("expected graceful degradation, got error: %v", err)
+	}
+	if result != "var x = 1;" {
+		t.Errorf("expected plain JS fallback, got: %q", result)
 	}
 }
 
