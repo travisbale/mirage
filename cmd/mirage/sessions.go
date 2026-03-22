@@ -108,9 +108,18 @@ func newSessionsShowCmd() *cobra.Command {
 			fmt.Printf("Bot Score:   %.2f\n", s.BotScore)
 			fmt.Printf("Username:    %s\n", s.Username)
 			fmt.Printf("Password:    %s\n", s.Password)
+			for name, value := range s.Custom {
+				fmt.Printf("Custom [%s]: %s\n", name, value)
+			}
 			fmt.Printf("Started:     %s\n", fmtTime(s.StartedAt))
 			fmt.Printf("Completed:   %s\n", fmtOptTime(s.CompletedAt))
 			fmt.Printf("Cookies:     %d domain(s)\n", len(s.CookieTokens))
+			for name, value := range s.BodyTokens {
+				fmt.Printf("Body [%s]:   %s\n", name, value)
+			}
+			for name, value := range s.HTTPTokens {
+				fmt.Printf("Header [%s]: %s\n", name, value)
+			}
 			return nil
 		},
 	}
