@@ -77,7 +77,7 @@ func newSessionService() (*aitm.SessionService, *stubSessionStore, *stubBus) {
 
 func TestSessionService_NewSession_CachesAndPersists(t *testing.T) {
 	svc, store, bus := newSessionService()
-	sess, err := svc.NewSession("1.2.3.4", "", "lure-1", "test")
+	sess, err := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
 	if err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestSessionService_Get_NotFound(t *testing.T) {
 
 func TestSessionService_Complete_EvictsFromCache(t *testing.T) {
 	svc, store, bus := newSessionService()
-	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
 
 	if err := svc.Complete(sess); err != nil {
 		t.Fatalf("Complete: %v", err)
@@ -163,7 +163,7 @@ func TestSessionService_Complete_EvictsFromCache(t *testing.T) {
 
 func TestSessionService_CaptureCredentials_PersistsAndPublishes(t *testing.T) {
 	svc, store, bus := newSessionService()
-	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
 	sess.Username = "victim@example.com"
 	sess.Password = "hunter2"
 
@@ -185,7 +185,7 @@ func TestSessionService_CaptureCredentials_PersistsAndPublishes(t *testing.T) {
 
 func TestSessionService_Update_PersistsAndPublishesTokensCaptured(t *testing.T) {
 	svc, store, bus := newSessionService()
-	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
 	sess.HTTPTokens = map[string]string{"X-Auth": "bearer-abc"}
 
 	if err := svc.Update(sess); err != nil {
@@ -210,7 +210,7 @@ func TestSessionService_Update_PersistsAndPublishesTokensCaptured(t *testing.T) 
 
 func TestSessionService_Delete_EvictsFromCacheAndStore(t *testing.T) {
 	svc, store, _ := newSessionService()
-	sess, _ := svc.NewSession("1.2.3.4", "", "lure-1", "test")
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
 
 	if err := svc.Delete(sess.ID); err != nil {
 		t.Fatalf("Delete: %v", err)

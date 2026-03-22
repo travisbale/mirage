@@ -49,12 +49,12 @@ func testResp(code int, contentType, body string) *http.Response {
 
 type stubSessionSvc struct{}
 
-func (s *stubSessionSvc) Get(_ string) (*aitm.Session, error)                 { return nil, nil }
-func (s *stubSessionSvc) NewSession(_, _, _, _ string) (*aitm.Session, error) { return nil, nil }
-func (s *stubSessionSvc) Update(_ *aitm.Session) error                        { return nil }
-func (s *stubSessionSvc) Complete(_ *aitm.Session) error                      { return nil }
-func (s *stubSessionSvc) IsComplete(_ *aitm.Session, _ *aitm.Phishlet) bool   { return false }
-func (s *stubSessionSvc) CaptureCredentials(_ *aitm.Session) error            { return nil }
+func (s *stubSessionSvc) Get(_ string) (*aitm.Session, error)                    { return nil, nil }
+func (s *stubSessionSvc) NewSession(_, _, _, _, _ string) (*aitm.Session, error) { return nil, nil }
+func (s *stubSessionSvc) Update(_ *aitm.Session) error                           { return nil }
+func (s *stubSessionSvc) Complete(_ *aitm.Session) error                         { return nil }
+func (s *stubSessionSvc) IsComplete(_ *aitm.Session, _ *aitm.Phishlet) bool      { return false }
+func (s *stubSessionSvc) CaptureCredentials(_ *aitm.Session) error               { return nil }
 
 // fakeConn is a minimal net.Conn backed by a bytes.Reader.
 type fakeConn struct {

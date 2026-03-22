@@ -254,11 +254,12 @@ func (s *SessionService) Delete(id string) error {
 }
 
 // NewSession creates a new session and persists it to the store.
-func (s *SessionService) NewSession(clientIP, ja4Hash, lureID, phishletName string) (*Session, error) {
+func (s *SessionService) NewSession(clientIP, ja4Hash, userAgent, lureID, phishletName string) (*Session, error) {
 	sess := &Session{
 		ID:         uuid.New().String(),
 		RemoteAddr: clientIP,
 		JA4Hash:    ja4Hash,
+		UserAgent:  userAgent,
 		LureID:     lureID,
 		Phishlet:   phishletName,
 		StartedAt:  time.Now(),

@@ -44,7 +44,7 @@ type phishletResolver interface {
 
 type sessionManager interface {
 	Get(id string) (*aitm.Session, error)
-	NewSession(clientIP, ja4Hash, lureID, phishletName string) (*aitm.Session, error)
+	NewSession(clientIP, ja4Hash, userAgent, lureID, phishletName string) (*aitm.Session, error)
 	Update(session *aitm.Session) error
 	Complete(session *aitm.Session) error
 	IsComplete(sess *aitm.Session, def *aitm.Phishlet) bool
