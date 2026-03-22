@@ -88,7 +88,10 @@ func (s *PuppetService) GetOverride(phishletName string) string {
 	if !ok {
 		return ""
 	}
-	entry := val.(cacheEntry)
+	entry, ok := val.(cacheEntry)
+	if !ok {
+		return ""
+	}
 	if time.Now().After(entry.expiresAt) {
 		s.cache.Delete(phishletName)
 		return ""
@@ -124,9 +127,11 @@ func (s *PuppetService) handlePhishletEnabled(event Event) {
 	}
 
 	go func(name, url string) {
-		// Acquire semaphore slot; drop if at capacity to avoid blocking the bus.
+		// Acquire semaphore slot; drop if at capacity or shutting down.
 		select {
 		case s.collectC <- struct{}{}:
+		case <-s.ctx.Done():
+			return
 		default:
 			s.logger.Warn("puppet: collection slots full, skipping", "phishlet", name)
 			return

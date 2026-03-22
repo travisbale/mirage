@@ -43,7 +43,7 @@ func (b *OverrideBuilder) BuildOverride(telemetry map[string]any) string {
 		}
 		encoded, err := json.Marshal(val)
 		if err != nil {
-			continue
+			continue // silently drop; telemetry values originate from json.Unmarshal so this shouldn't happen
 		}
 		lines = append(lines, fmt.Sprintf(
 			"Object.defineProperty(%s,%q,{get:function(){return %s}})",

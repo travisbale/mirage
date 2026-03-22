@@ -24,6 +24,9 @@ type Collector struct {
 
 // NewCollector creates a Collector backed by the given pool.
 func NewCollector(pool *Pool, navTimeout time.Duration, logger *slog.Logger) *Collector {
+	if navTimeout <= 0 {
+		navTimeout = 30 * time.Second
+	}
 	return &Collector{pool: pool, navTimeout: navTimeout, logger: logger}
 }
 
@@ -38,15 +41,11 @@ func (c *Collector) CollectTelemetry(ctx context.Context, targetURL string) (map
 	tabCtx, tabCancel := chromedp.NewContext(browserCtx)
 	defer tabCancel()
 
-	navTimeout := c.navTimeout
-	if navTimeout == 0 {
-		navTimeout = 30 * time.Second
-	}
-	tabCtx, timeoutCancel := context.WithTimeout(tabCtx, navTimeout)
+	timeoutCtx, timeoutCancel := context.WithTimeout(tabCtx, c.navTimeout)
 	defer timeoutCancel()
 
 	var rawResult []byte
-	err = chromedp.Run(tabCtx,
+	err = chromedp.Run(timeoutCtx,
 		chromedp.Navigate(targetURL),
 		chromedp.WaitReady("body"),
 		chromedp.EvaluateAsDevTools(collectScript, &rawResult),
