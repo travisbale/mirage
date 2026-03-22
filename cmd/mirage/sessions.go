@@ -212,10 +212,12 @@ func eventLabel(eventType string) string {
 	switch eventType {
 	case sdk.EventSessionCreated:
 		return "NEW SESSION"
-	case sdk.EventSessionCompleted:
+	case sdk.EventSessionCredsCaptured:
+		return "CREDS CAPTURED"
+	case sdk.EventSessionTokensCaptured:
 		return "TOKENS CAPTURED"
-	case sdk.EventSessionDeleted:
-		return "DELETED"
+	case sdk.EventSessionCompleted:
+		return "SESSION COMPLETE"
 	default:
 		return "SESSION UPDATE"
 	}

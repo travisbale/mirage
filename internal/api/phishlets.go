@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -50,9 +49,8 @@ func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 
-	var body sdk.EnablePhishletRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body")
+	body, ok := decodeAndValidate[sdk.EnablePhishletRequest](w, req)
+	if !ok {
 		return
 	}
 

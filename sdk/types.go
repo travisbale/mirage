@@ -38,10 +38,10 @@ type SessionResponse struct {
 
 // Session event types delivered by StreamSessions.
 const (
-	EventSessionCreated   = "session.created"
-	EventSessionUpdated   = "session.updated"
-	EventSessionCompleted = "session.completed"
-	EventSessionDeleted   = "session.deleted"
+	EventSessionCreated        = "session.created"
+	EventSessionCredsCaptured  = "session.creds_captured"
+	EventSessionTokensCaptured = "session.tokens_captured"
+	EventSessionCompleted      = "session.completed"
 )
 
 // SessionEvent is delivered by StreamSessions for each lifecycle event.
@@ -102,7 +102,6 @@ type PauseLureRequest struct {
 
 type PhishletResponse struct {
 	Name        string `json:"name"`
-	ParentName  string `json:"parent_name,omitempty"`
 	BaseDomain  string `json:"base_domain"`
 	Hostname    string `json:"hostname"`
 	DNSProvider string `json:"dns_provider"`
@@ -124,7 +123,6 @@ type BlacklistEntryResponse struct {
 
 type AddBlacklistEntryRequest struct {
 	Value string `json:"value"`
-	Note  string `json:"note,omitempty"`
 }
 
 // --- BotGuard ---

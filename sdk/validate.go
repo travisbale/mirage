@@ -52,6 +52,13 @@ func (r PauseLureRequest) Validate() error {
 	return nil
 }
 
+func (r EnablePhishletRequest) Validate() error {
+	if r.Hostname == "" {
+		return fmt.Errorf("hostname: required")
+	}
+	return nil
+}
+
 func (r AddBotSignatureRequest) Validate() error {
 	if r.JA4Hash == "" {
 		return fmt.Errorf("ja4_hash: required")

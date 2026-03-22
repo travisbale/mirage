@@ -159,7 +159,10 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var body sdk.GenerateURLRequest
-	_ = json.NewDecoder(req.Body).Decode(&body) // body is optional
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil && req.ContentLength > 0 {
+		writeError(w, http.StatusUnprocessableEntity, "invalid request body")
+		return
+	}
 
 	url, err := r.Lures.URLWithParams(lure, r.HTTPSPort, body.Params)
 	if err != nil {
