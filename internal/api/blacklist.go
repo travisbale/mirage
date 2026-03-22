@@ -32,7 +32,7 @@ func (r *Router) addBlacklistEntry(w http.ResponseWriter, req *http.Request) {
 	}
 
 	r.Blacklist.Block(body.Value)
-	writeJSON(w, http.StatusCreated, sdk.BlacklistEntryResponse{Value: body.Value})
+	writeJSON(w, http.StatusCreated, sdk.BlacklistEntryResponse(body))
 }
 
 func (r *Router) removeBlacklistEntry(w http.ResponseWriter, req *http.Request) {

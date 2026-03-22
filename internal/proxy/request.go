@@ -35,7 +35,7 @@ func (c *connection) serve(ctx context.Context) {
 	// serve() returns promptly so in-flight connections drain.
 	go func() {
 		<-ctx.Done()
-		c.rawConn.SetReadDeadline(time.Now())
+		_ = c.rawConn.SetReadDeadline(time.Now())
 	}()
 
 	connReader := bufio.NewReader(c.rawConn)

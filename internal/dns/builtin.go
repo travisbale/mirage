@@ -101,7 +101,7 @@ func (p *BuiltInDNSProvider) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 	reply.Authoritative = true
 
 	if len(r.Question) == 0 {
-		w.WriteMsg(reply)
+		_ = w.WriteMsg(reply)
 		return
 	}
 
@@ -118,7 +118,7 @@ func (p *BuiltInDNSProvider) handleQuery(w dns.ResponseWriter, r *dns.Msg) {
 		reply.Rcode = dns.RcodeNameError
 	}
 
-	w.WriteMsg(reply)
+	_ = w.WriteMsg(reply)
 }
 
 func (p *BuiltInDNSProvider) drainUpdates() {

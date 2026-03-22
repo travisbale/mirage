@@ -220,7 +220,9 @@ func uploadBinary(client *ssh.Client, cfg DeployConfig) error {
 	if _, err := io.Copy(dst, src); err != nil {
 		return fmt.Errorf("copying binary: %w", err)
 	}
-	dst.Close() // flush before chmod
+	if err := dst.Close(); err != nil { // flush before chmod
+		return fmt.Errorf("closing remote binary: %w", err)
+	}
 
 	return sftpClient.Chmod(cfg.RemoteBinaryPath, 0755)
 }
