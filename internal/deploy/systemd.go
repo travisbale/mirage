@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path"
 	"text/template"
 
 	"github.com/pkg/sftp"
@@ -17,9 +18,9 @@ domain: {{ .Domain }}
 external_ipv4: {{ .ExternalIPv4 }}
 https_port: {{ .HTTPSPort }}
 dns_port: {{ .DNSPort }}
-autocert: {{ .AutoCert }}
-data_dir: /var/lib/mirage
-phishlets_dir: {{ .RemoteConfigDir }}/phishlets
+self_signed: true
+data_dir: {{ .DataDir }}
+phishlets_dir: {{ .PhishletsDir }}
 
 api:
   secret_hostname: {{ .SecretHostname }}
@@ -91,7 +92,7 @@ func writeConfig(client *ssh.Client, cfg DeployConfig) error {
 	if err != nil {
 		return err
 	}
-	return writeRemoteFile(client, cfg.RemoteConfigDir+"/miraged.yaml", content)
+	return writeRemoteFile(client, path.Join(cfg.RemoteConfigDir, "miraged.yaml"), content)
 }
 
 // writeSystemdUnit writes the systemd unit file to /etc/systemd/system/miraged.service.

@@ -28,7 +28,8 @@ type DeployConfig struct {
 	ExternalIPv4 string
 	HTTPSPort    int
 	DNSPort      int
-	AutoCert     bool
+	DataDir      string // data directory on remote host
+	PhishletsDir string // phishlets directory on remote host
 
 	// Remote paths
 	RemoteBinaryPath string
@@ -37,8 +38,9 @@ type DeployConfig struct {
 	// Local binary to upload (defaults to the running binary if empty)
 	LocalBinaryPath string
 
-	// SecretHostname to write into the remote config.
-	// If empty, one is auto-generated and returned in DeployResult.
+	// SecretHostname is the Host header value that routes traffic to the
+	// management API. It prevents casual discovery of the management endpoint
+	// via DNS enumeration. If empty, the CLI auto-generates one.
 	SecretHostname string
 
 	// Force deployment even if miraged is already running.
@@ -218,9 +220,9 @@ func uploadBinary(client *ssh.Client, cfg DeployConfig) error {
 	if _, err := io.Copy(dst, src); err != nil {
 		return fmt.Errorf("copying binary: %w", err)
 	}
+	dst.Close() // flush before chmod
 
-	_, err = runCmd(client, fmt.Sprintf("chmod 755 %s", cfg.RemoteBinaryPath))
-	return err
+	return sftpClient.Chmod(cfg.RemoteBinaryPath, 0755)
 }
 
 // startService reloads systemd and enables + starts the miraged unit in one SSH session.

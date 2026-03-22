@@ -1,8 +1,11 @@
 package deploy
 
 import (
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/travisbale/mirage/internal/config"
 )
 
 func TestGenerateSecretHostname(t *testing.T) {
@@ -20,18 +23,22 @@ func TestGenerateSecretHostname(t *testing.T) {
 	}
 }
 
-func TestRenderConfig(t *testing.T) {
-	cfg := DeployConfig{
-		Domain:          "attacker.com",
-		ExternalIPv4:    "203.0.113.5",
-		HTTPSPort:       443,
-		DNSPort:         53,
-		AutoCert:        true,
-		SecretHostname:  "abc123.mgmt.attacker.com",
-		RemoteConfigDir: "/etc/mirage",
+func testDeployConfig() DeployConfig {
+	return DeployConfig{
+		Domain:           "attacker.com",
+		ExternalIPv4:     "203.0.113.5",
+		HTTPSPort:        443,
+		DNSPort:          53,
+		DataDir:          config.DefaultDataDir,
+		PhishletsDir:     "/etc/mirage/phishlets",
+		SecretHostname:   "abc123.mgmt.attacker.com",
+		RemoteBinaryPath: "/usr/local/bin/miraged",
+		RemoteConfigDir:  "/etc/mirage",
 	}
+}
 
-	out, err := renderConfig(cfg)
+func TestRenderConfig(t *testing.T) {
+	out, err := renderConfig(testDeployConfig())
 	if err != nil {
 		t.Fatalf("renderConfig: %v", err)
 	}
@@ -40,30 +47,56 @@ func TestRenderConfig(t *testing.T) {
 		"domain: attacker.com",
 		"external_ipv4: 203.0.113.5",
 		"https_port: 443",
-		"secret_hostname: abc123.mgmt.attacker.com",
+		"self_signed: true",
 		"data_dir: /var/lib/mirage",
 		"phishlets_dir: /etc/mirage/phishlets",
-		"autocert: true",
+		"secret_hostname: abc123.mgmt.attacker.com",
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("renderConfig output missing %q", want)
+			t.Errorf("renderConfig output missing %q\ngot:\n%s", want, out)
 		}
 	}
 
-	for _, bad := range []string{"bind_ipv4", "blacklist", "botguard", "client_ca_cert:"} {
+	for _, bad := range []string{"autocert", "bind_ipv4", "blacklist", "botguard"} {
 		if strings.Contains(out, bad) {
 			t.Errorf("renderConfig output contains unexpected field %q", bad)
 		}
 	}
 }
 
-func TestRenderSystemdUnit(t *testing.T) {
-	cfg := DeployConfig{
-		RemoteBinaryPath: "/usr/local/bin/miraged",
-		RemoteConfigDir:  "/etc/mirage",
+// TestRenderConfig_ParseableByDaemon verifies the generated config can be
+// loaded and validated by the real config package. This catches field name
+// mismatches between the template and the config struct.
+func TestRenderConfig_ParseableByDaemon(t *testing.T) {
+	out, err := renderConfig(testDeployConfig())
+	if err != nil {
+		t.Fatalf("renderConfig: %v", err)
 	}
 
-	out, err := renderSystemdUnit(cfg)
+	tmpFile := t.TempDir() + "/miraged.yaml"
+	if err := os.WriteFile(tmpFile, []byte(out), 0600); err != nil {
+		t.Fatalf("writing temp config: %v", err)
+	}
+
+	cfg, err := config.Load(tmpFile)
+	if err != nil {
+		t.Fatalf("config.Load failed on generated config: %v\ngenerated:\n%s", err, out)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("config.Validate failed on generated config: %v\ngenerated:\n%s", err, out)
+	}
+
+	if cfg.Domain != "attacker.com" {
+		t.Errorf("Domain: got %q, want %q", cfg.Domain, "attacker.com")
+	}
+	if !cfg.SelfSigned {
+		t.Error("expected SelfSigned to be true")
+	}
+}
+
+func TestRenderSystemdUnit(t *testing.T) {
+	out, err := renderSystemdUnit(testDeployConfig())
 	if err != nil {
 		t.Fatalf("renderSystemdUnit: %v", err)
 	}
