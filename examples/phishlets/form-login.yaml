@@ -11,16 +11,13 @@ proxy_hosts:
     orig_sub:  login
     domain:    target.local
     is_landing: true
-    upstream_scheme: http
+    upstream_scheme: https
 
 sub_filters:
-  # Rewrite absolute URLs that include the scheme — must run before the bare
-  # domain rule below, otherwise "http://login.target.local/..." becomes
-  # "http://login.phish.local/..." which the browser can't reach (the proxy
-  # only serves HTTPS).
+  # Rewrite absolute URLs that include the scheme.
   - hostname:   login.target.local
     mime_types: [text/html, text/javascript, application/javascript]
-    search:     'http://login\.target\.local'
+    search:     'https://login\.target\.local'
     replace:    'https://{hostname}'
 
   # Rewrite any remaining bare domain references (e.g. in href="//target.local/..."

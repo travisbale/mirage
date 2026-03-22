@@ -28,7 +28,7 @@ def login():
             token = secrets.token_hex(16)
             pending[token] = email
             resp = make_response(redirect(url_for("mfa")))
-            resp.set_cookie("pending_auth", token, httponly=True, samesite="Lax")
+            resp.set_cookie("pending_auth", token, httponly=True, secure=True, samesite="Lax")
             return resp
         error = "Please enter your email and password."
     return render_template("login.html", error=error)
@@ -54,6 +54,7 @@ def mfa():
                 "auth_session",
                 session_token,
                 httponly=True,
+                secure=True,
                 samesite="Lax",
                 domain=".target.local",
             )
@@ -192,5 +193,13 @@ def auth():
 
 
 if __name__ == "__main__":
+    import os
+
     logging.basicConfig(level=logging.INFO)
-    app.run(host="0.0.0.0", port=80)
+
+    cert = "/app/cert.pem"
+    key = "/app/key.pem"
+    if os.path.exists(cert) and os.path.exists(key):
+        app.run(host="0.0.0.0", port=443, ssl_context=(cert, key))
+    else:
+        app.run(host="0.0.0.0", port=80)

