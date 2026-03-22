@@ -219,7 +219,11 @@ func (s *SessionService) Complete(session *Session) error {
 }
 
 func (s *SessionService) Update(session *Session) error {
-	return s.Store.UpdateSession(session)
+	if err := s.Store.UpdateSession(session); err != nil {
+		return err
+	}
+	s.Bus.Publish(Event{Type: EventTokensCaptured, Payload: session})
+	return nil
 }
 
 func (s *SessionService) CaptureCredentials(session *Session) error {
