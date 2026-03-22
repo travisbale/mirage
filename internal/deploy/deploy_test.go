@@ -5,59 +5,18 @@ import (
 	"testing"
 )
 
-func TestApplyDefaults(t *testing.T) {
-	cfg := applyDefaults(DeployConfig{Domain: "attacker.com"})
-
-	if cfg.SSHUser != "root" {
-		t.Errorf("SSHUser: got %q, want %q", cfg.SSHUser, "root")
-	}
-	if cfg.HTTPSPort != 443 {
-		t.Errorf("HTTPSPort: got %d, want 443", cfg.HTTPSPort)
-	}
-	if cfg.DNSPort != 53 {
-		t.Errorf("DNSPort: got %d, want 53", cfg.DNSPort)
-	}
-	if cfg.RemoteBinaryPath != "/usr/local/bin/miraged" {
-		t.Errorf("RemoteBinaryPath: got %q, want %q", cfg.RemoteBinaryPath, "/usr/local/bin/miraged")
-	}
-	if cfg.RemoteConfigDir != "/etc/mirage" {
-		t.Errorf("RemoteConfigDir: got %q, want %q", cfg.RemoteConfigDir, "/etc/mirage")
-	}
-	if cfg.SecretHostname == "" {
-		t.Error("SecretHostname should be auto-generated when empty")
-	}
-}
-
-func TestApplyDefaults_PreservesExplicitValues(t *testing.T) {
-	cfg := applyDefaults(DeployConfig{
-		SSHUser:        "ubuntu",
-		HTTPSPort:      8443,
-		SecretHostname: "explicit.mgmt.example.com",
-	})
-
-	if cfg.SSHUser != "ubuntu" {
-		t.Errorf("SSHUser: got %q, want %q", cfg.SSHUser, "ubuntu")
-	}
-	if cfg.HTTPSPort != 8443 {
-		t.Errorf("HTTPSPort: got %d, want 8443", cfg.HTTPSPort)
-	}
-	if cfg.SecretHostname != "explicit.mgmt.example.com" {
-		t.Errorf("SecretHostname: got %q, want explicit.mgmt.example.com", cfg.SecretHostname)
-	}
-}
-
 func TestGenerateSecretHostname(t *testing.T) {
 	domain := "attacker.com"
-	hostname := generateSecretHostname(domain)
+	hostname := GenerateSecretHostname(domain)
 
 	if !strings.HasSuffix(hostname, ".mgmt."+domain) {
 		t.Errorf("hostname %q does not end in .mgmt.%s", hostname, domain)
 	}
 
 	// Should be unique across calls.
-	other := generateSecretHostname(domain)
+	other := GenerateSecretHostname(domain)
 	if hostname == other {
-		t.Error("generateSecretHostname returned identical values on two calls")
+		t.Error("GenerateSecretHostname returned identical values on two calls")
 	}
 }
 

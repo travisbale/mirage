@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	"github.com/travisbale/mirage/internal/config"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -19,19 +20,19 @@ import (
 type DeployConfig struct {
 	// SSH connection
 	Host       string // e.g. "203.0.113.5" or "203.0.113.5:22"
-	SSHUser    string // default "root"
+	SSHUser    string
 	SSHKeyPath string // path to private key file on the operator's machine
 
 	// miraged config values written to the remote config file
 	Domain       string
 	ExternalIPv4 string
-	HTTPSPort    int  // default 443
-	DNSPort      int  // default 53
-	AutoCert     bool // default true
+	HTTPSPort    int
+	DNSPort      int
+	AutoCert     bool
 
 	// Remote paths
-	RemoteBinaryPath string // default "/usr/local/bin/miraged"
-	RemoteConfigDir  string // default "/etc/mirage"
+	RemoteBinaryPath string
+	RemoteConfigDir  string
 
 	// Local binary to upload (defaults to the running binary if empty)
 	LocalBinaryPath string
@@ -64,8 +65,6 @@ func NewDeployService() *DeployService {
 // Deploy executes the full provisioning sequence against the remote host described
 // by cfg. It returns a DeployResult on success or a descriptive error on any step failure.
 func (s *DeployService) Deploy(ctx context.Context, cfg DeployConfig) (*DeployResult, error) {
-	cfg = applyDefaults(cfg)
-
 	client, err := dialSSH(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("ssh dial: %w", err)
@@ -105,7 +104,7 @@ func (s *DeployService) Deploy(ctx context.Context, cfg DeployConfig) (*DeployRe
 }
 
 // remoteDataDir is where miraged stores its database and generated certificates.
-const remoteDataDir = "/var/lib/mirage"
+var remoteDataDir = config.DefaultDataDir
 
 // waitForDaemon polls systemctl over SSH until miraged reports active or the
 // context deadline is reached. Using SSH avoids the need for a client
@@ -233,32 +232,11 @@ func startService(client *ssh.Client) error {
 	return nil
 }
 
-// applyDefaults fills in zero-value fields with sensible defaults.
-func applyDefaults(cfg DeployConfig) DeployConfig {
-	if cfg.SSHUser == "" {
-		cfg.SSHUser = "root"
-	}
-	if cfg.HTTPSPort == 0 {
-		cfg.HTTPSPort = 443
-	}
-	if cfg.DNSPort == 0 {
-		cfg.DNSPort = 53
-	}
-	if cfg.RemoteBinaryPath == "" {
-		cfg.RemoteBinaryPath = "/usr/local/bin/miraged"
-	}
-	if cfg.RemoteConfigDir == "" {
-		cfg.RemoteConfigDir = "/etc/mirage"
-	}
-	if cfg.SecretHostname == "" {
-		cfg.SecretHostname = generateSecretHostname(cfg.Domain)
-	}
-	return cfg
-}
-
-// generateSecretHostname produces a random subdomain like "a3f9c2.mgmt.attacker.com".
-func generateSecretHostname(baseDomain string) string {
+// GenerateSecretHostname produces a random subdomain like "a3f9c2.mgmt.attacker.com".
+func GenerateSecretHostname(baseDomain string) string {
 	b := make([]byte, 6)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand: " + err.Error())
+	}
 	return fmt.Sprintf("%x.mgmt.%s", b, baseDomain)
 }

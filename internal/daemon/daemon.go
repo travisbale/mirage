@@ -323,7 +323,6 @@ func (ini *initializer) initProxy(version string) error {
 	if err := issueOperatorCert(clientCA, apiCACertPath, ini.logger); err != nil {
 		return err
 	}
-	aitmProxy.SecretHostname = ini.cfg.API.SecretHostname
 	aitmProxy.ClientCAs = clientCA.CertPool()
 	ini.logger.Info("API enabled", "hostname", ini.cfg.API.SecretHostname, "ca_cert", apiCACertPath)
 
@@ -389,9 +388,8 @@ func (d *Daemon) loadPhishlets(dir string, svc *aitm.PhishletService) {
 func loadConfig(path string) (*config.Config, error) {
 	cfg, err := config.Load(path)
 	if err != nil {
-		return nil, fmt.Errorf("loading config: %w", err)
+		return nil, err
 	}
-
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}

@@ -101,3 +101,81 @@ func TestValidate(t *testing.T) {
 		})
 	}
 }
+
+// validConfig returns a minimal Config that passes Validate.
+func validConfig() config.Config {
+	return config.Config{
+		Domain:       "phish.example.com",
+		ExternalIPv4: "1.2.3.4",
+		HTTPSPort:    443,
+		DNSPort:      53,
+		SelfSigned:   true,
+		API:          config.APIConfig{SecretHostname: "api.phish.example.com"},
+	}
+}
+
+func TestValidate_PortBoundaries(t *testing.T) {
+	tests := []struct {
+		name      string
+		httpPort  int
+		dnsPort   int
+		wantErr   bool
+		errSubstr string
+	}{
+		{"valid ports", 443, 53, false, ""},
+		{"valid high ports", 8443, 5353, false, ""},
+		{"port 1 valid", 1, 1, false, ""},
+		{"port 65535 valid", 65535, 65535, false, ""},
+		{"https port 0", 0, 53, true, "https_port"},
+		{"https port 65536", 65536, 53, true, "https_port"},
+		{"dns port 0", 443, 0, true, "dns_port"},
+		{"dns port negative", 443, -1, true, "dns_port"},
+		{"both invalid", 0, 0, true, "https_port"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := validConfig()
+			cfg.HTTPSPort = tt.httpPort
+			cfg.DNSPort = tt.dnsPort
+			err := cfg.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected validation error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.errSubstr)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidate_ACMERequiredWhenNotSelfSigned(t *testing.T) {
+	cfg := validConfig()
+	cfg.SelfSigned = false
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for missing ACME config")
+	}
+	if !strings.Contains(err.Error(), "acme.email") {
+		t.Errorf("error %q should mention acme.email", err.Error())
+	}
+	if !strings.Contains(err.Error(), "acme.directory_url") {
+		t.Errorf("error %q should mention acme.directory_url", err.Error())
+	}
+}
+
+func TestValidate_MissingSecretHostname(t *testing.T) {
+	cfg := validConfig()
+	cfg.API.SecretHostname = ""
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for missing secret_hostname")
+	}
+	if !strings.Contains(err.Error(), "api.secret_hostname") {
+		t.Errorf("error %q should mention api.secret_hostname", err.Error())
+	}
+}
