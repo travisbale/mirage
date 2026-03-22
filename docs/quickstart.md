@@ -163,10 +163,10 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
 
 - Try the API login phishlet: the target site also has a JSON-based login page at
   `/api-login`. Copy `examples/phishlets/api-login.yaml` into your phishlets
-  directory, enable it, and create a lure with `--path /api-login`. This phishlet
-  captures bearer tokens from JSON responses instead of cookies.
+  directory, enable it, and create a lure. This phishlet captures bearer tokens
+  from JSON responses instead of cookies.
 - Try the multi-host phishlet: copy `examples/phishlets/multi-host.yaml` into your
-  phishlets directory, enable it, and create a lure pointing to `/multi-login`. This
-  phishlet proxies two subdomains (`login` and `api`) — the login page submits
-  credentials cross-origin to `api.phish.local/auth`, demonstrating multi-host
-  routing and auto_filter domain rewriting.
+  phishlets directory, enable it, and create a lure. This phishlet proxies two
+  subdomains (`login` and `api`) — the login page submits credentials cross-origin
+  to `api.phish.local/auth`, demonstrating multi-host routing and auto_filter
+  domain rewriting.

@@ -63,4 +63,4 @@ credentials:
 
 login:
   domain: login.target.local
-  path:   /api/login
+  path:   /api-login

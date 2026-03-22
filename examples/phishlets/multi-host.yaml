@@ -58,4 +58,4 @@ credentials:
 
 login:
   domain: api.target.local
-  path:   /auth
+  path:   /multi-login
