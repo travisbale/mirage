@@ -1,0 +1,16 @@
+name: test-bad-intercept
+author: "@test"
+version: "1"
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    example.com
+auth_tokens:
+  - domain: ".example.com"
+    keys:
+      - name: session
+        required: true
+intercept:
+  - path: "/check"
+    status: 0
+    body: '{"ok":true}'

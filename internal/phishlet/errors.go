@@ -37,14 +37,3 @@ func (p ParseErrors) Error() string {
 	}
 	return strings.Join(msgs, "\n")
 }
-
-// Is implements errors.Is for ParseErrors so callers can use
-// errors.Is(err, ErrParseError) as a type check.
-func (p ParseErrors) Is(target error) bool {
-	_, ok := target.(ParseErrors)
-	return ok
-}
-
-// ErrParseError is a sentinel that can be used with errors.Is to check
-// whether an error came from phishlet parsing.
-var ErrParseError = ParseErrors{}

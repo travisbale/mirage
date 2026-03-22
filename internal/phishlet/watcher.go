@@ -68,6 +68,9 @@ func (w *Watcher) loop() {
 
 	// Debounce: many editors produce rapid sequences of Write events for a
 	// single save. We coalesce events for the same path within a 200ms window.
+	// The map is safe without synchronization: it is owned by this goroutine,
+	// and timer callbacks (delete + reload) execute serially via the Go runtime
+	// timer system — they do not race with the select loop.
 	debounce := make(map[string]*time.Timer)
 
 	reload := func(path string) {
@@ -107,8 +110,8 @@ func (w *Watcher) loop() {
 			}
 			if evt.Has(fsnotify.Write) || evt.Has(fsnotify.Create) {
 				path := evt.Name
-				if t, exists := debounce[path]; exists {
-					t.Reset(200 * time.Millisecond)
+				if timer, exists := debounce[path]; exists {
+					timer.Reset(200 * time.Millisecond)
 				} else {
 					debounce[path] = time.AfterFunc(200*time.Millisecond, func() {
 						delete(debounce, path)

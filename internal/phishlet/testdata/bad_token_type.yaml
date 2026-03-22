@@ -1,0 +1,13 @@
+name: test-bad-token-type
+author: "@test"
+version: "1"
+proxy_hosts:
+  - phish_sub: login
+    orig_sub:  login
+    domain:    example.com
+auth_tokens:
+  - domain: ".example.com"
+    type: invalid_type
+    keys:
+      - name: session
+        required: true

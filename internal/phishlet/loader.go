@@ -51,7 +51,10 @@ func (l *Loader) parseFile(path string) (*rawPhishlet, error) {
 }
 
 // compile validates the raw phishlet, compiles all regexes, and constructs the
-// aitm.Phishlet. All errors found are collected and returned together as ParseErrors.
+// aitm.Phishlet. All errors are collected and returned together as ParseErrors
+// so the operator can fix everything in one pass. Individual items with invalid
+// regexes are skipped (the error is recorded but the remaining items compile
+// normally).
 func (l *Loader) compile(path string, raw *rawPhishlet) (*aitm.Phishlet, error) {
 	var errs ParseErrors
 
@@ -404,7 +407,9 @@ func (l *Loader) compileJSInjects(path string, raw []rawJSInject) ([]aitm.JSInje
 }
 
 // mustCompile compiles pattern as a regex, appending a ParseError to errs on
-// failure and returning a non-nil error. On success, err is nil.
+// failure and returning a non-nil error. On success, err is nil. Used for
+// required regex fields; optional fields (e.g. credentials) handle compilation
+// inline since they may be empty.
 func mustCompile(pattern, file, field string, errs *ParseErrors) (*regexp.Regexp, error) {
 	compiled, err := regexp.Compile(pattern)
 	if err != nil {

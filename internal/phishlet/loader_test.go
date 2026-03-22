@@ -85,6 +85,30 @@ func TestLoader(t *testing.T) {
 			errContains: "yaml",
 		},
 		{
+			name:        "empty_auth_tokens",
+			file:        "testdata/empty_auth_tokens.yaml",
+			wantErr:     true,
+			errContains: "auth_tokens",
+		},
+		{
+			name:        "bad_token_type",
+			file:        "testdata/bad_token_type.yaml",
+			wantErr:     true,
+			errContains: "unknown token type",
+		},
+		{
+			name:        "bad_credential_regex",
+			file:        "testdata/bad_credential_regex.yaml",
+			wantErr:     true,
+			errContains: "credentials.username.key",
+		},
+		{
+			name:        "bad_intercept_status",
+			file:        "testdata/bad_intercept_status.yaml",
+			wantErr:     true,
+			errContains: "status",
+		},
+		{
 			name:    "file_not_found",
 			file:    "testdata/does_not_exist.yaml",
 			wantErr: true,
