@@ -21,30 +21,47 @@
 
     <div id="error" class="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-3 py-2.5 mb-4 hidden"></div>
 
-    <form id="login-form">
-      <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-      <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" autofocus required
-        class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent mb-4" />
+    <div id="step-login">
+      <form id="login-form">
+        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email address</label>
+        <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" autofocus required
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent mb-4" />
 
-      <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-      <input type="password" id="password" name="password" autocomplete="current-password" required
-        class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent mb-5" />
+        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent mb-5" />
 
-      <button type="submit" id="submit-btn"
-        class="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors">
-        Sign in
-      </button>
-    </form>
+        <button type="submit" id="login-btn"
+          class="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors">
+          Sign in
+        </button>
+      </form>
+    </div>
+
+    <div id="step-mfa" class="hidden">
+      <p class="text-sm text-gray-500 mb-4">Enter the 6-digit code from your authenticator app.</p>
+      <form id="mfa-form">
+        <label for="code" class="block text-sm font-medium text-gray-700 mb-1">Verification code</label>
+        <input type="text" id="code" name="code" maxlength="6" inputmode="numeric" pattern="[0-9]{6}"
+          placeholder="000000" autocomplete="one-time-code" autofocus required
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent mb-5" />
+
+        <button type="submit" id="mfa-btn"
+          class="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors">
+          Verify
+        </button>
+      </form>
+    </div>
 
     <p class="mt-5 text-center text-sm text-gray-500">
-      Prefer the standard login? <a href="http://login.target.local/login" class="text-indigo-500 hover:underline">Sign in here</a>
+      Prefer the standard login? <a href="https://login.target.local/login" class="text-indigo-500 hover:underline">Sign in here</a>
     </p>
   </div>
 
   <footer class="mt-7 text-xs text-gray-400 flex gap-4">
     <span>&copy; 2025 Vault Inc.</span>
-    <a href="http://login.target.local/terms" class="hover:underline">Terms</a>
-    <a href="http://login.target.local/privacy" class="hover:underline">Privacy</a>
+    <a href="https://login.target.local/terms" class="hover:underline">Terms</a>
+    <a href="https://login.target.local/privacy" class="hover:underline">Privacy</a>
   </footer>
 
   <script>
@@ -59,37 +76,84 @@
       })
     }).catch(function() {});
 
+    var errorEl = document.getElementById("error");
+    var pendingToken = null;
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.remove("hidden");
+    }
+
+    function hideError() {
+      errorEl.classList.add("hidden");
+    }
+
+    function apiCall(url, body) {
+      return fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        body: JSON.stringify(body)
+      }).then(function(resp) {
+        return resp.json().then(function(data) { return {ok: resp.ok, data: data}; });
+      });
+    }
+
+    // Step 1: email + password
     document.getElementById("login-form").addEventListener("submit", function(e) {
       e.preventDefault();
-      var errorEl = document.getElementById("error");
-      var btn = document.getElementById("submit-btn");
-      errorEl.classList.add("hidden");
+      hideError();
+      var btn = document.getElementById("login-btn");
       btn.textContent = "Signing in...";
       btn.disabled = true;
 
-      fetch("/api/login", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          email: document.getElementById("email").value,
-          password: document.getElementById("password").value
-        })
+      apiCall("/api/login", {
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value
       })
-      .then(function(resp) { return resp.json().then(function(data) { return {ok: resp.ok, data: data}; }); })
       .then(function(result) {
         if (!result.ok) {
-          errorEl.textContent = result.data.error || "Login failed.";
-          errorEl.classList.remove("hidden");
+          showError(result.data.error || "Login failed.");
           btn.textContent = "Sign in";
+          btn.disabled = false;
+          return;
+        }
+        pendingToken = result.data.pending_token;
+        document.getElementById("step-login").classList.add("hidden");
+        document.getElementById("step-mfa").classList.remove("hidden");
+        document.getElementById("code").focus();
+      })
+      .catch(function() {
+        showError("Network error. Please try again.");
+        btn.textContent = "Sign in";
+        btn.disabled = false;
+      });
+    });
+
+    // Step 2: MFA code
+    document.getElementById("mfa-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      hideError();
+      var btn = document.getElementById("mfa-btn");
+      btn.textContent = "Verifying...";
+      btn.disabled = true;
+
+      apiCall("/api/mfa", {
+        pending_token: pendingToken,
+        code: document.getElementById("code").value
+      })
+      .then(function(result) {
+        if (!result.ok) {
+          showError(result.data.error || "Verification failed.");
+          btn.textContent = "Verify";
           btn.disabled = false;
           return;
         }
         window.location.href = "/dashboard";
       })
       .catch(function() {
-        errorEl.textContent = "Network error. Please try again.";
-        errorEl.classList.remove("hidden");
-        btn.textContent = "Sign in";
+        showError("Network error. Please try again.");
+        btn.textContent = "Verify";
         btn.disabled = false;
       });
     });

@@ -60,6 +60,11 @@ credentials:
     key:    "password"
     search: '"password"\s*:\s*"([^"]+)"'
     type:   json
+  custom:
+    - name: totp_code
+      key:    "code"
+      search: '"code"\s*:\s*"([^"]+)"'
+      type:   json
 
 login:
   domain: login.target.local

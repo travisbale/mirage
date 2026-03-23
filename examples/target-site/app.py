@@ -161,6 +161,23 @@ def api_login():
     if not isinstance(result, tuple) or len(result) != 2 or isinstance(result[1], int):
         return result
     email, _ = result
+    token = secrets.token_hex(16)
+    pending[token] = email
+    return jsonify({"pending_token": token, "mfa_required": True})
+
+
+@app.route("/api/mfa", methods=["POST"])
+def api_mfa():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "expected JSON body"}), 400
+    token = data.get("pending_token", "")
+    code = data.get("code", "").strip()
+    if token not in pending:
+        return jsonify({"error": "invalid or expired pending token"}), 400
+    if len(code) != 6 or not code.isdigit():
+        return jsonify({"error": "invalid code"}), 400
+    email = pending.pop(token)
     return _issue_tokens(email)
 
 
