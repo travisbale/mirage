@@ -40,6 +40,11 @@ const (
 	RouteBotSignatures = "/api/botguard/signatures"
 	RouteBotThreshold  = "/api/botguard/threshold"
 
+	// Notifications
+	RouteNotificationTest     = "/api/notifications/channels/{id}/test"
+	RouteNotificationChannel  = "/api/notifications/channels/{id}"
+	RouteNotificationChannels = "/api/notifications/channels"
+
 	// System
 	RouteStatus = "/api/status"
 	RouteReload = "/api/reload"

@@ -1,7 +1,10 @@
 // Package sdk provides types and a client for the mirage management API.
 package sdk
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // ErrorResponse is returned by the API for all error responses.
 type ErrorResponse struct {
@@ -140,6 +143,48 @@ type AddBotSignatureRequest struct {
 
 type UpdateBotThresholdRequest struct {
 	Threshold float64 `json:"threshold"` // 0.0–1.0
+}
+
+// --- Notifications ---
+
+// ChannelType identifies the delivery backend for a notification channel.
+type ChannelType string
+
+const (
+	ChannelWebhook ChannelType = "webhook"
+	ChannelSlack   ChannelType = "slack"
+)
+
+type CreateNotificationChannelRequest struct {
+	Type       ChannelType `json:"type"`
+	URL        string      `json:"url"`
+	AuthHeader string      `json:"auth_header,omitempty"` // webhook only
+	Filter     []string    `json:"filter,omitempty"`      // event type filter; empty = all events
+}
+
+func (r CreateNotificationChannelRequest) Validate() error {
+	switch r.Type {
+	case ChannelWebhook, ChannelSlack:
+	default:
+		return fmt.Errorf("type: must be %q or %q", ChannelWebhook, ChannelSlack)
+	}
+	if r.URL == "" {
+		return fmt.Errorf("url: required")
+	}
+	return nil
+}
+
+type NotificationChannelResponse struct {
+	ID        string      `json:"id"`
+	Type      ChannelType `json:"type"`
+	URL       string      `json:"url"`
+	Filter    []string    `json:"filter"`
+	Enabled   bool        `json:"enabled"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
+type NotificationChannelList struct {
+	Channels []NotificationChannelResponse `json:"channels"`
 }
 
 // --- System ---

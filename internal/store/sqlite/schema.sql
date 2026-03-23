@@ -60,3 +60,13 @@ CREATE TABLE IF NOT EXISTS bot_telemetry (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bot_telemetry_session ON bot_telemetry(session_id);
+
+CREATE TABLE IF NOT EXISTS notify_channels (
+    id          TEXT    PRIMARY KEY,
+    type        TEXT    NOT NULL,
+    url         TEXT    NOT NULL,
+    auth_header TEXT    NOT NULL DEFAULT '',
+    filter      TEXT    NOT NULL DEFAULT '[]',
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    created_at  INTEGER NOT NULL
+);

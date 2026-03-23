@@ -51,6 +51,14 @@ type botguardManager interface {
 	RemoveSignature(ja4Hash string) error
 }
 
+type notificationManager interface {
+	Create(ch *aitm.NotificationChannel) error
+	Delete(id string) error
+	Get(id string) (*aitm.NotificationChannel, error)
+	List() ([]*aitm.NotificationChannel, error)
+	Test(ctx context.Context, id string) error
+}
+
 type eventBus interface {
 	Subscribe(eventType aitm.EventType) <-chan aitm.Event
 	Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event)
@@ -58,15 +66,16 @@ type eventBus interface {
 
 // Router is the HTTP handler for the management API.
 type Router struct {
-	Sessions  sessionManager
-	Lures     lureManager
-	Phishlets phishletManager
-	Blacklist blacklistManager
-	Botguard  botguardManager
-	Bus       eventBus
-	HTTPSPort int // Included in lure URLs when non-standard (not 443)
-	Version   string
-	Logger    *slog.Logger
+	Sessions      sessionManager
+	Lures         lureManager
+	Phishlets     phishletManager
+	Blacklist     blacklistManager
+	Botguard      botguardManager
+	Notifications notificationManager
+	Bus           eventBus
+	HTTPSPort     int // Included in lure URLs when non-standard (not 443)
+	Version       string
+	Logger        *slog.Logger
 
 	once      sync.Once
 	mux       *http.ServeMux
@@ -127,6 +136,12 @@ func (r *Router) registerRoutes() {
 	h("POST", sdk.RouteBotSignatures, r.addBotSignature)
 	h("DELETE", sdk.RouteBotSignature, r.removeBotSignature)
 	h("PATCH", sdk.RouteBotThreshold, r.updateBotThreshold)
+
+	// Notifications
+	h("GET", sdk.RouteNotificationChannels, r.listNotificationChannels)
+	h("POST", sdk.RouteNotificationChannels, r.createNotificationChannel)
+	h("DELETE", sdk.RouteNotificationChannel, r.deleteNotificationChannel)
+	h("POST", sdk.RouteNotificationTest, r.testNotificationChannel)
 
 	// System
 	h("GET", sdk.RouteStatus, r.getStatus)

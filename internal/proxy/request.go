@@ -77,12 +77,13 @@ func (c *connection) serve(ctx context.Context) {
 			sessionID := c.sessionID(req)
 			rec := newBufferedResponseWriter(c.rawConn)
 
-			if sessionID == "" {
+			switch {
+			case sessionID == "":
 				rec.Header().Set("Content-Type", "application/json")
-				rec.Write([]byte(`{"status":"ok"}`))
-			} else if req.Method == http.MethodPost {
+				_, _ = rec.Write([]byte(`{"status":"ok"}`))
+			case req.Method == http.MethodPost:
 				c.handleTelemetryPost(rec, req, sessionID)
-			} else {
+			default:
 				c.server.Notifier.PollForRedirect(rec, sessionID)
 			}
 

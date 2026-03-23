@@ -14,6 +14,7 @@ import (
 // errors out. SIGHUP triggers a live config reload without stopping the proxy.
 func (d *Daemon) Run(ctx context.Context) {
 	d.puppetSvc.Start(ctx)
+	d.notificationSvc.Start(ctx)
 
 	proxyErr := make(chan error, 1)
 	go func() {
@@ -80,10 +81,12 @@ func (d *Daemon) Shutdown(ctx context.Context) {
 		}
 	}
 
-	if d.puppetSvc != nil {
-		if err := d.puppetSvc.Shutdown(ctx); err != nil {
-			d.logger.Error("puppet shutdown error", "error", err)
-		}
+	if err := d.puppetSvc.Shutdown(ctx); err != nil {
+		d.logger.Error("puppet shutdown error", "error", err)
+	}
+
+	if err := d.notificationSvc.Shutdown(ctx); err != nil {
+		d.logger.Error("notification service shutdown error", "error", err)
 	}
 
 	if err := d.db.Close(); err != nil {

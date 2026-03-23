@@ -1,0 +1,106 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
+)
+
+func (r *Router) listNotificationChannels(w http.ResponseWriter, req *http.Request) {
+	channels, err := r.Notifications.List()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list notification channels")
+		return
+	}
+
+	items := make([]sdk.NotificationChannelResponse, len(channels))
+	for i, ch := range channels {
+		items[i] = notificationChannelToResponse(ch)
+	}
+	writeJSON(w, http.StatusOK, sdk.NotificationChannelList{Channels: items})
+}
+
+func (r *Router) createNotificationChannel(w http.ResponseWriter, req *http.Request) {
+	body, ok := decodeAndValidate[sdk.CreateNotificationChannelRequest](w, req)
+	if !ok {
+		return
+	}
+
+	filter, err := parseEventFilter(body.Filter)
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+
+	channel := &aitm.NotificationChannel{
+		Type:       body.Type,
+		URL:        body.URL,
+		AuthHeader: body.AuthHeader,
+		Filter:     filter,
+	}
+
+	if err := r.Notifications.Create(channel); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create notification channel")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, notificationChannelToResponse(channel))
+}
+
+func (r *Router) deleteNotificationChannel(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	if err := r.Notifications.Delete(id); err != nil {
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "notification channel not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to delete notification channel")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (r *Router) testNotificationChannel(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	if err := r.Notifications.Test(req.Context(), id); err != nil {
+		if errors.Is(err, aitm.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "notification channel not found")
+		} else {
+			writeError(w, http.StatusBadGateway, "test delivery failed: "+err.Error())
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func notificationChannelToResponse(ch *aitm.NotificationChannel) sdk.NotificationChannelResponse {
+	filter := make([]string, len(ch.Filter))
+	for i, f := range ch.Filter {
+		filter[i] = string(f)
+	}
+	return sdk.NotificationChannelResponse{
+		ID:        ch.ID,
+		Type:      ch.Type,
+		URL:       ch.URL,
+		Filter:    filter,
+		Enabled:   ch.Enabled,
+		CreatedAt: ch.CreatedAt,
+	}
+}
+
+func parseEventFilter(filter []string) ([]aitm.EventType, error) {
+	if len(filter) == 0 {
+		return nil, nil
+	}
+	result := make([]aitm.EventType, len(filter))
+	for i, name := range filter {
+		eventType := aitm.EventType(name)
+		if !eventType.Valid() {
+			return nil, errors.New("filter: unknown event type: " + name)
+		}
+		result[i] = eventType
+	}
+	return result, nil
+}

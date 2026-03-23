@@ -262,6 +262,24 @@ func (c *Client) UpdateBotThreshold(req UpdateBotThresholdRequest) error {
 	return discard(c, http.MethodPatch, RouteBotThreshold, req)
 }
 
+// --- Notifications ---
+
+func (c *Client) ListNotificationChannels() (*NotificationChannelList, error) {
+	return get[NotificationChannelList](c, RouteNotificationChannels)
+}
+
+func (c *Client) CreateNotificationChannel(req CreateNotificationChannelRequest) (*NotificationChannelResponse, error) {
+	return send[NotificationChannelResponse](c, http.MethodPost, RouteNotificationChannels, req)
+}
+
+func (c *Client) DeleteNotificationChannel(id string) error {
+	return discard(c, http.MethodDelete, ResolveRoute(RouteNotificationChannel, "id", id), nil)
+}
+
+func (c *Client) TestNotificationChannel(id string) error {
+	return discard(c, http.MethodPost, ResolveRoute(RouteNotificationTest, "id", id), nil)
+}
+
 // --- System ---
 
 func (c *Client) Status() (*StatusResponse, error) {

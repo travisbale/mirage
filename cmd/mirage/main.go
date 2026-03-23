@@ -61,6 +61,7 @@ func newRootCmd() *cobra.Command {
 		newPhishletsCmd(),
 		newBlacklistCmd(),
 		newBotguardCmd(),
+		newNotifyCmd(),
 		&cobra.Command{
 			Use:   "version",
 			Short: "Print the version and exit",
