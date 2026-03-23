@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -129,12 +128,9 @@ func (n *Notifier) WaitForRedirect(w http.ResponseWriter, r *http.Request, sessi
 	}
 }
 
-// PollForRedirect is the fallback polling endpoint GET /t/{sid}/done.
+// PollForRedirect is the fallback polling endpoint GET /t/done.
 // Returns {"redirect_url":"..."} if the session is complete, {"done":false} otherwise.
-func (n *Notifier) PollForRedirect(w http.ResponseWriter, r *http.Request) {
-	after, _ := strings.CutPrefix(r.URL.Path, "/t/")
-	sessionID, _ := strings.CutSuffix(after, "/done")
-
+func (n *Notifier) PollForRedirect(w http.ResponseWriter, sessionID string) {
 	w.Header().Set("Content-Type", "application/json")
 	sess, err := n.sessions.Get(sessionID)
 	if err != nil || !sess.IsDone() {

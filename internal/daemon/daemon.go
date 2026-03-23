@@ -310,7 +310,7 @@ func (ini *initializer) initProxy(version string) error {
 		PhishletSvc:    ini.phishletSvc,
 		SessionSvc:     ini.sessionSvc,
 		PuppetSvc:      ini.puppetSvc,
-		TelemetryScore: ini.botGuardSvc,
+		TelemetrySvc:   ini.botGuardSvc,
 		Obfuscator:     ini.obfuscator,
 		Notifier:       ini.notifier,
 		APIHandler:     apiHandler,

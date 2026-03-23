@@ -1,9 +1,8 @@
 "use strict";
 
 // Collects browser fingerprinting signals and POSTs them to the telemetry
-// endpoint. The session ID is injected at runtime by replacing __MIRAGE_SID__.
+// endpoint. The session ID is read from the __ss cookie by the server.
 (function () {
-  var sid = "__MIRAGE_SID__";
   var data = {};
 
   // WebGL renderer/vendor — strong fingerprinting signal.
@@ -59,8 +58,7 @@
   var start = Date.now();
   setTimeout(function () {
     data.collection_ms = Date.now() - start;
-    data.session_id = sid;
-    fetch("/t/" + sid, {
+    fetch("/t", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),

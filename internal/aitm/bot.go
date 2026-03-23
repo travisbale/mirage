@@ -93,6 +93,11 @@ func (s *BotGuardService) ListSignatures() ([]BotSignature, error) {
 	return s.SignatureStore.ListBotSignatures()
 }
 
+// StoreTelemetry persists a telemetry record so ScoreSession can evaluate it later.
+func (s *BotGuardService) StoreTelemetry(t *BotTelemetry) error {
+	return s.Store.StoreBotTelemetry(t)
+}
+
 // Evaluate checks L1 (in-memory JA4 signature) then L2 (telemetry heuristic).
 func (s *BotGuardService) Evaluate(ja4 string, telemetry *BotTelemetry) BotVerdict {
 	if _, ok := s.signatures.Load(ja4); ok {

@@ -164,9 +164,8 @@ func TestPollForRedirect_NotDone(t *testing.T) {
 	}}
 	notifier := redirect.NewNotifier(newTestEventBus(), store, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/t/sid1/done", nil)
 	rec := httptest.NewRecorder()
-	notifier.PollForRedirect(rec, req)
+	notifier.PollForRedirect(rec, "sid1")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rec.Code)
@@ -186,9 +185,8 @@ func TestPollForRedirect_Done(t *testing.T) {
 	}}
 	notifier := redirect.NewNotifier(newTestEventBus(), store, lures, discardLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/t/sid2/done", nil)
 	rec := httptest.NewRecorder()
-	notifier.PollForRedirect(rec, req)
+	notifier.PollForRedirect(rec, "sid2")
 
 	body := rec.Body.String()
 	if !strings.Contains(body, "https://example.com/done") {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
@@ -58,8 +60,8 @@ func (c *connection) serve(ctx context.Context) {
 		req.RemoteAddr = c.rawConn.RemoteAddr().String()
 
 		// WebSocket upgrade — handle directly, no phishing pipeline needed.
-		if isWebSocketUpgrade(req) && strings.HasPrefix(req.URL.Path, "/ws/") {
-			sessionID := strings.TrimPrefix(req.URL.Path, "/ws/")
+		if isWebSocketUpgrade(req) && req.URL.Path == "/ws" {
+			sessionID := c.sessionID(req)
 			if sessionID == "" {
 				continue
 			}
@@ -68,6 +70,25 @@ func (c *connection) serve(ctx context.Context) {
 			c.server.Notifier.WaitForRedirect(rec, req, sessionID)
 
 			return
+		}
+
+		// Telemetry POST and redirect polling — handled by the proxy directly.
+		if req.URL.Path == "/t" || req.URL.Path == "/t/done" {
+			sessionID := c.sessionID(req)
+			rec := newBufferedResponseWriter(c.rawConn)
+
+			if sessionID == "" {
+				rec.Header().Set("Content-Type", "application/json")
+				rec.Write([]byte(`{"status":"ok"}`))
+			} else if req.Method == http.MethodPost {
+				c.handleTelemetryPost(rec, req, sessionID)
+			} else {
+				c.server.Notifier.PollForRedirect(rec, sessionID)
+			}
+
+			rec.flush()
+
+			continue
 		}
 
 		// API requests — route directly to the API handler.
@@ -309,7 +330,7 @@ func (c *connection) shouldSpoof() bool {
 		return false
 	}
 
-	botScore := c.server.TelemetryScore.ScoreSession(c.session.ID)
+	botScore := c.server.TelemetrySvc.ScoreSession(c.session.ID)
 	c.session.BotScore = botScore
 	if botScore > c.server.ScoreThreshold {
 		c.botVerdict = aitm.VerdictSpoof
@@ -426,4 +447,47 @@ func (c *connection) forwardRequest(req *http.Request) (*http.Response, error) {
 	resp.Request = req
 
 	return resp, nil
+}
+
+// sessionID returns the session ID from the connection state if available
+func (c *connection) sessionID(r *http.Request) string {
+	if c.session != nil {
+		return c.session.ID
+	}
+
+	// Fall back to the __ss cookie for requests that arrive on a different TCP connection
+	if cookie, err := r.Cookie(SessionCookieName); err == nil {
+		return cookie.Value
+	}
+	return ""
+}
+
+// handleTelemetryPost parses bot telemetry from POST /t and stores it for later scoring by shouldSpoof.
+func (c *connection) handleTelemetryPost(w http.ResponseWriter, r *http.Request, sessionID string) {
+	body, err := readRequestBody(r)
+	if err != nil || len(body) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+		return
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+		return
+	}
+
+	telemetry := &aitm.BotTelemetry{
+		ID:          uuid.New().String(),
+		SessionID:   sessionID,
+		CollectedAt: time.Now(),
+		Raw:         raw,
+	}
+	if err := c.server.TelemetrySvc.StoreTelemetry(telemetry); err != nil {
+		c.server.Logger.Warn("failed to store telemetry", "session_id", sessionID, "error", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"ok"}`))
 }
