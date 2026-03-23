@@ -42,8 +42,6 @@ Create `/tmp/mirage/miraged.yaml`:
 ```yaml
 domain: phish.local
 external_ipv4: 127.0.0.1
-https_port: 8443
-dns_port: 5353
 data_dir: /tmp/mirage/data
 phishlets_dir: /tmp/mirage/phishlets
 
@@ -53,7 +51,7 @@ api:
   secret_hostname: api.phish.local
 ```
 
-> Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Set `self_signed: true` to skip ACME and use a locally generated CA instead. Using non-standard ports (8443/5353) avoids needing root.
+> Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Set `self_signed: true` to skip ACME and use a locally generated CA instead. Ports default to 443 (HTTPS) and 53 (DNS).
 
 ---
 
@@ -69,7 +67,10 @@ echo "127.0.0.1  login.phish.local  api.phish.local  login.target.local  api.tar
 
 ## 5. Start miraged
 
+Allow the binary to bind privileged ports (443, 53) without root, then start it:
+
 ```bash
+sudo setcap cap_net_bind_service=+ep ./build/miraged
 ./build/miraged --config /tmp/mirage/miraged.yaml --debug
 ```
 
@@ -100,7 +101,7 @@ In a second terminal:
 ```bash
 ./build/mirage server add \
   --alias local \
-  --address https://127.0.0.1:8443 \
+  --address https://127.0.0.1:443 \
   --secret-hostname api.phish.local \
   --cert /tmp/mirage/data/operator.crt \
   --key /tmp/mirage/data/operator.key \
@@ -161,14 +162,22 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
 
 ## Next steps
 
-> **Note:** When a session is created, a tracking cookie (`__ss`) is set in the browser that lasts one week. If a completed session exists for that cookie, the proxy automatically redirects the victim to the real site instead of showing the login page. To test a different phishlet on the same hostname, either delete the completed session (`./build/mirage sessions delete <id>`) or use an incognito window.
+The target site includes two additional login flows you can test with different phishlets.
 
-- Try the API login phishlet: the target site also has a JSON-based login page at
-  `/api-login`. Copy `examples/phishlets/api-login.yaml` into your phishlets
-  directory, enable it, and create a lure. This phishlet captures bearer tokens
-  from JSON responses instead of cookies.
-- Try the multi-host phishlet: copy `examples/phishlets/multi-host.yaml` into your
-  phishlets directory, enable it, and create a lure. This phishlet proxies two
-  subdomains (`login` and `api`) — the login page submits credentials cross-origin
-  to `api.phish.local/auth`, demonstrating multi-host routing and auto_filter
-  domain rewriting.
+> **Tip:** Use an incognito window between tests. The proxy sets a session cookie that lasts one week — completed sessions redirect to the real site instead of showing the login page.
+
+- **API login phishlet** — Captures bearer tokens from JSON responses instead of cookies.
+
+  ```bash
+  cp examples/phishlets/api-login.yaml /tmp/mirage/phishlets/
+  mirage phishlets enable api-login --hostname login.phish.local
+  mirage lures create api-login --redirect https://login.target.local/demo-complete
+  ```
+
+- **Multi-host phishlet** — Proxies two subdomains (`login` and `api`), demonstrating cross-origin auth and multi-host routing.
+
+  ```bash
+  cp examples/phishlets/multi-host.yaml /tmp/mirage/phishlets/
+  mirage phishlets enable multi-host --hostname login.phish.local
+  mirage lures create multi-host --redirect https://login.target.local/demo-complete
+  ```
