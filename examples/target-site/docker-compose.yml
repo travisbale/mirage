@@ -1,5 +1,6 @@
 services:
   target-site:
+    container_name: mirage-target-site
     build: .
     ports:
       - "127.0.0.2:443:443"
