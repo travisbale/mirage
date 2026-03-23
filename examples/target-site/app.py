@@ -191,26 +191,55 @@ def multi_login_page():
     return render_template("multi_login.html")
 
 
+def _cors_preflight():
+    """Handle CORS OPTIONS preflight for cross-origin API endpoints."""
+    resp = make_response()
+    resp.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+    resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Access-Control-Allow-Credentials"] = "true"
+    resp.headers["Access-Control-Max-Age"] = "3600"
+    return resp
+
+
 @app.route("/auth", methods=["POST", "OPTIONS"])
 def auth():
-    """JSON auth endpoint for the api host (api.target.local/auth).
+    """JSON auth endpoint (step 1) for the api host (api.target.local/auth).
 
     The multi-host phishlet routes api.phish.local/auth → api.target.local/auth.
     Supports CORS preflight so the target site works standalone without the proxy.
     """
     if request.method == "OPTIONS":
-        resp = make_response()
-        resp.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
-        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        resp.headers["Access-Control-Allow-Credentials"] = "true"
-        resp.headers["Access-Control-Max-Age"] = "3600"
-        return resp
+        return _cors_preflight()
 
     result = _parse_json_credentials()
     if not isinstance(result, tuple) or len(result) != 2 or isinstance(result[1], int):
         return result
     email, _ = result
+    token = secrets.token_hex(16)
+    pending[token] = email
+    resp = make_response(jsonify({"pending_token": token, "mfa_required": True}))
+    resp.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+    resp.headers["Access-Control-Allow-Credentials"] = "true"
+    return resp
+
+
+@app.route("/auth/mfa", methods=["POST", "OPTIONS"])
+def auth_mfa():
+    """JSON MFA endpoint (step 2) for the api host (api.target.local/auth/mfa)."""
+    if request.method == "OPTIONS":
+        return _cors_preflight()
+
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "expected JSON body"}), 400
+    token = data.get("pending_token", "")
+    code = data.get("code", "").strip()
+    if token not in pending:
+        return jsonify({"error": "invalid or expired pending token"}), 400
+    if len(code) != 6 or not code.isdigit():
+        return jsonify({"error": "invalid code"}), 400
+    email = pending.pop(token)
     return _issue_tokens(email, cross_origin=True)
 
 
