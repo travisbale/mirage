@@ -279,20 +279,18 @@ func TestOverride_ExecutionInBrowser(t *testing.T) {
 func TestTelemetryScript_PostsToEndpoint(t *testing.T) {
 	pool := newTestPool(t)
 
-	// Read the telemetry script and substitute a test session ID.
+	// Read the minified telemetry script.
 	telemetryJS, err := os.ReadFile("../proxy/dist/telemetry.min.js")
 	if err != nil {
 		t.Fatalf("reading telemetry script: %v", err)
 	}
-	sessionID := "test-session-abc123"
-	scriptWithSID := strings.ReplaceAll(string(telemetryJS), `"__MIRAGE_SID__"`, fmt.Sprintf("%q", sessionID))
 
 	// postReceived is closed by the server handler when the telemetry POST arrives.
 	postReceived := make(chan struct{})
 	var receivedBody map[string]any
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == "/t/"+sessionID {
+		if r.Method == http.MethodPost && r.URL.Path == "/t" {
 			body, _ := io.ReadAll(r.Body)
 			json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
@@ -302,7 +300,7 @@ func TestTelemetryScript_PostsToEndpoint(t *testing.T) {
 		// Serve the page with injected telemetry script.
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprintf(w, `<!DOCTYPE html><html><head></head><body>`+
-			`<p>telemetry test</p><script>%s</script></body></html>`, scriptWithSID)
+			`<p>telemetry test</p><script>%s</script></body></html>`, telemetryJS)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -332,7 +330,7 @@ func TestTelemetryScript_PostsToEndpoint(t *testing.T) {
 	select {
 	case <-postReceived:
 	case <-tabCtx.Done():
-		t.Fatal("timed out waiting for telemetry POST at /t/" + sessionID)
+		t.Fatal("timed out waiting for telemetry POST at /t")
 	}
 
 	if err := <-chromedpDone; err != nil && tabCtx.Err() == nil {
@@ -340,12 +338,11 @@ func TestTelemetryScript_PostsToEndpoint(t *testing.T) {
 	}
 
 	if receivedBody == nil {
-		t.Fatal("telemetry POST never arrived at /t/" + sessionID)
+		t.Fatal("telemetry POST never arrived at /t")
 	}
 
 	// Verify the POST contains expected telemetry fields.
 	expectedKeys := []string{
-		"session_id",
 		"screen_width",
 		"screen_height",
 		"language",
@@ -355,10 +352,5 @@ func TestTelemetryScript_PostsToEndpoint(t *testing.T) {
 		if _, ok := receivedBody[key]; !ok {
 			t.Errorf("missing telemetry field %q in POST body", key)
 		}
-	}
-
-	// The session_id in the payload should match what we injected.
-	if sid, _ := receivedBody["session_id"].(string); sid != sessionID {
-		t.Errorf("session_id: got %q, want %q", sid, sessionID)
 	}
 }
