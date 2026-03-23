@@ -39,8 +39,8 @@
 
   <footer class="mt-7 text-xs text-gray-400 flex gap-4">
     <span>&copy; 2025 Vault Inc.</span>
-    <a href="http://login.target.local/terms" class="hover:underline">Terms</a>
-    <a href="http://login.target.local/privacy" class="hover:underline">Privacy</a>
+    <a href="https://login.target.local/terms" class="hover:underline">Terms</a>
+    <a href="https://login.target.local/privacy" class="hover:underline">Privacy</a>
   </footer>
 
   <script>
@@ -55,7 +55,7 @@
       // Cross-origin POST to the API host. In the real site this goes directly
       // to api.target.local. Through the proxy, auto_filter rewrites this URL
       // to api.phish.local so the request is intercepted.
-      fetch("http://api.target.local/auth", {
+      fetch("https://api.target.local/auth", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         credentials: "include",
