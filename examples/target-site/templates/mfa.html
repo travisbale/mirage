@@ -1,21 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Verify your identity — Vault</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen bg-gray-100 flex flex-col items-center justify-center font-sans text-gray-900">
-  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-10 w-full max-w-sm">
-    <div class="flex items-center gap-2.5 mb-7">
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" rx="8" fill="#6366f1"/>
-        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
-      </svg>
-      <span class="text-xl font-bold tracking-tight">Vault</span>
-    </div>
+{% extends "card.html" %}
 
+{% block title %}Verify your identity — Vault{% endblock %}
+
+{% block card %}
     <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mb-5">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 11a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm0-9a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3z" fill="#6366f1"/>
@@ -45,8 +32,8 @@
     </form>
 
     <p class="text-center text-sm text-gray-500">Didn't receive a code? <a href="#" class="text-indigo-500 hover:underline">Resend</a></p>
-  </div>
+{% endblock %}
 
-  <footer class="mt-7 text-xs text-gray-400">&copy; 2025 Vault Inc. All rights reserved.</footer>
-</body>
-</html>
+{% block footer %}
+<span>&copy; 2025 Vault Inc. All rights reserved.</span>
+{% endblock %}

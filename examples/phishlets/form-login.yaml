@@ -89,6 +89,7 @@ credentials:
       type:   post
 
 login:
+  path: /login
   domain: login.target.local
-  # No path restriction — credential rules fire on any POST to the login domain,
-  # covering both /login (email+password) and /mfa (totp_code).
+  # No path restriction on domain — credential rules fire on any POST to the
+  # login domain, covering both /login (email+password) and /mfa (totp_code).

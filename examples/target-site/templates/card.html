@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block body_class %}flex flex-col items-center justify-center{% endblock %}
+
+{% block body %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-10 w-full {% block card_width %}max-w-sm{% endblock %}">
+    <div class="flex items-center gap-2.5 mb-7">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="8" fill="#6366f1"/>
+        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
+      </svg>
+      <span class="text-xl font-bold tracking-tight">Vault</span>
+    </div>
+
+    {% block card %}{% endblock %}
+  </div>
+
+  {% block below_card %}{% endblock %}
+
+  <footer class="mt-7 text-xs text-gray-400 flex gap-4">
+    {% block footer %}
+    <span>&copy; 2025 Vault Inc.</span>
+    <a href="http://login.target.local/terms" class="hover:underline">Terms</a>
+    <a href="http://login.target.local/privacy" class="hover:underline">Privacy</a>
+    {% endblock %}
+  </footer>
+{% endblock %}
