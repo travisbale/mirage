@@ -18,7 +18,7 @@ func (r *Router) listLures(w http.ResponseWriter, req *http.Request) {
 
 	all, err := r.Lures.List()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list lures")
+		r.writeError(w, http.StatusInternalServerError, "failed to list lures", err)
 		return
 	}
 
@@ -53,16 +53,16 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 	phishlet, err := r.Phishlets.Get(body.Phishlet)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusBadRequest, "phishlet not found")
+			r.writeError(w, http.StatusBadRequest, "phishlet not found", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+			r.writeError(w, http.StatusInternalServerError, "failed to get phishlet", err)
 		}
 
 		return
 	}
 
 	if !phishlet.Enabled {
-		writeError(w, http.StatusBadRequest, "phishlet is not enabled")
+		r.writeError(w, http.StatusBadRequest, "phishlet is not enabled", nil)
 		return
 	}
 
@@ -82,9 +82,9 @@ func (r *Router) createLure(w http.ResponseWriter, req *http.Request) {
 
 	if err := r.Lures.Create(lure); err != nil {
 		if errors.Is(err, aitm.ErrConflict) {
-			writeError(w, http.StatusConflict, "lure already exists")
+			r.writeError(w, http.StatusConflict, "lure already exists", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to create lure")
+			r.writeError(w, http.StatusInternalServerError, "failed to create lure", err)
 		}
 
 		return
@@ -99,9 +99,9 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 	lure, err := r.Lures.Get(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "lure does not exist")
+			r.writeError(w, http.StatusNotFound, "lure does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to get lure")
+			r.writeError(w, http.StatusInternalServerError, "failed to get lure", err)
 		}
 
 		return
@@ -122,7 +122,7 @@ func (r *Router) updateLure(w http.ResponseWriter, req *http.Request) {
 		lure.SpoofURL = *body.SpoofURL
 	}
 	if err := r.Lures.Update(lure); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update lure")
+		r.writeError(w, http.StatusInternalServerError, "failed to update lure", err)
 		return
 	}
 
@@ -134,9 +134,9 @@ func (r *Router) deleteLure(w http.ResponseWriter, req *http.Request) {
 
 	if err := r.Lures.Delete(id); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "lure does not exist")
+			r.writeError(w, http.StatusNotFound, "lure does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to delete lure")
+			r.writeError(w, http.StatusInternalServerError, "failed to delete lure", err)
 		}
 		return
 	}
@@ -150,9 +150,9 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 	lure, err := r.Lures.Get(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "lure does not exist")
+			r.writeError(w, http.StatusNotFound, "lure does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to get lure")
+			r.writeError(w, http.StatusInternalServerError, "failed to get lure", err)
 		}
 
 		return
@@ -160,13 +160,13 @@ func (r *Router) generateLureURL(w http.ResponseWriter, req *http.Request) {
 
 	var body sdk.GenerateURLRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil && req.ContentLength > 0 {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body")
+		r.writeError(w, http.StatusUnprocessableEntity, "invalid request body", err)
 		return
 	}
 
 	url, err := r.Lures.URLWithParams(lure, r.HTTPSPort, body.Params)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to generate lure URL")
+		r.writeError(w, http.StatusInternalServerError, "failed to generate lure URL", err)
 		return
 	}
 
@@ -183,16 +183,16 @@ func (r *Router) pauseLure(w http.ResponseWriter, req *http.Request) {
 
 	duration, err := time.ParseDuration(body.Duration)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "failed to parse duration")
+		r.writeError(w, http.StatusUnprocessableEntity, "failed to parse duration", err)
 		return
 	}
 
 	lure, err := r.Lures.Pause(id, duration)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "lure does not exist")
+			r.writeError(w, http.StatusNotFound, "lure does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to pause lure")
+			r.writeError(w, http.StatusInternalServerError, "failed to pause lure", err)
 		}
 		return
 	}
@@ -206,9 +206,9 @@ func (r *Router) unpauseLure(w http.ResponseWriter, req *http.Request) {
 	lure, err := r.Lures.Unpause(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "lure does not exist")
+			r.writeError(w, http.StatusNotFound, "lure does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to unpause lure")
+			r.writeError(w, http.StatusInternalServerError, "failed to unpause lure", err)
 		}
 		return
 	}

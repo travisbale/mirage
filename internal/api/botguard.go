@@ -13,7 +13,7 @@ func (r *Router) listBotSignatures(w http.ResponseWriter, req *http.Request) {
 	limit, offset := parsePagination(req)
 	sigs, err := r.Botguard.ListSignatures()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list signatures")
+		r.writeError(w, http.StatusInternalServerError, "failed to list signatures", err)
 		return
 	}
 
@@ -49,9 +49,9 @@ func (r *Router) addBotSignature(w http.ResponseWriter, req *http.Request) {
 
 	if err := r.Botguard.AddSignature(signature); err != nil {
 		if errors.Is(err, aitm.ErrConflict) {
-			writeError(w, http.StatusConflict, "signature already exists")
+			r.writeError(w, http.StatusConflict, "signature already exists", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to add signature")
+			r.writeError(w, http.StatusInternalServerError, "failed to add signature", err)
 		}
 		return
 	}
@@ -67,9 +67,9 @@ func (r *Router) removeBotSignature(w http.ResponseWriter, req *http.Request) {
 	hash := req.PathValue("hash")
 	if err := r.Botguard.RemoveSignature(hash); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "signature does not exist")
+			r.writeError(w, http.StatusNotFound, "signature does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to remove signature")
+			r.writeError(w, http.StatusInternalServerError, "failed to remove signature", err)
 		}
 		return
 	}

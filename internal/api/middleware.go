@@ -14,7 +14,7 @@ type operatorKey struct{}
 func (r *Router) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.TLS == nil || len(req.TLS.VerifiedChains) == 0 {
-			writeError(w, http.StatusUnauthorized, "client certificate required")
+			r.writeError(w, http.StatusUnauthorized, "client certificate required", nil)
 			return
 		}
 

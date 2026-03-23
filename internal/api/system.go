@@ -16,7 +16,7 @@ func (r *Router) getStatus(w http.ResponseWriter, req *http.Request) {
 
 	total, err := r.Sessions.Count(aitm.SessionFilter{})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get session count")
+		r.writeError(w, http.StatusInternalServerError, "failed to get session count", err)
 		return
 	}
 	active, err := r.Sessions.Count(aitm.SessionFilter{
@@ -24,7 +24,7 @@ func (r *Router) getStatus(w http.ResponseWriter, req *http.Request) {
 		After:          time.Now().Add(-time.Hour),
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get active session count")
+		r.writeError(w, http.StatusInternalServerError, "failed to get active session count", err)
 		return
 	}
 
@@ -42,11 +42,11 @@ func (r *Router) getStatus(w http.ResponseWriter, req *http.Request) {
 func (r *Router) reload(w http.ResponseWriter, req *http.Request) {
 	proc, err := os.FindProcess(os.Getpid())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "process not found")
+		r.writeError(w, http.StatusInternalServerError, "process not found", err)
 		return
 	}
 	if err := proc.Signal(syscall.SIGHUP); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to send reload signal")
+		r.writeError(w, http.StatusInternalServerError, "failed to send reload signal", err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"message": "reload signal sent"})

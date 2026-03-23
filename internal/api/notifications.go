@@ -11,7 +11,7 @@ import (
 func (r *Router) listNotificationChannels(w http.ResponseWriter, req *http.Request) {
 	channels, err := r.Notifications.List()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list notification channels")
+		r.writeError(w, http.StatusInternalServerError, "failed to list notification channels", err)
 		return
 	}
 
@@ -41,7 +41,7 @@ func (r *Router) createNotificationChannel(w http.ResponseWriter, req *http.Requ
 	}
 
 	if err := r.Notifications.Create(channel); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		r.writeError(w, http.StatusUnprocessableEntity, err.Error(), err)
 		return
 	}
 
@@ -52,9 +52,9 @@ func (r *Router) deleteNotificationChannel(w http.ResponseWriter, req *http.Requ
 	id := req.PathValue("id")
 	if err := r.Notifications.Delete(id); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "notification channel not found")
+			r.writeError(w, http.StatusNotFound, "notification channel not found", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to delete notification channel")
+			r.writeError(w, http.StatusInternalServerError, "failed to delete notification channel", err)
 		}
 		return
 	}
@@ -65,9 +65,9 @@ func (r *Router) testNotificationChannel(w http.ResponseWriter, req *http.Reques
 	id := req.PathValue("id")
 	if err := r.Notifications.Test(req.Context(), id); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "notification channel not found")
+			r.writeError(w, http.StatusNotFound, "notification channel not found", err)
 		} else {
-			writeError(w, http.StatusBadGateway, "test delivery failed: "+err.Error())
+			r.writeError(w, http.StatusBadGateway, "test delivery failed: "+err.Error(), err)
 		}
 		return
 	}

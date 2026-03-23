@@ -13,6 +13,9 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	json.NewEncoder(w).Encode(payload)
 }
 
-func writeError(w http.ResponseWriter, status int, message string) {
+func (r *Router) writeError(w http.ResponseWriter, status int, message string, err error) {
+	if status >= 500 && err != nil {
+		r.Logger.Error(message, "error", err)
+	}
 	writeJSON(w, status, sdk.ErrorResponse{Error: message})
 }

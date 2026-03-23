@@ -38,7 +38,7 @@ func (r *Router) addBlacklistEntry(w http.ResponseWriter, req *http.Request) {
 func (r *Router) removeBlacklistEntry(w http.ResponseWriter, req *http.Request) {
 	entry, err := url.PathUnescape(req.PathValue("entry"))
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid entry")
+		r.writeError(w, http.StatusUnprocessableEntity, "invalid entry", err)
 		return
 	}
 	r.Blacklist.Unblock(entry)

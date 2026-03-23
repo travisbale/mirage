@@ -12,9 +12,9 @@ func (r *Router) getPhishlet(w http.ResponseWriter, req *http.Request) {
 	phishlet, err := r.Phishlets.Get(req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "phishlet not found")
+			r.writeError(w, http.StatusNotFound, "phishlet not found", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to get phishlet")
+			r.writeError(w, http.StatusInternalServerError, "failed to get phishlet", err)
 		}
 
 		return
@@ -28,7 +28,7 @@ func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 
 	phishlets, err := r.Phishlets.List()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list phishlets")
+		r.writeError(w, http.StatusInternalServerError, "failed to list phishlets", err)
 		return
 	}
 
@@ -58,11 +58,11 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, aitm.ErrHostnameRequired):
-			writeError(w, http.StatusUnprocessableEntity, "hostname is required")
+			r.writeError(w, http.StatusUnprocessableEntity, "hostname is required", err)
 		case errors.Is(err, aitm.ErrHostnameConflict):
-			writeError(w, http.StatusConflict, "hostname is already in use by another phishlet")
+			r.writeError(w, http.StatusConflict, "hostname is already in use by another phishlet", err)
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to enable phishlet")
+			r.writeError(w, http.StatusInternalServerError, "failed to enable phishlet", err)
 		}
 
 		return
@@ -75,9 +75,9 @@ func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 	p, err := r.Phishlets.Disable(req.Context(), req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "phishlet does not exist")
+			r.writeError(w, http.StatusNotFound, "phishlet does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to disable phishlet")
+			r.writeError(w, http.StatusInternalServerError, "failed to disable phishlet", err)
 		}
 
 		return
@@ -90,9 +90,9 @@ func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
 	p, err := r.Phishlets.Hide(req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "phishlet does not exist")
+			r.writeError(w, http.StatusNotFound, "phishlet does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to hide phishlet")
+			r.writeError(w, http.StatusInternalServerError, "failed to hide phishlet", err)
 		}
 
 		return
@@ -105,9 +105,9 @@ func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
 	p, err := r.Phishlets.Unhide(req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "phishlet does not exist")
+			r.writeError(w, http.StatusNotFound, "phishlet does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to unhide phishlet")
+			r.writeError(w, http.StatusInternalServerError, "failed to unhide phishlet", err)
 		}
 
 		return

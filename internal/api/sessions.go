@@ -40,7 +40,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 
 	sessions, err := r.Sessions.List(filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list sessions")
+		r.writeError(w, http.StatusInternalServerError, "failed to list sessions", err)
 		return
 	}
 
@@ -49,7 +49,7 @@ func (r *Router) listSessions(w http.ResponseWriter, req *http.Request) {
 	countFilter.Offset = 0
 	total, err := r.Sessions.Count(countFilter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to count sessions")
+		r.writeError(w, http.StatusInternalServerError, "failed to count sessions", err)
 		return
 	}
 
@@ -70,9 +70,9 @@ func (r *Router) getSession(w http.ResponseWriter, req *http.Request) {
 	sess, err := r.Sessions.Get(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "session does not exist")
+			r.writeError(w, http.StatusNotFound, "session does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to get session")
+			r.writeError(w, http.StatusInternalServerError, "failed to get session", err)
 		}
 		return
 	}
@@ -83,9 +83,9 @@ func (r *Router) deleteSession(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	if err := r.Sessions.Delete(id); err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "session does not exist")
+			r.writeError(w, http.StatusNotFound, "session does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to delete session")
+			r.writeError(w, http.StatusInternalServerError, "failed to delete session", err)
 		}
 		return
 	}
@@ -97,9 +97,9 @@ func (r *Router) exportSessionCookies(w http.ResponseWriter, req *http.Request) 
 	data, err := r.Sessions.ExportCookiesJSON(id)
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "session does not exist")
+			r.writeError(w, http.StatusNotFound, "session does not exist", err)
 		} else {
-			writeError(w, http.StatusInternalServerError, "failed to export session")
+			r.writeError(w, http.StatusInternalServerError, "failed to export session", err)
 		}
 		return
 	}
@@ -111,7 +111,7 @@ func (r *Router) exportSessionCookies(w http.ResponseWriter, req *http.Request) 
 func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 	sse, ok := newSSEWriter(w)
 	if !ok {
-		writeError(w, http.StatusInternalServerError, "streaming not supported")
+		r.writeError(w, http.StatusInternalServerError, "streaming not supported", nil)
 		return
 	}
 

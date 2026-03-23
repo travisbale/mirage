@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/travisbale/mirage/sdk"
 )
 
 type validatable interface {
@@ -16,11 +18,11 @@ type validatable interface {
 func decodeAndValidate[T validatable](w http.ResponseWriter, req *http.Request) (T, bool) {
 	var body T
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "invalid request body")
+		writeJSON(w, http.StatusUnprocessableEntity, sdk.ErrorResponse{Error: "invalid request body"})
 		return body, false
 	}
 	if err := body.Validate(); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		writeJSON(w, http.StatusUnprocessableEntity, sdk.ErrorResponse{Error: err.Error()})
 		return body, false
 	}
 	return body, true
@@ -57,7 +59,7 @@ func paginateSlice[T any](items []T, limit, offset int) []T {
 func parseRFC3339Param(w http.ResponseWriter, name, value string) (time.Time, bool) {
 	t, err := time.Parse(time.RFC3339, value)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, name+": invalid RFC3339 timestamp")
+		writeJSON(w, http.StatusBadRequest, sdk.ErrorResponse{Error: name + ": invalid RFC3339 timestamp"})
 		return time.Time{}, false
 	}
 	return t, true
