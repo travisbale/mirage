@@ -2,4 +2,4 @@ services:
   target-site:
     build: .
     ports:
-      - "443:443"
+      - "127.0.0.2:443:443"

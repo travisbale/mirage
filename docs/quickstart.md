@@ -60,8 +60,11 @@ api:
 Since there's no real DNS, point all hostnames at localhost:
 
 ```bash
-echo "127.0.0.1  login.phish.local  api.phish.local  login.target.local  api.target.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1  login.phish.local  api.phish.local" | sudo tee -a /etc/hosts
+echo "127.0.0.2  login.target.local  api.target.local" | sudo tee -a /etc/hosts
 ```
+
+> The target site binds to `127.0.0.2:443` and the proxy to `127.0.0.1:443`, avoiding port conflicts while keeping both on standard ports.
 
 ---
 
