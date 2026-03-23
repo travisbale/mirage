@@ -25,6 +25,7 @@ import (
 	"github.com/travisbale/mirage/internal/redirect"
 	"github.com/travisbale/mirage/internal/spoof"
 	"github.com/travisbale/mirage/internal/store/sqlite"
+	"github.com/travisbale/mirage/sdk"
 )
 
 type scriptObfuscator interface {
@@ -349,7 +350,7 @@ func (ini *initializer) initWatcher() {
 		ini.logger.Warn("phishlet watcher unavailable — live reload disabled", "error", err)
 		return
 	}
-	ini.phishletReloadSub = aitm.SubscribeFunc(ini.bus, aitm.EventPhishletReloaded, func(ev aitm.Event) {
+	ini.phishletReloadSub = aitm.SubscribeFunc(ini.bus, sdk.EventPhishletReloaded, func(ev aitm.Event) {
 		if p, ok := ev.Payload.(*aitm.Phishlet); ok {
 			ini.phishletSvc.Register(p)
 		}

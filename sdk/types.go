@@ -3,8 +3,43 @@ package sdk
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
+
+// EventType identifies a domain event.
+type EventType string
+
+const (
+	EventSessionCreated   EventType = "session.created"
+	EventCredsCaptured    EventType = "session.creds_captured"
+	EventTokensCaptured   EventType = "session.tokens_captured"
+	EventSessionCompleted EventType = "session.completed"
+	EventBotDetected      EventType = "botguard.detected"
+	EventPhishletEnabled  EventType = "phishlet.enabled"
+	EventPhishletReloaded EventType = "phishlet.reloaded"
+	EventDNSRecordSynced  EventType = "dns.synced"
+)
+
+// AllEventTypes returns the full set of known event types. Add new event
+// types here — Valid() and the notification dispatcher derive from this list.
+func AllEventTypes() []EventType {
+	return []EventType{
+		EventSessionCreated,
+		EventCredsCaptured,
+		EventTokensCaptured,
+		EventSessionCompleted,
+		EventBotDetected,
+		EventPhishletEnabled,
+		EventPhishletReloaded,
+		EventDNSRecordSynced,
+	}
+}
+
+// Valid reports whether t is a known event type.
+func (t EventType) Valid() bool {
+	return slices.Contains(AllEventTypes(), t)
+}
 
 // ErrorResponse is returned by the API for all error responses.
 type ErrorResponse struct {
@@ -39,17 +74,9 @@ type SessionResponse struct {
 	CompletedAt  *time.Time                   `json:"completed_at"`
 }
 
-// Session event types delivered by StreamSessions.
-const (
-	EventSessionCreated        = "session.created"
-	EventSessionCredsCaptured  = "session.creds_captured"
-	EventSessionTokensCaptured = "session.tokens_captured"
-	EventSessionCompleted      = "session.completed"
-)
-
 // SessionEvent is delivered by StreamSessions for each lifecycle event.
 type SessionEvent struct {
-	Type    string // one of the EventSession* constants
+	Type    EventType
 	Session SessionResponse
 }
 

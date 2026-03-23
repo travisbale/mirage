@@ -7,6 +7,8 @@ import (
 	"net"
 	"regexp"
 	"strings"
+
+	"github.com/travisbale/mirage/sdk"
 )
 
 // phishletStore is the persistence interface required by PhishletService.
@@ -325,7 +327,7 @@ func (s *PhishletService) Enable(ctx context.Context, name, hostname, dnsProvide
 		return nil, fmt.Errorf("dns reconcile: %w", err)
 	}
 	s.resolver.register(p)
-	s.bus.Publish(Event{Type: EventPhishletEnabled, Payload: p})
+	s.bus.Publish(Event{Type: sdk.EventPhishletEnabled, Payload: p})
 	return p, nil
 }
 

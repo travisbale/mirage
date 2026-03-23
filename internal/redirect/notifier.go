@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 type redirectMsg struct {
@@ -26,7 +27,7 @@ type redirectMsg struct {
 }
 
 type eventSubscriber interface {
-	Subscribe(eventType aitm.EventType) <-chan aitm.Event
+	Subscribe(eventType sdk.EventType) <-chan aitm.Event
 }
 
 type sessionGetter interface {
@@ -66,7 +67,7 @@ func NewNotifier(bus eventSubscriber, sessions sessionGetter, lures lureGetter, 
 }
 
 func (n *Notifier) listenCompletions(bus eventSubscriber) {
-	completionCh := bus.Subscribe(aitm.EventSessionCompleted)
+	completionCh := bus.Subscribe(sdk.EventSessionCompleted)
 	for event := range completionCh {
 		session, ok := event.Payload.(*aitm.Session)
 		if !ok {

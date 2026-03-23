@@ -17,7 +17,7 @@ func TestNotifications_RoundTrip(t *testing.T) {
 		Type:       sdk.ChannelSlack,
 		URL:        "https://hooks.slack.com/services/T/B/xxx",
 		AuthHeader: "",
-		Filter:     []aitm.EventType{aitm.EventSessionCompleted, aitm.EventCredsCaptured},
+		Filter:     []sdk.EventType{sdk.EventSessionCompleted, sdk.EventCredsCaptured},
 		Enabled:    true,
 	}
 

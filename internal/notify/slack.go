@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 // SlackChannel delivers notifications as Slack Block Kit messages.
@@ -90,19 +90,19 @@ func field(label, value string) slackText {
 
 func (s *SlackChannel) buildMessage(notification Notification) slackMessage {
 	switch notification.Event {
-	case aitm.EventSessionCreated:
+	case sdk.EventSessionCreated:
 		return s.buildSessionCreated(notification)
-	case aitm.EventCredsCaptured:
+	case sdk.EventCredsCaptured:
 		return s.buildCredsCaptured(notification)
-	case aitm.EventTokensCaptured:
+	case sdk.EventTokensCaptured:
 		return s.buildTokensCaptured(notification)
-	case aitm.EventSessionCompleted:
+	case sdk.EventSessionCompleted:
 		return s.buildSessionCompleted(notification)
-	case aitm.EventBotDetected:
+	case sdk.EventBotDetected:
 		return s.buildBotDetected(notification)
-	case aitm.EventDNSRecordSynced:
+	case sdk.EventDNSRecordSynced:
 		return s.buildDNSSynced(notification)
-	case aitm.EventPhishletEnabled, aitm.EventPhishletReloaded:
+	case sdk.EventPhishletEnabled, sdk.EventPhishletReloaded:
 		return s.buildPhishletEvent(notification)
 	default:
 		return slackMessage{Text: fmt.Sprintf("Mirage event: %s", notification.Event)}
@@ -214,7 +214,7 @@ func (s *SlackChannel) buildDNSSynced(notification Notification) slackMessage {
 
 func (s *SlackChannel) buildPhishletEvent(notification Notification) slackMessage {
 	verb := "Enabled"
-	if notification.Event == aitm.EventPhishletReloaded {
+	if notification.Event == sdk.EventPhishletReloaded {
 		verb = "Reloaded"
 	}
 	return newBlockMessage(

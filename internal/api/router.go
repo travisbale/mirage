@@ -60,8 +60,8 @@ type notificationManager interface {
 }
 
 type eventBus interface {
-	Subscribe(eventType aitm.EventType) <-chan aitm.Event
-	Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event)
+	Subscribe(eventType sdk.EventType) <-chan aitm.Event
+	Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event)
 }
 
 // Router is the HTTP handler for the management API.

@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 // Run starts the proxy and blocks until the context is cancelled or the proxy
@@ -72,7 +72,7 @@ func (d *Daemon) Reload() error {
 // services that perform cleanup (puppet, obfuscator).
 func (d *Daemon) Shutdown(ctx context.Context) {
 	if d.phishletReloadSub != nil {
-		d.bus.Unsubscribe(aitm.EventPhishletReloaded, d.phishletReloadSub)
+		d.bus.Unsubscribe(sdk.EventPhishletReloaded, d.phishletReloadSub)
 	}
 
 	if d.watcher != nil {

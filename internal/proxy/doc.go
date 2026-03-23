@@ -62,7 +62,7 @@ After forwarding upstream:
 # Post-capture redirect flow
 
 When token extraction marks a session complete it publishes
-[aitm.EventSessionCompleted]. The redirect notifier (see internal/redirect)
+[sdk.EventSessionCompleted]. The redirect notifier (see internal/redirect)
 subscribes to this event and fans the redirect URL out to all WebSocket
 connections waiting on that session ID. On the next request, handleRequest
 detects the completed session and returns a 302 redirect to the lure's

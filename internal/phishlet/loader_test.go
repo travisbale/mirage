@@ -10,6 +10,7 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/events"
 	"github.com/travisbale/mirage/internal/phishlet"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func TestLoader(t *testing.T) {
@@ -180,8 +181,8 @@ func TestWatcher(t *testing.T) {
 	writeFile(t, phishletPath, minimalYAML("watch-initial"))
 
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(aitm.EventPhishletReloaded)
-	defer bus.Unsubscribe(aitm.EventPhishletReloaded, ch)
+	ch := bus.Subscribe(sdk.EventPhishletReloaded)
+	defer bus.Unsubscribe(sdk.EventPhishletReloaded, ch)
 
 	w, err := phishlet.NewWatcher(dir, bus)
 	if err != nil {

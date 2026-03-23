@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func TestBuildNotification_Session(t *testing.T) {
@@ -19,15 +20,15 @@ func TestBuildNotification_Session(t *testing.T) {
 	}
 
 	event := aitm.Event{
-		Type:       aitm.EventCredsCaptured,
+		Type:       sdk.EventCredsCaptured,
 		OccurredAt: time.Now(),
 		Payload:    session,
 	}
 
 	notification := buildNotification(event)
 
-	if notification.Event != aitm.EventCredsCaptured {
-		t.Errorf("Event = %q, want %q", notification.Event, aitm.EventCredsCaptured)
+	if notification.Event != sdk.EventCredsCaptured {
+		t.Errorf("Event = %q, want %q", notification.Event, sdk.EventCredsCaptured)
 	}
 	if notification.Session == nil {
 		t.Fatal("Session is nil")
@@ -42,7 +43,7 @@ func TestBuildNotification_Session(t *testing.T) {
 
 func TestBuildNotification_BotDetected(t *testing.T) {
 	event := aitm.Event{
-		Type:       aitm.EventBotDetected,
+		Type:       sdk.EventBotDetected,
 		OccurredAt: time.Now(),
 		Payload: aitm.BotDetectedPayload{
 			SessionID:  "sess-1",
@@ -65,7 +66,7 @@ func TestBuildNotification_BotDetected(t *testing.T) {
 
 func TestBuildNotification_DNSSynced(t *testing.T) {
 	event := aitm.Event{
-		Type:       aitm.EventDNSRecordSynced,
+		Type:       sdk.EventDNSRecordSynced,
 		OccurredAt: time.Now(),
 		Payload: aitm.DNSSyncPayload{
 			Zone:     "phish.example.com",
@@ -88,7 +89,7 @@ func TestBuildNotification_DNSSynced(t *testing.T) {
 
 func TestBuildNotification_Phishlet(t *testing.T) {
 	event := aitm.Event{
-		Type:       aitm.EventPhishletEnabled,
+		Type:       sdk.EventPhishletEnabled,
 		OccurredAt: time.Now(),
 		Payload:    &aitm.Phishlet{Name: "microsoft"},
 	}

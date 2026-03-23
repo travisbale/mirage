@@ -8,6 +8,7 @@ import (
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/events"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func TestPublishReachesAllSubscribers(t *testing.T) {
@@ -16,16 +17,16 @@ func TestPublishReachesAllSubscribers(t *testing.T) {
 	const n = 5
 	chs := make([]<-chan aitm.Event, n)
 	for i := range n {
-		chs[i] = bus.Subscribe(aitm.EventSessionCreated)
+		chs[i] = bus.Subscribe(sdk.EventSessionCreated)
 	}
 
-	bus.Publish(aitm.Event{Type: aitm.EventSessionCreated, Payload: "test-session-id"})
+	bus.Publish(aitm.Event{Type: sdk.EventSessionCreated, Payload: "test-session-id"})
 
 	for i, ch := range chs {
 		select {
 		case e := <-ch:
-			if e.Type != aitm.EventSessionCreated {
-				t.Errorf("subscriber %d: got type %q, want %q", i, e.Type, aitm.EventSessionCreated)
+			if e.Type != sdk.EventSessionCreated {
+				t.Errorf("subscriber %d: got type %q, want %q", i, e.Type, sdk.EventSessionCreated)
 			}
 			if e.OccurredAt.IsZero() {
 				t.Errorf("subscriber %d: OccurredAt not set", i)
@@ -39,10 +40,10 @@ func TestPublishReachesAllSubscribers(t *testing.T) {
 func TestPublishDoesNotReachOtherTypes(t *testing.T) {
 	bus := events.NewBus(8)
 
-	wrongCh := bus.Subscribe(aitm.EventBotDetected)
-	rightCh := bus.Subscribe(aitm.EventSessionCreated)
+	wrongCh := bus.Subscribe(sdk.EventBotDetected)
+	rightCh := bus.Subscribe(sdk.EventSessionCreated)
 
-	bus.Publish(aitm.Event{Type: aitm.EventSessionCreated})
+	bus.Publish(aitm.Event{Type: sdk.EventSessionCreated})
 
 	select {
 	case <-rightCh:
@@ -62,15 +63,15 @@ func TestSlowSubscriberDoesNotBlockFastPublisher(t *testing.T) {
 	const bufSize = 4
 	bus := events.NewBus(bufSize)
 
-	_ = bus.Subscribe(aitm.EventSessionCreated) // never reads
+	_ = bus.Subscribe(sdk.EventSessionCreated) // never reads
 
 	for range bufSize {
-		bus.Publish(aitm.Event{Type: aitm.EventSessionCreated})
+		bus.Publish(aitm.Event{Type: sdk.EventSessionCreated})
 	}
 
 	done := make(chan struct{})
 	go func() {
-		bus.Publish(aitm.Event{Type: aitm.EventSessionCreated})
+		bus.Publish(aitm.Event{Type: sdk.EventSessionCreated})
 		close(done)
 	}()
 
@@ -83,17 +84,17 @@ func TestSlowSubscriberDoesNotBlockFastPublisher(t *testing.T) {
 
 func TestUnsubscribeStopsDelivery(t *testing.T) {
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(aitm.EventTokensCaptured)
+	ch := bus.Subscribe(sdk.EventTokensCaptured)
 
-	bus.Publish(aitm.Event{Type: aitm.EventTokensCaptured, Payload: "a"})
+	bus.Publish(aitm.Event{Type: sdk.EventTokensCaptured, Payload: "a"})
 	select {
 	case <-ch:
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("first event did not arrive")
 	}
 
-	bus.Unsubscribe(aitm.EventTokensCaptured, ch)
-	bus.Publish(aitm.Event{Type: aitm.EventTokensCaptured, Payload: "b"})
+	bus.Unsubscribe(sdk.EventTokensCaptured, ch)
+	bus.Publish(aitm.Event{Type: sdk.EventTokensCaptured, Payload: "b"})
 
 	time.Sleep(5 * time.Millisecond)
 
@@ -108,7 +109,7 @@ func TestUnsubscribeStopsDelivery(t *testing.T) {
 
 func TestUnsubscribeIsIdempotent(t *testing.T) {
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(aitm.EventBotDetected)
+	ch := bus.Subscribe(sdk.EventBotDetected)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -116,8 +117,8 @@ func TestUnsubscribeIsIdempotent(t *testing.T) {
 		}
 	}()
 
-	bus.Unsubscribe(aitm.EventBotDetected, ch)
-	bus.Unsubscribe(aitm.EventBotDetected, ch)
+	bus.Unsubscribe(sdk.EventBotDetected, ch)
+	bus.Unsubscribe(sdk.EventBotDetected, ch)
 }
 
 func TestUnsubscribeNeverSubscribedChannel(t *testing.T) {
@@ -130,7 +131,7 @@ func TestUnsubscribeNeverSubscribedChannel(t *testing.T) {
 		}
 	}()
 
-	bus.Unsubscribe(aitm.EventPhishletReloaded, foreign)
+	bus.Unsubscribe(sdk.EventPhishletReloaded, foreign)
 }
 
 func TestSubscribeFuncDeliversEvents(t *testing.T) {
@@ -140,14 +141,14 @@ func TestSubscribeFuncDeliversEvents(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(3)
 
-	ch := aitm.SubscribeFunc(bus, aitm.EventCredsCaptured, func(e aitm.Event) {
+	ch := aitm.SubscribeFunc(bus, sdk.EventCredsCaptured, func(e aitm.Event) {
 		count.Add(1)
 		wg.Done()
 	})
-	defer bus.Unsubscribe(aitm.EventCredsCaptured, ch)
+	defer bus.Unsubscribe(sdk.EventCredsCaptured, ch)
 
 	for range 3 {
-		bus.Publish(aitm.Event{Type: aitm.EventCredsCaptured})
+		bus.Publish(aitm.Event{Type: sdk.EventCredsCaptured})
 	}
 
 	done := make(chan struct{})
@@ -166,7 +167,7 @@ func TestSubscribeFuncDeliversEvents(t *testing.T) {
 func TestSubscribeFuncStopsAfterUnsubscribe(t *testing.T) {
 	bus := events.NewBus(8)
 
-	ch := aitm.SubscribeFunc(bus, aitm.EventDNSRecordSynced, func(e aitm.Event) {})
+	ch := aitm.SubscribeFunc(bus, sdk.EventDNSRecordSynced, func(e aitm.Event) {})
 
 	goroutineDone := make(chan struct{})
 	go func() {
@@ -175,7 +176,7 @@ func TestSubscribeFuncStopsAfterUnsubscribe(t *testing.T) {
 		close(goroutineDone)
 	}()
 
-	bus.Unsubscribe(aitm.EventDNSRecordSynced, ch)
+	bus.Unsubscribe(sdk.EventDNSRecordSynced, ch)
 
 	select {
 	case <-goroutineDone:
@@ -192,7 +193,7 @@ func TestConcurrentPublishAndSubscribe(t *testing.T) {
 	const eventsPerPublisher = 100
 
 	for range 5 {
-		ch := bus.Subscribe(aitm.EventSessionCreated)
+		ch := bus.Subscribe(sdk.EventSessionCreated)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -215,7 +216,7 @@ func TestConcurrentPublishAndSubscribe(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for range eventsPerPublisher {
-				bus.Publish(aitm.Event{Type: aitm.EventSessionCreated})
+				bus.Publish(aitm.Event{Type: sdk.EventSessionCreated})
 			}
 		}()
 	}
@@ -225,12 +226,12 @@ func TestConcurrentPublishAndSubscribe(t *testing.T) {
 
 func TestOccurredAtIsSetByPublish(t *testing.T) {
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(aitm.EventSessionCompleted)
-	defer bus.Unsubscribe(aitm.EventSessionCompleted, ch)
+	ch := bus.Subscribe(sdk.EventSessionCompleted)
+	defer bus.Unsubscribe(sdk.EventSessionCompleted, ch)
 
 	before := time.Now()
 	bus.Publish(aitm.Event{
-		Type:       aitm.EventSessionCompleted,
+		Type:       sdk.EventSessionCompleted,
 		OccurredAt: time.Time{}, // zero — bus should set this
 	})
 
@@ -250,13 +251,13 @@ func TestOccurredAtIsSetByPublish(t *testing.T) {
 func TestBufferSizeRespected(t *testing.T) {
 	const bufSize = 3
 	bus := events.NewBus(bufSize)
-	ch := bus.Subscribe(aitm.EventBotDetected)
+	ch := bus.Subscribe(sdk.EventBotDetected)
 
 	for range bufSize {
-		bus.Publish(aitm.Event{Type: aitm.EventBotDetected})
+		bus.Publish(aitm.Event{Type: sdk.EventBotDetected})
 	}
 	// One more publish should drop (channel full).
-	bus.Publish(aitm.Event{Type: aitm.EventBotDetected})
+	bus.Publish(aitm.Event{Type: sdk.EventBotDetected})
 
 	time.Sleep(5 * time.Millisecond)
 
@@ -275,5 +276,5 @@ drain:
 		t.Errorf("expected %d buffered events, got %d", bufSize, count)
 	}
 
-	bus.Unsubscribe(aitm.EventBotDetected, ch)
+	bus.Unsubscribe(sdk.EventBotDetected, ch)
 }

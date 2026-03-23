@@ -217,13 +217,13 @@ func newSessionsStreamCmd() *cobra.Command {
 	}
 }
 
-func eventLabel(eventType string) string {
+func eventLabel(eventType sdk.EventType) string {
 	switch eventType {
 	case sdk.EventSessionCreated:
 		return "NEW SESSION"
-	case sdk.EventSessionCredsCaptured:
+	case sdk.EventCredsCaptured:
 		return "CREDS CAPTURED"
-	case sdk.EventSessionTokensCaptured:
+	case sdk.EventTokensCaptured:
 		return "TOKENS CAPTURED"
 	case sdk.EventSessionCompleted:
 		return "SESSION COMPLETE"

@@ -2,6 +2,7 @@ package aitm
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"time"
 
@@ -14,15 +15,15 @@ type NotificationChannel struct {
 	ID         string
 	Type       sdk.ChannelType
 	URL        string
-	AuthHeader string      // optional Authorization header (webhook only)
-	Filter     []EventType // event type filter; empty = all events
+	AuthHeader string          // optional Authorization header (webhook only)
+	Filter     []sdk.EventType // event type filter; empty = all events
 	Enabled    bool
 	CreatedAt  time.Time
 }
 
 // Accepts reports whether the channel should receive the given event type.
 // An empty filter means all events are accepted.
-func (ch *NotificationChannel) Accepts(eventType EventType) bool {
+func (ch *NotificationChannel) Accepts(eventType sdk.EventType) bool {
 	return len(ch.Filter) == 0 || slices.Contains(ch.Filter, eventType)
 }
 
@@ -60,15 +61,21 @@ func (s *NotificationService) Shutdown(ctx context.Context) error {
 	return s.Dispatcher.Shutdown(ctx)
 }
 
-func (m *NotificationService) Create(channel *NotificationChannel) error {
+func (s *NotificationService) Create(channel *NotificationChannel) error {
+	for _, eventType := range channel.Filter {
+		if !eventType.Valid() {
+			return fmt.Errorf("unknown event type: %s", eventType)
+		}
+	}
+
 	channel.ID = uuid.New().String()
 	channel.Enabled = true
 	channel.CreatedAt = time.Now()
 
-	if err := m.Store.CreateChannel(channel); err != nil {
+	if err := s.Store.CreateChannel(channel); err != nil {
 		return err
 	}
-	m.reload()
+	s.reload()
 	return nil
 }
 

@@ -1,27 +1,14 @@
 package aitm
 
 import (
-	"slices"
 	"time"
-)
 
-// EventType identifies a domain event.
-type EventType string
-
-const (
-	EventSessionCreated   EventType = "session.created"
-	EventCredsCaptured    EventType = "session.creds_captured"
-	EventTokensCaptured   EventType = "session.tokens_captured"
-	EventSessionCompleted EventType = "session.completed"
-	EventBotDetected      EventType = "botguard.detected"
-	EventPhishletEnabled  EventType = "phishlet.enabled"
-	EventPhishletReloaded EventType = "phishlet.reloaded"
-	EventDNSRecordSynced  EventType = "dns.synced"
+	"github.com/travisbale/mirage/sdk"
 )
 
 // Event is a domain event published to the bus.
 type Event struct {
-	Type       EventType
+	Type       sdk.EventType
 	OccurredAt time.Time
 	Payload    any
 }
@@ -31,8 +18,8 @@ type Event struct {
 // Publish must never block — if a subscriber's channel is full, the event is dropped.
 type eventBus interface {
 	Publish(event Event)
-	Subscribe(eventType EventType) <-chan Event
-	Unsubscribe(eventType EventType, ch <-chan Event)
+	Subscribe(eventType sdk.EventType) <-chan Event
+	Unsubscribe(eventType sdk.EventType, ch <-chan Event)
 }
 
 // SubscribeFunc subscribes to eventType on bus and starts a goroutine that
@@ -41,7 +28,7 @@ type eventBus interface {
 //
 // fn is called sequentially — concurrent calls from a single SubscribeFunc are
 // not possible. For slow handlers, spawn a goroutine inside fn.
-func SubscribeFunc(bus eventBus, eventType EventType, fn func(Event)) <-chan Event {
+func SubscribeFunc(bus eventBus, eventType sdk.EventType, fn func(Event)) <-chan Event {
 	ch := bus.Subscribe(eventType)
 	go func() {
 		for event := range ch {
@@ -49,26 +36,6 @@ func SubscribeFunc(bus eventBus, eventType EventType, fn func(Event)) <-chan Eve
 		}
 	}()
 	return ch
-}
-
-// AllEventTypes returns the full set of known event types. Add new event
-// types here — Valid() and the notification dispatcher derive from this list.
-func AllEventTypes() []EventType {
-	return []EventType{
-		EventSessionCreated,
-		EventCredsCaptured,
-		EventTokensCaptured,
-		EventSessionCompleted,
-		EventBotDetected,
-		EventPhishletEnabled,
-		EventPhishletReloaded,
-		EventDNSRecordSynced,
-	}
-}
-
-// Valid reports whether t is a known event type.
-func (t EventType) Valid() bool {
-	return slices.Contains(AllEventTypes(), t)
 }
 
 // BotDetectedPayload is the payload for EventBotDetected.

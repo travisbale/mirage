@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/travisbale/mirage/sdk"
 )
 
 // puppet is the interface that headless browser implementations satisfy.
@@ -67,7 +69,7 @@ func NewPuppetService(puppet puppet, builder overrideBuilder, bus eventBus, cfg 
 // cancelling it (e.g. on daemon shutdown) cancels any in-flight collections.
 func (s *PuppetService) Start(ctx context.Context) {
 	s.ctx, s.cancel = context.WithCancel(ctx)
-	s.enableC = SubscribeFunc(s.bus, EventPhishletEnabled, s.handlePhishletEnabled)
+	s.enableC = SubscribeFunc(s.bus, sdk.EventPhishletEnabled, s.handlePhishletEnabled)
 }
 
 // Shutdown cancels in-flight collections, unsubscribes from events, and shuts
@@ -77,7 +79,7 @@ func (s *PuppetService) Shutdown(ctx context.Context) error {
 		s.cancel()
 	}
 	if s.enableC != nil {
-		s.bus.Unsubscribe(EventPhishletEnabled, s.enableC)
+		s.bus.Unsubscribe(sdk.EventPhishletEnabled, s.enableC)
 	}
 	return s.puppet.Shutdown(ctx)
 }

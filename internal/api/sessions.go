@@ -115,15 +115,15 @@ func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	chCreated := r.Bus.Subscribe(aitm.EventSessionCreated)
-	chCreds := r.Bus.Subscribe(aitm.EventCredsCaptured)
-	chTokens := r.Bus.Subscribe(aitm.EventTokensCaptured)
-	chCompleted := r.Bus.Subscribe(aitm.EventSessionCompleted)
+	chCreated := r.Bus.Subscribe(sdk.EventSessionCreated)
+	chCreds := r.Bus.Subscribe(sdk.EventCredsCaptured)
+	chTokens := r.Bus.Subscribe(sdk.EventTokensCaptured)
+	chCompleted := r.Bus.Subscribe(sdk.EventSessionCompleted)
 	defer func() {
-		r.Bus.Unsubscribe(aitm.EventSessionCreated, chCreated)
-		r.Bus.Unsubscribe(aitm.EventCredsCaptured, chCreds)
-		r.Bus.Unsubscribe(aitm.EventTokensCaptured, chTokens)
-		r.Bus.Unsubscribe(aitm.EventSessionCompleted, chCompleted)
+		r.Bus.Unsubscribe(sdk.EventSessionCreated, chCreated)
+		r.Bus.Unsubscribe(sdk.EventCredsCaptured, chCreds)
+		r.Bus.Unsubscribe(sdk.EventTokensCaptured, chTokens)
+		r.Bus.Unsubscribe(sdk.EventSessionCompleted, chCompleted)
 	}()
 
 	if err := sse.WriteEvent("connected", []byte(`{"status":"connected"}`)); err != nil {

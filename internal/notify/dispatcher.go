@@ -23,8 +23,8 @@ const (
 // eventBus is the subset of the event bus interface needed by the dispatcher.
 type eventBus interface {
 	Publish(event aitm.Event)
-	Subscribe(eventType aitm.EventType) <-chan aitm.Event
-	Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event)
+	Subscribe(eventType sdk.EventType) <-chan aitm.Event
+	Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event)
 }
 
 // channelBinding pairs a Channel implementation with its event filter.
@@ -34,7 +34,7 @@ type channelBinding struct {
 }
 
 type subscription struct {
-	eventType aitm.EventType
+	eventType sdk.EventType
 	ch        <-chan aitm.Event
 }
 
@@ -144,18 +144,18 @@ func (d *Dispatcher) unsubscribe() {
 
 // requiredEventTypes returns the deduplicated union of event types needed
 // across all active channel bindings. Caller must hold d.mu.
-func (d *Dispatcher) requiredEventTypes() []aitm.EventType {
-	seen := make(map[aitm.EventType]bool)
+func (d *Dispatcher) requiredEventTypes() []sdk.EventType {
+	seen := make(map[sdk.EventType]bool)
 	for _, binding := range d.bindings {
 		if len(binding.config.Filter) == 0 {
 			// No filter = all events. Return the full set.
-			return aitm.AllEventTypes()
+			return sdk.AllEventTypes()
 		}
 		for _, eventType := range binding.config.Filter {
 			seen[eventType] = true
 		}
 	}
-	types := make([]aitm.EventType, 0, len(seen))
+	types := make([]sdk.EventType, 0, len(seen))
 	for eventType := range seen {
 		types = append(types, eventType)
 	}
@@ -243,7 +243,7 @@ func (d *Dispatcher) Test(ctx context.Context, config *aitm.NotificationChannel)
 	}
 
 	notification := Notification{
-		Event:     aitm.EventSessionCompleted,
+		Event:     sdk.EventSessionCompleted,
 		Timestamp: time.Now(),
 		Session: &SessionData{
 			ID:         "test-session-id",

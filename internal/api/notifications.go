@@ -28,10 +28,9 @@ func (r *Router) createNotificationChannel(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	filter, err := parseEventFilter(body.Filter)
-	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error())
-		return
+	filter := make([]sdk.EventType, len(body.Filter))
+	for i, name := range body.Filter {
+		filter[i] = sdk.EventType(name)
 	}
 
 	channel := &aitm.NotificationChannel{
@@ -42,7 +41,7 @@ func (r *Router) createNotificationChannel(w http.ResponseWriter, req *http.Requ
 	}
 
 	if err := r.Notifications.Create(channel); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create notification channel")
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
@@ -88,19 +87,4 @@ func notificationChannelToResponse(ch *aitm.NotificationChannel) sdk.Notificatio
 		Enabled:   ch.Enabled,
 		CreatedAt: ch.CreatedAt,
 	}
-}
-
-func parseEventFilter(filter []string) ([]aitm.EventType, error) {
-	if len(filter) == 0 {
-		return nil, nil
-	}
-	result := make([]aitm.EventType, len(filter))
-	for i, name := range filter {
-		eventType := aitm.EventType(name)
-		if !eventType.Valid() {
-			return nil, errors.New("filter: unknown event type: " + name)
-		}
-		result[i] = eventType
-	}
-	return result, nil
 }

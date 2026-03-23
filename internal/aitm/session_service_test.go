@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 type stubSessionStore struct {
@@ -64,9 +65,9 @@ type stubBus struct {
 	published []aitm.Event
 }
 
-func (b *stubBus) Publish(event aitm.Event)                          { b.published = append(b.published, event) }
-func (b *stubBus) Subscribe(_ aitm.EventType) <-chan aitm.Event      { return make(chan aitm.Event) }
-func (b *stubBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
+func (b *stubBus) Publish(event aitm.Event)                         { b.published = append(b.published, event) }
+func (b *stubBus) Subscribe(_ sdk.EventType) <-chan aitm.Event      { return make(chan aitm.Event) }
+func (b *stubBus) Unsubscribe(_ sdk.EventType, _ <-chan aitm.Event) {}
 
 func newSessionService() (*aitm.SessionService, *stubSessionStore, *stubBus) {
 	store := newStubSessionStore()
@@ -105,7 +106,7 @@ func TestSessionService_NewSession_CachesAndPersists(t *testing.T) {
 	store.err = nil
 
 	// Should publish EventSessionCreated
-	if len(bus.published) != 1 || bus.published[0].Type != aitm.EventSessionCreated {
+	if len(bus.published) != 1 || bus.published[0].Type != sdk.EventSessionCreated {
 		t.Errorf("expected EventSessionCreated, got %v", bus.published)
 	}
 }
@@ -156,7 +157,7 @@ func TestSessionService_Complete_EvictsFromCache(t *testing.T) {
 	}
 
 	// Should publish EventSessionCompleted (second event after EventSessionCreated)
-	if len(bus.published) != 2 || bus.published[1].Type != aitm.EventSessionCompleted {
+	if len(bus.published) != 2 || bus.published[1].Type != sdk.EventSessionCompleted {
 		t.Errorf("expected EventSessionCompleted, got %v", bus.published)
 	}
 }
@@ -178,7 +179,7 @@ func TestSessionService_CaptureCredentials_PersistsAndPublishes(t *testing.T) {
 	}
 
 	// Should publish EventCredsCaptured
-	if len(bus.published) != 2 || bus.published[1].Type != aitm.EventCredsCaptured {
+	if len(bus.published) != 2 || bus.published[1].Type != sdk.EventCredsCaptured {
 		t.Errorf("expected EventCredsCaptured, got %v", bus.published)
 	}
 }
@@ -199,8 +200,8 @@ func TestSessionService_Update_PersistsAndPublishesTokensCaptured(t *testing.T) 
 	}
 
 	// Should publish EventTokensCaptured (index 1, after EventSessionCreated from NewSession)
-	if len(bus.published) != 2 || bus.published[1].Type != aitm.EventTokensCaptured {
-		types := make([]aitm.EventType, len(bus.published))
+	if len(bus.published) != 2 || bus.published[1].Type != sdk.EventTokensCaptured {
+		types := make([]sdk.EventType, len(bus.published))
 		for i, e := range bus.published {
 			types[i] = e.Type
 		}

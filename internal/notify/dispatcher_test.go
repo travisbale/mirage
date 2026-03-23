@@ -28,7 +28,7 @@ func TestDispatcher_DeliversToMatchingChannels(t *testing.T) {
 
 	// Publish an event.
 	bus.Publish(aitm.Event{
-		Type:    aitm.EventSessionCreated,
+		Type:    sdk.EventSessionCreated,
 		Payload: &aitm.Session{ID: "sess-1", Phishlet: "test"},
 	})
 
@@ -50,7 +50,7 @@ func TestDispatcher_RespectsFilter(t *testing.T) {
 			ID:      "1",
 			Type:    sdk.ChannelWebhook,
 			URL:     "http://example.com",
-			Filter:  []aitm.EventType{aitm.EventSessionCompleted},
+			Filter:  []sdk.EventType{sdk.EventSessionCompleted},
 			Enabled: true,
 		},
 	}
@@ -61,7 +61,7 @@ func TestDispatcher_RespectsFilter(t *testing.T) {
 
 	// Publish an event the channel does NOT want.
 	bus.Publish(aitm.Event{
-		Type:    aitm.EventSessionCreated,
+		Type:    sdk.EventSessionCreated,
 		Payload: &aitm.Session{ID: "sess-1", Phishlet: "test"},
 	})
 
@@ -87,7 +87,7 @@ func TestDispatcher_SkipsDisabledChannels(t *testing.T) {
 	dispatcher.Start(ctx, channels)
 
 	bus.Publish(aitm.Event{
-		Type:    aitm.EventSessionCreated,
+		Type:    sdk.EventSessionCreated,
 		Payload: &aitm.Session{ID: "sess-1", Phishlet: "test"},
 	})
 
@@ -114,7 +114,7 @@ func TestDispatcher_Reload(t *testing.T) {
 	})
 
 	bus.Publish(aitm.Event{
-		Type:    aitm.EventSessionCompleted,
+		Type:    sdk.EventSessionCompleted,
 		Payload: &aitm.Session{ID: "sess-1", Phishlet: "test"},
 	})
 

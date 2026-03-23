@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+
+	"github.com/travisbale/mirage/sdk"
 )
 
 var ErrRecordExists = errors.New("dns: record already exists")
@@ -188,7 +190,7 @@ func (s *DNSService) Reconcile(ctx context.Context, desiredRecords []PhishletRec
 		return errors.Join(errs...)
 	}
 	s.bus.Publish(Event{
-		Type:    EventDNSRecordSynced,
+		Type:    sdk.EventDNSRecordSynced,
 		Payload: desiredRecords,
 	})
 

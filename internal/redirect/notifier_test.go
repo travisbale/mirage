@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/redirect"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func discardLogger() *slog.Logger {
@@ -32,7 +33,7 @@ func newTestServer(t *testing.T, notifier *redirect.Notifier, sessionID string) 
 
 func publishCompletion(bus *testEventBus, sess *aitm.Session) {
 	bus.Publish(aitm.Event{
-		Type:       aitm.EventSessionCompleted,
+		Type:       sdk.EventSessionCompleted,
 		OccurredAt: time.Now(),
 		Payload:    sess,
 	})
@@ -198,11 +199,11 @@ func TestPollForRedirect_Done(t *testing.T) {
 
 type testEventBus struct {
 	mu   sync.Mutex
-	subs map[aitm.EventType][]chan aitm.Event
+	subs map[sdk.EventType][]chan aitm.Event
 }
 
 func newTestEventBus() *testEventBus {
-	return &testEventBus{subs: make(map[aitm.EventType][]chan aitm.Event)}
+	return &testEventBus{subs: make(map[sdk.EventType][]chan aitm.Event)}
 }
 
 func (b *testEventBus) Publish(event aitm.Event) {
@@ -216,7 +217,7 @@ func (b *testEventBus) Publish(event aitm.Event) {
 	}
 }
 
-func (b *testEventBus) Subscribe(eventType aitm.EventType) <-chan aitm.Event {
+func (b *testEventBus) Subscribe(eventType sdk.EventType) <-chan aitm.Event {
 	ch := make(chan aitm.Event, 8)
 	b.mu.Lock()
 	b.subs[eventType] = append(b.subs[eventType], ch)
@@ -224,7 +225,7 @@ func (b *testEventBus) Subscribe(eventType aitm.EventType) <-chan aitm.Event {
 	return ch
 }
 
-func (b *testEventBus) Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event) {
+func (b *testEventBus) Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	list := b.subs[eventType]

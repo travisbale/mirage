@@ -152,12 +152,13 @@ func (c *Client) StreamSessions() (<-chan SessionEvent, func(), error) {
 		defer resp.Body.Close()
 
 		scanner := bufio.NewScanner(resp.Body)
-		var eventType, dataLine string
+		var eventType EventType
+		var dataLine string
 
 		for scanner.Scan() {
 			line := scanner.Text()
 			if et, ok := strings.CutPrefix(line, "event: "); ok {
-				eventType = et
+				eventType = EventType(et)
 			} else if data, ok := strings.CutPrefix(line, "data: "); ok {
 				dataLine = data
 			} else if line == "" && dataLine != "" {
@@ -166,6 +167,7 @@ func (c *Client) StreamSessions() (<-chan SessionEvent, func(), error) {
 					ch <- SessionEvent{Type: eventType, Session: s}
 				}
 				eventType = ""
+
 				dataLine = ""
 			}
 		}

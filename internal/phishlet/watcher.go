@@ -9,6 +9,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 // Watcher monitors a directory for YAML file changes and re-parses modified
@@ -87,7 +88,7 @@ func (w *Watcher) loop() {
 			"path", path,
 		)
 		w.bus.Publish(aitm.Event{
-			Type:    aitm.EventPhishletReloaded,
+			Type:    sdk.EventPhishletReloaded,
 			Payload: def,
 		})
 	}

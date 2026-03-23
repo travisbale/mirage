@@ -6,17 +6,18 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 // Notification is the common payload built by the dispatcher for every event.
 // Webhook channels send this as-is; Slack channels format it into Block Kit.
 type Notification struct {
-	Event     aitm.EventType `json:"event"`
-	Timestamp time.Time      `json:"timestamp"`
-	Session   *SessionData   `json:"session,omitempty"`
-	Bot       *BotData       `json:"bot,omitempty"`
-	DNS       *DNSData       `json:"dns,omitempty"`
-	Phishlet  string         `json:"phishlet,omitempty"`
+	Event     sdk.EventType `json:"event"`
+	Timestamp time.Time     `json:"timestamp"`
+	Session   *SessionData  `json:"session,omitempty"`
+	Bot       *BotData      `json:"bot,omitempty"`
+	DNS       *DNSData      `json:"dns,omitempty"`
+	Phishlet  string        `json:"phishlet,omitempty"`
 }
 
 // SessionData is a serialization-safe representation of a captured session.

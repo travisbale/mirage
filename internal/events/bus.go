@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/sdk"
 )
 
 // DefaultBufferSize is the channel buffer size used when none is specified.
@@ -22,7 +23,7 @@ const DefaultBufferSize = 64
 type Bus struct {
 	bufSize int
 	mu      sync.RWMutex
-	subs    map[aitm.EventType][]subEntry
+	subs    map[sdk.EventType][]subEntry
 }
 
 // subEntry pairs a bidirectional channel with a closed flag so that
@@ -38,7 +39,7 @@ func NewBus(bufSize int) *Bus {
 	}
 	return &Bus{
 		bufSize: bufSize,
-		subs:    make(map[aitm.EventType][]subEntry),
+		subs:    make(map[sdk.EventType][]subEntry),
 	}
 }
 
@@ -69,7 +70,7 @@ func (b *Bus) Publish(event aitm.Event) {
 }
 
 // Subscribe returns a buffered channel for the given event type.
-func (b *Bus) Subscribe(eventType aitm.EventType) <-chan aitm.Event {
+func (b *Bus) Subscribe(eventType sdk.EventType) <-chan aitm.Event {
 	ch := make(chan aitm.Event, b.bufSize)
 	b.mu.Lock()
 	b.subs[eventType] = append(b.subs[eventType], subEntry{ch: ch})
@@ -79,7 +80,7 @@ func (b *Bus) Subscribe(eventType aitm.EventType) <-chan aitm.Event {
 
 // Unsubscribe removes ch from the subscriber list for t and closes it.
 // Safe to call multiple times for the same channel — subsequent calls are no-ops.
-func (b *Bus) Unsubscribe(eventType aitm.EventType, ch <-chan aitm.Event) {
+func (b *Bus) Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

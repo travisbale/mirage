@@ -9,6 +9,7 @@ import (
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/events"
+	"github.com/travisbale/mirage/sdk"
 )
 
 func TestDNSService_ReconcileRoutesToCorrectProvider(t *testing.T) {
@@ -42,8 +43,8 @@ func TestDNSService_ReconcileRoutesToCorrectProvider(t *testing.T) {
 
 func TestDNSService_Reconcile_EmitsEvent(t *testing.T) {
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(aitm.EventDNSRecordSynced)
-	defer bus.Unsubscribe(aitm.EventDNSRecordSynced, ch)
+	ch := bus.Subscribe(sdk.EventDNSRecordSynced)
+	defer bus.Unsubscribe(sdk.EventDNSRecordSynced, ch)
 
 	svc := aitm.NewDNSService(
 		map[string]aitm.DNSProvider{"bi": &mockProvider{name: "builtin"}},
@@ -62,8 +63,8 @@ func TestDNSService_Reconcile_EmitsEvent(t *testing.T) {
 
 	select {
 	case e := <-ch:
-		if e.Type != aitm.EventDNSRecordSynced {
-			t.Errorf("event type: got %q, want %q", e.Type, aitm.EventDNSRecordSynced)
+		if e.Type != sdk.EventDNSRecordSynced {
+			t.Errorf("event type: got %q, want %q", e.Type, sdk.EventDNSRecordSynced)
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("timed out waiting for EventDNSRecordSynced")
