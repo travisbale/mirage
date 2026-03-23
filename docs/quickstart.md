@@ -49,7 +49,7 @@ phishlets_dir: /tmp/mirage/phishlets
 self_signed: true
 
 api:
-  secret_hostname: api.phish.local
+  secret_hostname: mgmt.phish.local
 ```
 
 > Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Set `self_signed: true` to skip ACME and use a locally generated CA instead. `bind_address` restricts the listener to `127.0.0.1` so it doesn't conflict with the target site on `127.0.0.2`. In production, omit it to listen on all interfaces.
@@ -106,7 +106,7 @@ In a second terminal:
 ./build/mirage server add \
   --alias local \
   --address https://127.0.0.1:443 \
-  --secret-hostname api.phish.local \
+  --secret-hostname mgmt.phish.local \
   --cert /tmp/mirage/data/operator.crt \
   --key /tmp/mirage/data/operator.key \
   --ca-cert /tmp/mirage/data/ca/mirage-ca.crt
