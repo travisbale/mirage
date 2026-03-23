@@ -36,6 +36,10 @@ func newBlacklistListCmd() *cobra.Command {
 			if jsonMode(cmd) {
 				return printJSON(resp)
 			}
+			if len(resp.Items) == 0 {
+				fmt.Println("No blacklist entries.")
+				return nil
+			}
 			rows := make([][]string, len(resp.Items))
 			for i := range resp.Items {
 				rows[i] = []string{resp.Items[i].Value}

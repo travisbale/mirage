@@ -12,8 +12,16 @@ import (
 )
 
 func printTable(headers []string, rows [][]string) {
+	if len(rows) == 0 {
+		return
+	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, strings.Join(headers, "\t"))
+	seps := make([]string, len(headers))
+	for i, h := range headers {
+		seps[i] = strings.Repeat("-", len(h))
+	}
+	fmt.Fprintln(w, strings.Join(seps, "\t"))
 	for _, row := range rows {
 		fmt.Fprintln(w, strings.Join(row, "\t"))
 	}

@@ -48,6 +48,10 @@ func newLuresListCmd() *cobra.Command {
 					items = append(items, resp.Items[i])
 				}
 			}
+			if len(items) == 0 {
+				fmt.Println("No lures found.")
+				return nil
+			}
 			rows := make([][]string, len(items))
 			for i := range items {
 				rows[i] = []string{

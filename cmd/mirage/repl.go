@@ -108,6 +108,7 @@ func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
 
 		default:
 			ok := execCommand(args, serverAlias, cfgPath)
+			fmt.Println()
 			if serverAlias == "" && ok {
 				if cfg, err := loadConfig(cfgPath); err == nil && cfg.DefaultServer != "" {
 					serverAlias = cfg.DefaultServer
