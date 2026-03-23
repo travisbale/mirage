@@ -143,15 +143,20 @@ func execCommand(args []string, serverAlias, cfgPath string) bool {
 	return true
 }
 
+const (
+	yellow = "\033[33m"
+	reset  = "\033[0m"
+)
+
 // prompt returns the readline prompt string, with a "!" suffix when degraded.
 func prompt(alias string, degraded bool) string {
 	if alias == "" {
-		return "mirage> "
+		return yellow + "mirage> " + reset
 	}
 	if degraded {
-		return fmt.Sprintf("mirage [%s!]> ", alias)
+		return yellow + fmt.Sprintf("mirage [%s!]> ", alias) + reset
 	}
-	return fmt.Sprintf("mirage [%s]> ", alias)
+	return yellow + fmt.Sprintf("mirage [%s]> ", alias) + reset
 }
 
 // historyPath returns ~/.mirage/history.
