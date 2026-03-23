@@ -310,7 +310,7 @@ func (ini *initializer) initProxy(version string) error {
 	}
 
 	aitmProxy := &proxy.Server{
-		Addr:           fmt.Sprintf(":%d", ini.cfg.HTTPSPort),
+		Addr:           fmt.Sprintf("%s:%d", ini.cfg.BindAddress, ini.cfg.HTTPSPort),
 		CertSource:     ini.certSource,
 		SecretHostname: ini.cfg.API.SecretHostname,
 		BotGuard:       ini.botGuardSvc,

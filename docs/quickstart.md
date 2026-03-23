@@ -42,6 +42,7 @@ Create `/tmp/mirage/miraged.yaml`:
 ```yaml
 domain: phish.local
 external_ipv4: 127.0.0.1
+bind_address: 127.0.0.1
 data_dir: /tmp/mirage/data
 phishlets_dir: /tmp/mirage/phishlets
 
@@ -51,7 +52,7 @@ api:
   secret_hostname: api.phish.local
 ```
 
-> Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Set `self_signed: true` to skip ACME and use a locally generated CA instead. Ports default to 443 (HTTPS) and 53 (DNS).
+> Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Set `self_signed: true` to skip ACME and use a locally generated CA instead. `bind_address` restricts the listener to `127.0.0.1` so it doesn't conflict with the target site on `127.0.0.2`. In production, omit it to listen on all interfaces.
 
 ---
 

@@ -25,6 +25,7 @@ const (
 type Config struct {
 	Domain       string              `yaml:"domain"`
 	ExternalIPv4 string              `yaml:"external_ipv4"`
+	BindAddress  string              `yaml:"bind_address"` // listen address; defaults to 0.0.0.0
 	HTTPSPort    int                 `yaml:"https_port"`
 	DNSPort      int                 `yaml:"dns_port"`
 	SpoofURL     string              `yaml:"spoof_url"` // default spoof URL served to bots/blocked visitors; can be overridden per-lure
