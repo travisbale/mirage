@@ -36,17 +36,17 @@ type Client struct {
 func NewClient(address, secretHostname string, certPEM, keyPEM, caCertPEM []byte) (*Client, error) {
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		return nil, fmt.Errorf("sdk: loading client cert: %w", err)
+		return nil, fmt.Errorf("loading client cert: %w", err)
 	}
 
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(caCertPEM) {
-		return nil, fmt.Errorf("sdk: server CA cert is not valid PEM")
+		return nil, fmt.Errorf("server CA cert is not valid PEM")
 	}
 
 	u, err := url.Parse(address)
 	if err != nil {
-		return nil, fmt.Errorf("sdk: parsing address: %w", err)
+		return nil, fmt.Errorf("parsing address: %w", err)
 	}
 	dialAddr := u.Host
 
@@ -131,13 +131,13 @@ func (c *Client) ExportSessionCookies(id string) ([]byte, error) {
 func (c *Client) StreamSessions() (<-chan SessionEvent, func(), error) {
 	req, err := http.NewRequest(http.MethodGet, c.baseURL+RouteSessionsStream, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("sdk: stream request: %w", err)
+		return nil, nil, fmt.Errorf("stream request: %w", err)
 	}
 	req.Header.Set("Accept", "text/event-stream")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("sdk: stream connect: %w", err)
+		return nil, nil, fmt.Errorf("stream connect: %w", err)
 	}
 	if err := checkStatus(resp); err != nil {
 		resp.Body.Close()
@@ -299,14 +299,14 @@ func (c *Client) do(method, path string, body any) (*http.Response, error) {
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			return nil, fmt.Errorf("sdk: marshalling request: %w", err)
+			return nil, fmt.Errorf("marshalling request: %w", err)
 		}
 		bodyReader = bytes.NewReader(b)
 	}
 
 	req, err := http.NewRequest(method, c.baseURL+path, bodyReader)
 	if err != nil {
-		return nil, fmt.Errorf("sdk: building request: %w", err)
+		return nil, fmt.Errorf("building request: %w", err)
 	}
 
 	if body != nil {
@@ -315,7 +315,7 @@ func (c *Client) do(method, path string, body any) (*http.Response, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("sdk: %s %s: %w", method, path, err)
+		return nil, fmt.Errorf("%s %s: %w", method, path, err)
 	}
 
 	return resp, nil
@@ -348,7 +348,7 @@ func get[T any](c *Client, path string) (*T, error) {
 
 	var result T
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("sdk: decoding response: %w", err)
+		return nil, fmt.Errorf("unable to decode response, expected JSON from API")
 	}
 
 	return &result, nil
@@ -368,7 +368,7 @@ func send[T any](c *Client, method, path string, body any) (*T, error) {
 
 	var result T
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("sdk: decoding response: %w", err)
+		return nil, fmt.Errorf("unable to decode response, expected JSON from API")
 	}
 
 	return &result, nil
