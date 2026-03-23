@@ -1,6 +1,7 @@
 package aitm_test
 
 import (
+	"net/http"
 	"regexp"
 	"testing"
 	"time"
@@ -120,13 +121,13 @@ func TestHasCredentials_Empty(t *testing.T) {
 	}
 }
 
-// ── Session.AddCookieToken ───────────────────────────────────────────────────
+// ── Session.AddCookie ───────────────────────────────────────────────────
 
-func TestAddCookieToken_LazyInit(t *testing.T) {
+func TestAddCookie_LazyInit(t *testing.T) {
 	session := &aitm.Session{}
-	token := &aitm.CookieToken{Name: "auth", Value: "secret", Domain: ".example.com"}
+	token := &http.Cookie{Name: "auth", Value: "secret", Domain: ".example.com"}
 
-	session.AddCookieToken(".example.com", "auth", token)
+	session.AddCookie(token)
 
 	if session.CookieTokens == nil {
 		t.Fatal("expected CookieTokens to be initialized")
@@ -137,10 +138,10 @@ func TestAddCookieToken_LazyInit(t *testing.T) {
 	}
 }
 
-func TestAddCookieToken_MultipleDomains(t *testing.T) {
+func TestAddCookie_MultipleDomains(t *testing.T) {
 	session := &aitm.Session{}
-	session.AddCookieToken(".a.com", "tok1", &aitm.CookieToken{Name: "tok1", Value: "v1"})
-	session.AddCookieToken(".b.com", "tok2", &aitm.CookieToken{Name: "tok2", Value: "v2"})
+	session.AddCookie(&http.Cookie{Name: "tok1", Value: "v1", Domain: ".a.com"})
+	session.AddCookie(&http.Cookie{Name: "tok2", Value: "v2", Domain: ".b.com"})
 
 	if len(session.CookieTokens) != 2 {
 		t.Errorf("expected 2 domains, got %d", len(session.CookieTokens))
@@ -151,11 +152,11 @@ func TestAddCookieToken_MultipleDomains(t *testing.T) {
 
 func TestExportCookies_ReturnsAllTokens(t *testing.T) {
 	session := &aitm.Session{}
-	session.AddCookieToken(".a.com", "tok1", &aitm.CookieToken{
+	session.AddCookie(&http.Cookie{
 		Name: "tok1", Value: "v1", Domain: ".a.com", Path: "/",
 		Expires: time.Unix(1700000000, 0),
 	})
-	session.AddCookieToken(".b.com", "tok2", &aitm.CookieToken{
+	session.AddCookie(&http.Cookie{
 		Name: "tok2", Value: "v2", Domain: ".b.com", Path: "/app",
 		HttpOnly: true, Secure: true,
 	})
@@ -185,8 +186,8 @@ func TestHasRequiredTokens_NilPhishlet(t *testing.T) {
 
 func TestHasRequiredTokens_AllCaptured(t *testing.T) {
 	session := &aitm.Session{}
-	session.AddCookieToken("login.microsoft.com", "authToken", &aitm.CookieToken{
-		Name: "authToken", Value: "secret",
+	session.AddCookie(&http.Cookie{
+		Name: "authToken", Value: "secret", Domain: "login.microsoft.com",
 	})
 
 	phishlet := &aitm.Phishlet{
@@ -314,7 +315,7 @@ func TestHasRequiredTokens_EmptyValueBodyToken(t *testing.T) {
 
 func TestHasRequiredTokens_MixedTokenTypes(t *testing.T) {
 	session := &aitm.Session{
-		CookieTokens: map[string]map[string]*aitm.CookieToken{
+		CookieTokens: map[string]map[string]*http.Cookie{
 			"example.com": {"session": {Name: "session", Value: "abc"}},
 		},
 		BodyTokens: map[string]string{"access_token": "tok456"},
@@ -332,7 +333,7 @@ func TestHasRequiredTokens_MixedTokenTypes(t *testing.T) {
 
 func TestHasRequiredTokens_MixedTokenTypes_OneMissing(t *testing.T) {
 	session := &aitm.Session{
-		CookieTokens: map[string]map[string]*aitm.CookieToken{
+		CookieTokens: map[string]map[string]*http.Cookie{
 			"example.com": {"session": {Name: "session", Value: "abc"}},
 		},
 		BodyTokens: map[string]string{},

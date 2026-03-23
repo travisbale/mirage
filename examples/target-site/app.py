@@ -89,6 +89,11 @@ def forgot():
     return render_template("forgot.html", sent=sent)
 
 
+@app.route("/demo-complete")
+def demo_complete():
+    return render_template("demo_complete.html")
+
+
 @app.route("/terms")
 def terms():
     return render_template("terms.html")

@@ -222,7 +222,7 @@ func injectFormParams(body []byte, params []aitm.ForcePostParam) []byte {
 	return []byte(parsed.Encode())
 }
 
-func extractCookieToken(session *aitm.Session, cookies []*http.Cookie, rule aitm.TokenRule) bool {
+func extractCookie(session *aitm.Session, cookies []*http.Cookie, rule aitm.TokenRule) bool {
 	updated := false
 	for _, cookie := range cookies {
 		if rule.Name != nil && !rule.Name.MatchString(cookie.Name) {
@@ -231,16 +231,7 @@ func extractCookieToken(session *aitm.Session, cookies []*http.Cookie, rule aitm
 		if rule.Domain != "" && !aitm.MatchesDomain(cookie.Domain, rule.Domain) {
 			continue
 		}
-		token := &aitm.CookieToken{
-			Name:     cookie.Name,
-			Value:    cookie.Value,
-			Path:     cookie.Path,
-			Domain:   cookie.Domain,
-			Expires:  cookie.Expires,
-			HttpOnly: cookie.HttpOnly,
-			Secure:   cookie.Secure,
-		}
-		session.AddCookieToken(cookie.Domain, cookie.Name, token)
+		session.AddCookie(cookie)
 		updated = true
 	}
 	return updated

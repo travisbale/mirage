@@ -118,7 +118,7 @@ This verifies the connection before saving. On success you'll see `Connected to 
 ./build/mirage phishlets enable form-login --hostname login.phish.local
 
 # Create a lure (redirect URL is where victims land after token capture)
-./build/mirage lures create form-login --redirect https://login.target.local/dashboard
+./build/mirage lures create form-login --redirect https://login.target.local/demo-complete
 ```
 
 Visit the printed lure URL in a browser that trusts the CA. You'll be taken to the standard login form. Sign in with any email and password, then enter any 6-digit code for MFA. Once MFA completes the session token is captured and the session is marked complete:

