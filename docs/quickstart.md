@@ -85,10 +85,10 @@ On first run it will:
 - Generate an invite token for the first operator
 - Load any phishlets found in `phishlets_dir`
 
-Look for this line in the output — you'll need the token and secret hostname:
+Look for the enrollment command in the output:
 
 ```
-level=INFO msg="no operators registered — enroll with this token" token=<token> secret_hostname=mgmt.phish.local
+level=INFO msg="enroll with: mirage server add --address 127.0.0.1 --secret-hostname mgmt.phish.local --token <token>"
 ```
 
 ---
@@ -104,17 +104,13 @@ Import `/tmp/mirage/data/ca/mirage-ca.crt` as a trusted CA so the browser doesn'
 
 ## 7. Enroll the operator
 
-In a second terminal, use the token from the daemon output:
+In a second terminal, copy and run the enrollment command from the daemon output, adding `--alias local`:
 
 ```bash
-./build/mirage server add \
-  --alias local \
-  --address 127.0.0.1:443 \
-  --secret-hostname mgmt.phish.local \
-  --token <token>
+./build/mirage server add --alias local --address 127.0.0.1 --secret-hostname mgmt.phish.local --token <token>
 ```
 
-This generates a keypair locally, enrolls with the daemon, and saves the signed certificate. On success you'll see `Enrolled successfully. Server saved as "local".`
+On success you'll see `Enrolled successfully. Server saved as "local".`
 
 ---
 

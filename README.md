@@ -151,35 +151,23 @@ This uploads the `miraged` binary, writes the config, installs a systemd unit, a
 miraged --config /etc/mirage/miraged.yaml
 ```
 
-On first start, `miraged` auto-generates a mutual TLS CA and issues an operator client certificate alongside it:
+On first start, `miraged` generates a TLS CA and an mTLS operator CA, then prints the enrollment command:
 
 ```txt
-/var/lib/mirage/api-ca.crt      # server CA cert (trust anchor for the CLI)
-/var/lib/mirage/operator.crt    # operator client cert
-/var/lib/mirage/operator.key    # operator client key
+level=INFO msg="enroll with: mirage server add --address <address> --secret-hostname <secret_hostname> --token <token>"
 ```
 
-**2. Copy the certificate files to your operator machine.**
+**2. Enroll from your operator machine.**
+
+Copy and run the command from the daemon output. This generates a keypair locally, enrolls with the daemon, and saves the signed certificate.
+
+**3. Invite additional operators** (optional).
 
 ```bash
-scp root@<server>:/var/lib/mirage/api-ca.crt   ~/.mirage/prod-ca.crt
-scp root@<server>:/var/lib/mirage/operator.crt ~/.mirage/prod-client.crt
-scp root@<server>:/var/lib/mirage/operator.key ~/.mirage/prod-client.key
+mirage operators invite alice
+# prints a token for alice to enroll with:
+#   mirage server add --alias prod --address ... --secret-hostname ... --token <token>
 ```
-
-**3. Register the server with the CLI.**
-
-```bash
-mirage server add \
-  --alias prod \
-  --address https://<server-ip>:443 \
-  --secret-hostname api.phish.example.com \
-  --ca-cert ~/.mirage/prod-ca.crt \
-  --cert ~/.mirage/prod-client.crt \
-  --key ~/.mirage/prod-client.key
-```
-
-The CLI verifies the connection before saving. You're ready to go.
 
 ## Usage
 
@@ -208,7 +196,9 @@ mirage --server prod
 - **BotGuard** — JA4 fingerprint-based bot detection with configurable score threshold; suspicious requests are spoofed to a decoy
 - **JS obfuscation** — optionally transforms injected JavaScript via a Node.js sidecar on every request, making static fingerprinting ineffective
 - **Automated DNS** — integrates with DNS providers (Cloudflare, etc.) to manage phishing domain records
-- **mTLS API** — management API authenticated with mutual TLS; the daemon auto-generates a CA and issues operator certificates
+- **mTLS API** — management API authenticated with mutual TLS; operators enroll via invite tokens with no manual certificate copying
+- **Multi-operator** — invite team members with `operators invite`; each operator gets a unique identity in the audit trail
+- **Notifications** — push session events to webhook endpoints or Slack channels; Slack messages redact sensitive data automatically
 - **SSH deployment** — one-command remote provisioning with systemd unit installation
 - **Blacklist** — IP/CIDR blocking with automatic temporary whitelisting after successful token capture
 - **Puppet** *(infrastructure complete, collector pending)* — headless Chromium visits the real target site and collects browser telemetry, then injects JS overrides into proxied responses so the victim's session appears indistinguishable from a direct visit — preventing the target site from detecting the proxied connection; the collection script is a placeholder pending research into what signals specific targets check

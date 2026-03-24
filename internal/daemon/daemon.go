@@ -457,8 +457,7 @@ func (ini *initializer) generateFirstRunInvite() {
 		ini.logger.Error("failed to generate first-run invite", "error", err)
 		return
 	}
-	ini.logger.Info("no operators registered — enroll with this token",
-		"token", invite.Token,
-		"secret_hostname", ini.cfg.API.SecretHostname,
-	)
+	ini.logger.Info(fmt.Sprintf("enroll with: mirage server add --address %s:%d --secret-hostname %s --token %s",
+		ini.cfg.ExternalIPv4, ini.cfg.HTTPSPort, ini.cfg.API.SecretHostname, invite.Token,
+	))
 }
