@@ -60,9 +60,8 @@ func TestInvites_ConsumeOnce(t *testing.T) {
 	s := sqlite.NewOperatorStore(openTestDB(t))
 
 	invite := &aitm.OperatorInvite{
-		Token:     "test-token-abc",
-		Name:      "bob",
-		ExpiresAt: time.Now().Add(time.Hour),
+		Token: "test-token-abc",
+		Name:  "bob",
 	}
 
 	if err := s.CreateInvite(invite); err != nil {

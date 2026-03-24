@@ -68,8 +68,7 @@ CREATE TABLE IF NOT EXISTS operators (
 
 CREATE TABLE IF NOT EXISTS operator_invites (
     token      TEXT    PRIMARY KEY,
-    name       TEXT    NOT NULL,
-    expires_at INTEGER NOT NULL
+    name       TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS notify_channels (

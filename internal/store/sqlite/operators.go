@@ -52,8 +52,8 @@ func (s *Operators) DeleteOperator(name string) error {
 
 func (s *Operators) CreateInvite(invite *aitm.OperatorInvite) error {
 	_, err := s.db.db.Exec(
-		`INSERT INTO operator_invites (token, name, expires_at) VALUES (?, ?, ?)`,
-		invite.Token, invite.Name, invite.ExpiresAt.Unix(),
+		`INSERT INTO operator_invites (token, name) VALUES (?, ?)`,
+		invite.Token, invite.Name,
 	)
 	if isConflict(err) {
 		return aitm.ErrConflict
@@ -61,20 +61,36 @@ func (s *Operators) CreateInvite(invite *aitm.OperatorInvite) error {
 	return err
 }
 
+func (s *Operators) ListInvites() ([]*aitm.OperatorInvite, error) {
+	rows, err := s.db.db.Query(`SELECT token, name FROM operator_invites`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*aitm.OperatorInvite
+	for rows.Next() {
+		var invite aitm.OperatorInvite
+		if err := rows.Scan(&invite.Token, &invite.Name); err != nil {
+			return nil, err
+		}
+		out = append(out, &invite)
+	}
+	return out, rows.Err()
+}
+
 func (s *Operators) ConsumeInvite(token string) (*aitm.OperatorInvite, error) {
 	var invite aitm.OperatorInvite
 	err := s.db.WithTx(func(tx *sql.Tx) error {
-		var expiresAt int64
 		err := tx.QueryRow(
-			`SELECT token, name, expires_at FROM operator_invites WHERE token = ?`, token,
-		).Scan(&invite.Token, &invite.Name, &expiresAt)
+			`SELECT token, name FROM operator_invites WHERE token = ?`, token,
+		).Scan(&invite.Token, &invite.Name)
 		if errors.Is(err, sql.ErrNoRows) {
 			return aitm.ErrNotFound
 		}
 		if err != nil {
 			return err
 		}
-		invite.ExpiresAt = time.Unix(expiresAt, 0)
 
 		_, err = tx.Exec(`DELETE FROM operator_invites WHERE token = ?`, token)
 		return err

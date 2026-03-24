@@ -16,18 +16,14 @@ type Operator struct {
 	CreatedAt time.Time
 }
 
-// OperatorInvite is a single-use, time-limited token for enrolling a new operator.
+// OperatorInvite is a single-use token for enrolling a new operator.
 type OperatorInvite struct {
-	Token     string
-	Name      string
-	ExpiresAt time.Time
+	Token string
+	Name  string
 }
 
-const inviteTTL = 24 * time.Hour
-
 var (
-	ErrInvalidToken  = errors.New("invalid or expired invite token")
-	ErrTokenExpired  = errors.New("invite token has expired")
+	ErrInvalidToken  = errors.New("invalid invite token")
 	ErrInvalidCSR    = errors.New("invalid certificate signing request")
 	ErrSigningFailed = errors.New("certificate signing failed")
 )
@@ -37,6 +33,7 @@ type operatorStore interface {
 	ListOperators() ([]*Operator, error)
 	DeleteOperator(name string) error
 	CreateInvite(invite *OperatorInvite) error
+	ListInvites() ([]*OperatorInvite, error)
 	ConsumeInvite(token string) (*OperatorInvite, error)
 }
 
@@ -58,9 +55,8 @@ func (s *OperatorService) Invite(name string) (*OperatorInvite, error) {
 		return nil, fmt.Errorf("operator name is required")
 	}
 	invite := &OperatorInvite{
-		Token:     uuid.New().String(),
-		Name:      name,
-		ExpiresAt: time.Now().Add(inviteTTL),
+		Token: uuid.New().String(),
+		Name:  name,
 	}
 	if err := s.Store.CreateInvite(invite); err != nil {
 		return nil, err
@@ -78,9 +74,6 @@ func (s *OperatorService) Enroll(token string, csrPEM []byte) (certPEM, caCertPE
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("consuming invite: %w", err)
-	}
-	if time.Now().After(invite.ExpiresAt) {
-		return nil, nil, ErrTokenExpired
 	}
 
 	der := decodePEM(csrPEM)

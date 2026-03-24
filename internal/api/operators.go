@@ -25,8 +25,7 @@ func (r *Router) inviteOperator(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, sdk.InviteOperatorResponse{
-		Token:     invite.Token,
-		ExpiresAt: invite.ExpiresAt,
+		Token: invite.Token,
 	})
 }
 
@@ -39,7 +38,7 @@ func (r *Router) enrollOperator(w http.ResponseWriter, req *http.Request) {
 	certPEM, caCertPEM, err := r.Operators.Enroll(body.Token, []byte(body.CSRPEM))
 	if err != nil {
 		switch {
-		case errors.Is(err, aitm.ErrInvalidToken), errors.Is(err, aitm.ErrTokenExpired):
+		case errors.Is(err, aitm.ErrInvalidToken):
 			r.writeError(w, http.StatusUnauthorized, "invalid or expired invite token", err)
 		case errors.Is(err, aitm.ErrInvalidCSR):
 			r.writeError(w, http.StatusBadRequest, "invalid certificate signing request", err)

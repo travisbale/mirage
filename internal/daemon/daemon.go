@@ -452,11 +452,19 @@ func (ini *initializer) generateFirstRunInvite() {
 		return
 	}
 
-	invite, err := ini.operatorSvc.Invite("operator")
-	if err != nil {
-		ini.logger.Error("failed to generate first-run invite", "error", err)
-		return
+	// Reuse an existing invite if the daemon was restarted before enrollment.
+	invites, _ := ini.operatorSvc.Store.ListInvites()
+	var invite *aitm.OperatorInvite
+	if len(invites) > 0 {
+		invite = invites[0]
+	} else {
+		invite, err = ini.operatorSvc.Invite("operator")
+		if err != nil {
+			ini.logger.Error("failed to generate invite", "error", err)
+			return
+		}
 	}
+
 	ini.logger.Info(fmt.Sprintf("enroll with: mirage server add --address %s:%d --secret-hostname %s --token %s",
 		ini.cfg.ExternalIPv4, ini.cfg.HTTPSPort, ini.cfg.API.SecretHostname, invite.Token,
 	))

@@ -34,10 +34,10 @@ func newOperatorsInviteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Invite token for %q (expires %s):\n\n", args[0], fmtTime(resp.ExpiresAt))
+			fmt.Printf("Invite token for %q:\n\n", args[0])
 			fmt.Printf("  %s\n\n", resp.Token)
 			fmt.Println("The new operator can enroll with:")
-			fmt.Printf("  mirage enroll --server <address> --token %s\n", resp.Token)
+			fmt.Printf("  mirage server add --address <address> --secret-hostname <hostname> --token %s\n", resp.Token)
 			return nil
 		},
 	}
