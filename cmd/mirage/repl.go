@@ -58,7 +58,7 @@ func runREPL(ctx context.Context, serverAlias, cfgPath string) error {
 █  █  █  ████  ████  ███  ███        ██  ████  ██  ███████
 █  ████  ██      ██  ████  ██  ████  ███      ███        █
 
- AiTM Phishing Framework  •  v` + Version + `
+ AiTM Phishing Framework  •  ` + Version + `
 ──────────────────────────────────────────────────────────
 
 `)
