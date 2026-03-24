@@ -207,7 +207,7 @@ func (s *Server) setupConnection(ctx context.Context, rawConn net.Conn) {
 			if strings.EqualFold(hello.ServerName, s.SecretHostname) {
 				return &tls.Config{
 					GetCertificate: s.CertSource.GetCertificate,
-					ClientAuth:     tls.RequireAndVerifyClientCert,
+					ClientAuth:     tls.VerifyClientCertIfGiven,
 					ClientCAs:      s.ClientCAs,
 				}, nil
 			}

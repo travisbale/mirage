@@ -214,6 +214,53 @@ type NotificationChannelList struct {
 	Channels []NotificationChannelResponse `json:"channels"`
 }
 
+// --- Operators ---
+
+type InviteOperatorRequest struct {
+	Name string `json:"name"`
+}
+
+func (r InviteOperatorRequest) Validate() error {
+	if r.Name == "" {
+		return fmt.Errorf("name: required")
+	}
+	return nil
+}
+
+type InviteOperatorResponse struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+type EnrollRequest struct {
+	Token  string `json:"token"`
+	CSRPEM string `json:"csr_pem"`
+}
+
+func (r EnrollRequest) Validate() error {
+	if r.Token == "" {
+		return fmt.Errorf("token: required")
+	}
+	if r.CSRPEM == "" {
+		return fmt.Errorf("csr_pem: required")
+	}
+	return nil
+}
+
+type EnrollResponse struct {
+	CertPEM   string `json:"cert_pem"`
+	CACertPEM string `json:"ca_cert_pem"`
+}
+
+type OperatorResponse struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type OperatorList struct {
+	Operators []OperatorResponse `json:"operators"`
+}
+
 // --- System ---
 
 type StatusResponse struct {

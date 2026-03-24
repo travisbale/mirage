@@ -51,6 +51,13 @@ type botguardManager interface {
 	RemoveSignature(ja4Hash string) error
 }
 
+type operatorManager interface {
+	Invite(name string) (*aitm.OperatorInvite, error)
+	Enroll(token string, csrPEM []byte) (certPEM, caCertPEM []byte, err error)
+	List() ([]*aitm.Operator, error)
+	Delete(name string) error
+}
+
 type notificationManager interface {
 	Create(ch *aitm.NotificationChannel) error
 	Delete(id string) error
@@ -72,6 +79,7 @@ type Router struct {
 	Blacklist     blacklistManager
 	Botguard      botguardManager
 	Notifications notificationManager
+	Operators     operatorManager
 	Bus           eventBus
 	HTTPSPort     int // Included in lure URLs when non-standard (not 443)
 	Version       string
@@ -142,6 +150,14 @@ func (r *Router) registerRoutes() {
 	h("POST", sdk.RouteNotificationChannels, r.createNotificationChannel)
 	h("DELETE", sdk.RouteNotificationChannel, r.deleteNotificationChannel)
 	h("POST", sdk.RouteNotificationTest, r.testNotificationChannel)
+
+	// Operators (authenticated)
+	h("POST", sdk.RouteOperatorInvite, r.inviteOperator)
+	h("GET", sdk.RouteOperators, r.listOperators)
+	h("DELETE", sdk.RouteOperator, r.deleteOperator)
+
+	// Enrollment (unauthenticated — token-based auth)
+	r.mux.HandleFunc("POST "+sdk.RouteEnroll, r.enrollOperator)
 
 	// System
 	h("GET", sdk.RouteStatus, r.getStatus)

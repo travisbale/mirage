@@ -2,12 +2,14 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/api"
@@ -81,6 +83,7 @@ type initializer struct {
 	sessionStore     *sqlite.Sessions
 	lureSvc          *aitm.LureService
 	blacklistSvc     *aitm.BlacklistService
+	operatorSvc      *aitm.OperatorService
 	spoofer          *spoof.Server
 	redirectNotifier *redirect.Notifier
 }
@@ -293,6 +296,7 @@ func (ini *initializer) initProxy(version string) error {
 		Blacklist:     ini.blacklistSvc,
 		Botguard:      ini.botGuardSvc,
 		Notifications: ini.notificationSvc,
+		Operators:     ini.operatorSvc,
 		Bus:           ini.bus,
 		HTTPSPort:     ini.cfg.HTTPSPort,
 		Version:       version,
@@ -335,6 +339,16 @@ func (ini *initializer) initProxy(version string) error {
 	if err := issueOperatorCert(clientCA, apiCACertPath, ini.logger); err != nil {
 		return err
 	}
+
+	// Operator service — must be created after the CA is available.
+	operatorStore := sqlite.NewOperatorStore(ini.db)
+	ini.operatorSvc = &aitm.OperatorService{
+		Store:  operatorStore,
+		Signer: clientCA,
+	}
+	apiHandler.Operators = ini.operatorSvc
+	ini.seedDefaultOperator(operatorStore)
+
 	aitmProxy.ClientCAs = clientCA.CertPool()
 	ini.logger.Info("API enabled", "hostname", ini.cfg.API.SecretHostname, "ca_cert", apiCACertPath)
 
@@ -457,4 +471,16 @@ func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 		return nil, fmt.Errorf("loading API CA: %w", err)
 	}
 	return ca, nil
+}
+
+// seedDefaultOperator ensures the initial "operator" cert user is recorded
+// in the operators table so it appears in `operators list`.
+func (ini *initializer) seedDefaultOperator(store *sqlite.Operators) {
+	err := store.CreateOperator(&aitm.Operator{
+		Name:      "operator",
+		CreatedAt: time.Now(),
+	})
+	if err != nil && !errors.Is(err, aitm.ErrConflict) {
+		ini.logger.Error("failed to seed default operator", "error", err)
+	}
 }

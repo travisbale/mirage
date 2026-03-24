@@ -2,6 +2,7 @@ package aitm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -9,6 +10,11 @@ import (
 	"strings"
 
 	"github.com/travisbale/mirage/sdk"
+)
+
+var (
+	ErrHostnameRequired = errors.New("hostname is required")
+	ErrHostnameConflict = errors.New("hostname is already in use by another phishlet")
 )
 
 // phishletStore is the persistence interface required by PhishletService.

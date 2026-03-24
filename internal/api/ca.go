@@ -141,6 +141,37 @@ func (ca *CA) IssueClientCert(operatorName string) ([]byte, []byte, error) {
 	return certPEM, keyPEM, nil
 }
 
+// SignCSR signs a certificate signing request and returns the signed cert as PEM.
+// The operatorName overrides the CSR's Subject.CommonName to ensure the cert
+// identity matches the invite, regardless of what the client put in the CSR.
+func (ca *CA) SignCSR(csr *x509.CertificateRequest, operatorName string) ([]byte, error) {
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return nil, fmt.Errorf("ca: generate serial: %w", err)
+	}
+
+	tmpl := &x509.Certificate{
+		SerialNumber: serial,
+		Subject:      pkix.Name{CommonName: operatorName},
+		NotBefore:    time.Now().Add(-time.Minute),
+		NotAfter:     time.Now().Add(3 * 365 * 24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, ca.Cert, csr.PublicKey, ca.Key)
+	if err != nil {
+		return nil, fmt.Errorf("ca: sign CSR: %w", err)
+	}
+
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER}), nil
+}
+
+// CACertPEM returns the CA certificate as PEM bytes.
+func (ca *CA) CACertPEM() []byte {
+	return ca.CertPEM
+}
+
 // CertPool returns an *x509.CertPool containing only this CA's certificate.
 func (ca *CA) CertPool() *x509.CertPool {
 	pool := x509.NewCertPool()

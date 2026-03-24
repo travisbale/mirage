@@ -282,6 +282,20 @@ func (c *Client) TestNotificationChannel(id string) error {
 	return discard(c, http.MethodPost, ResolveRoute(RouteNotificationTest, "id", id), nil)
 }
 
+// --- Operators ---
+
+func (c *Client) InviteOperator(req InviteOperatorRequest) (*InviteOperatorResponse, error) {
+	return send[InviteOperatorResponse](c, http.MethodPost, RouteOperatorInvite, req)
+}
+
+func (c *Client) ListOperators() (*OperatorList, error) {
+	return get[OperatorList](c, RouteOperators)
+}
+
+func (c *Client) DeleteOperator(name string) error {
+	return discard(c, http.MethodDelete, ResolveRoute(RouteOperator, "name", name), nil)
+}
+
 // --- System ---
 
 func (c *Client) Status() (*StatusResponse, error) {

@@ -61,6 +61,17 @@ CREATE TABLE IF NOT EXISTS bot_telemetry (
 
 CREATE INDEX IF NOT EXISTS idx_bot_telemetry_session ON bot_telemetry(session_id);
 
+CREATE TABLE IF NOT EXISTS operators (
+    name       TEXT    PRIMARY KEY,
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operator_invites (
+    token      TEXT    PRIMARY KEY,
+    name       TEXT    NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notify_channels (
     id          TEXT    PRIMARY KEY,
     type        TEXT    NOT NULL,

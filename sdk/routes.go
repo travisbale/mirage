@@ -45,6 +45,12 @@ const (
 	RouteNotificationChannel  = "/api/notifications/channels/{id}"
 	RouteNotificationChannels = "/api/notifications/channels"
 
+	// Operators
+	RouteOperatorInvite = "/api/operators/invite"
+	RouteOperator       = "/api/operators/{name}"
+	RouteOperators      = "/api/operators"
+	RouteEnroll         = "/api/enroll"
+
 	// System
 	RouteStatus = "/api/status"
 	RouteReload = "/api/reload"

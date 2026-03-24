@@ -8,25 +8,30 @@ import (
 	"github.com/travisbale/mirage/test"
 )
 
-// TestAPI_UnauthenticatedRequestRejected verifies that a TLS connection to the
-// API hostname without a client certificate is rejected at the handshake level.
+// TestAPI_UnauthenticatedRequestRejected verifies that an API request without
+// a client certificate receives a 401 Unauthorized response.
 func TestAPI_UnauthenticatedRequestRejected(t *testing.T) {
 	harness := test.NewHarness(t)
 
 	// Client with the API hostname as SNI but no client cert.
-	// The server requires a client cert for api.phish.test, so the handshake fails.
 	unauthClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,             //nolint:gosec // test only
-				ServerName:         "api.phish.test", // triggers mTLS requirement
+				InsecureSkipVerify: true, //nolint:gosec // test only
+				ServerName:         "api.phish.test",
 			},
 		},
 	}
 
-	_, err := unauthClient.Get("https://" + harness.ProxyAddr + "/api/status")
-	if err == nil {
-		t.Error("expected TLS handshake error for unauthenticated API request, got nil")
+	req, _ := http.NewRequest(http.MethodGet, "https://"+harness.ProxyAddr+"/api/status", nil)
+	req.Host = "api.phish.test"
+	resp, err := unauthClient.Do(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", resp.StatusCode)
 	}
 }
 
