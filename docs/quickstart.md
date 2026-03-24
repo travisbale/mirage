@@ -82,10 +82,14 @@ On first run it will:
 
 - Create a TLS CA at `/tmp/mirage/data/ca/mirage-ca.crt`
 - Create an mTLS API CA at `/tmp/mirage/data/api-ca.crt`
-- Issue an operator client cert at `/tmp/mirage/data/operator.crt` + `operator.key`
+- Generate an invite token for the first operator
 - Load any phishlets found in `phishlets_dir`
 
-You should see `AiTM proxy listening` in the output.
+Look for this line in the output — you'll need the token and secret hostname:
+
+```
+level=INFO msg="no operators registered — enroll with this token" token=<token> secret_hostname=mgmt.phish.local
+```
 
 ---
 
@@ -98,21 +102,19 @@ Import `/tmp/mirage/data/ca/mirage-ca.crt` as a trusted CA so the browser doesn'
 
 ---
 
-## 7. Register the server with the CLI
+## 7. Enroll the operator
 
-In a second terminal:
+In a second terminal, use the token from the daemon output:
 
 ```bash
 ./build/mirage server add \
   --alias local \
-  --address https://127.0.0.1:443 \
+  --address 127.0.0.1:443 \
   --secret-hostname mgmt.phish.local \
-  --cert /tmp/mirage/data/operator.crt \
-  --key /tmp/mirage/data/operator.key \
-  --ca-cert /tmp/mirage/data/ca/mirage-ca.crt
+  --token <token>
 ```
 
-This verifies the connection before saving. On success you'll see `Connected to miraged ... — endpoint saved as "local"`.
+This generates a keypair locally, enrolls with the daemon, and saves the signed certificate. On success you'll see `Enrolled successfully. Server saved as "local".`
 
 ---
 
@@ -138,19 +140,23 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
 ## File layout after first run
 
 ```txt
-/tmp/mirage/
+/tmp/mirage/                        # server
 ├── miraged.yaml
 ├── phishlets/
 │   └── form-login.yaml
 └── data/
-    ├── data.db          # SQLite — sessions, lures, phishlet configs
+    ├── data.db                     # SQLite — sessions, lures, operators
     ├── ca/
-    │   ├── mirage-ca.crt  # TLS CA — import into browser
+    │   ├── mirage-ca.crt           # TLS CA — import into browser
     │   └── mirage-ca.key
-    ├── api-ca.crt       # mTLS operator CA — used by CLI
-    ├── api-ca.key
-    ├── operator.crt     # operator client cert — used by CLI
-    └── operator.key
+    ├── api-ca.crt                  # mTLS operator CA
+    └── api-ca.key
+
+~/.mirage/                          # operator workstation
+├── client.json                     # server config
+├── local.crt                       # operator cert (enrolled)
+├── local.key                       # operator private key
+└── local-ca.crt                    # server's API CA cert
 ```
 
 ---

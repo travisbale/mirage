@@ -2,14 +2,12 @@ package daemon
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/api"
@@ -336,10 +334,6 @@ func (ini *initializer) initProxy(version string) error {
 	if err != nil {
 		return err
 	}
-	if err := issueOperatorCert(clientCA, apiCACertPath, ini.logger); err != nil {
-		return err
-	}
-
 	// Operator service — must be created after the CA is available.
 	operatorStore := sqlite.NewOperatorStore(ini.db)
 	ini.operatorSvc = &aitm.OperatorService{
@@ -347,7 +341,7 @@ func (ini *initializer) initProxy(version string) error {
 		Signer: clientCA,
 	}
 	apiHandler.Operators = ini.operatorSvc
-	ini.seedDefaultOperator(operatorStore)
+	ini.generateFirstRunInvite()
 
 	aitmProxy.ClientCAs = clientCA.CertPool()
 	ini.logger.Info("API enabled", "hostname", ini.cfg.API.SecretHostname, "ca_cert", apiCACertPath)
@@ -423,33 +417,6 @@ func loadConfig(path string) (*config.Config, error) {
 	return cfg, nil
 }
 
-func issueOperatorCert(ca *api.CA, caCertPath string, logger *slog.Logger) error {
-	dir := filepath.Dir(caCertPath)
-	certPath := filepath.Join(dir, "operator.crt")
-	keyPath := filepath.Join(dir, "operator.key")
-
-	if _, err := os.Stat(certPath); err == nil {
-		return nil
-	}
-
-	certPEM, keyPEM, err := ca.IssueClientCert("operator")
-	if err != nil {
-		return fmt.Errorf("issuing operator client cert: %w", err)
-	}
-
-	if err := os.WriteFile(certPath, certPEM, 0644); err != nil {
-		return fmt.Errorf("writing operator cert: %w", err)
-	}
-
-	if err := os.WriteFile(keyPath, keyPEM, 0600); err != nil {
-		return fmt.Errorf("writing operator key: %w", err)
-	}
-
-	logger.Info("issued operator client certificate", "cert", certPath, "key", keyPath)
-
-	return nil
-}
-
 func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 	if _, err := os.Stat(certPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(filepath.Dir(certPath), 0750); err != nil {
@@ -473,14 +440,25 @@ func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 	return ca, nil
 }
 
-// seedDefaultOperator ensures the initial "operator" cert user is recorded
-// in the operators table so it appears in `operators list`.
-func (ini *initializer) seedDefaultOperator(store *sqlite.Operators) {
-	err := store.CreateOperator(&aitm.Operator{
-		Name:      "operator",
-		CreatedAt: time.Now(),
-	})
-	if err != nil && !errors.Is(err, aitm.ErrConflict) {
-		ini.logger.Error("failed to seed default operator", "error", err)
+// generateFirstRunInvite creates an invite token on first run (when no
+// operators exist) and logs it so the operator can enroll.
+func (ini *initializer) generateFirstRunInvite() {
+	operators, err := ini.operatorSvc.List()
+	if err != nil {
+		ini.logger.Error("failed to list operators", "error", err)
+		return
 	}
+	if len(operators) > 0 {
+		return
+	}
+
+	invite, err := ini.operatorSvc.Invite("operator")
+	if err != nil {
+		ini.logger.Error("failed to generate first-run invite", "error", err)
+		return
+	}
+	ini.logger.Info("no operators registered — enroll with this token",
+		"token", invite.Token,
+		"secret_hostname", ini.cfg.API.SecretHostname,
+	)
 }

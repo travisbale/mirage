@@ -23,10 +23,8 @@ Running with no subcommand drops into the interactive REPL.
 ### `server` — Manage miraged servers
 
 ```bash
-mirage server add --alias prod --address https://1.2.3.4:443 \
-  --secret-hostname api.phish.example.com \
-  --cert ~/.mirage/client.crt --key ~/.mirage/client.key \
-  --ca-cert ~/.mirage/server-ca.crt
+mirage server add --alias prod --address 1.2.3.4:443 \
+  --secret-hostname api.phish.example.com --token <invite-token>
 mirage server list
 mirage server remove prod
 mirage server default prod
@@ -103,7 +101,7 @@ mirage notify test <id>
 
 ## Client config
 
-The client config is stored at `~/.mirage/client.json` and tracks server connections:
+The client config is stored at `~/.mirage/client.json` and tracks server connections. Cert paths are populated automatically during enrollment via `server add --token`.
 
 ```json
 {
@@ -111,10 +109,10 @@ The client config is stored at `~/.mirage/client.json` and tracks server connect
   "servers": [
     {
       "alias": "prod",
-      "address": "https://1.2.3.4:443",
+      "address": "1.2.3.4:443",
       "secret_hostname": "api.phish.example.com",
-      "client_cert_path": "~/.mirage/prod-client.crt",
-      "client_key_path": "~/.mirage/prod-client.key",
+      "client_cert_path": "~/.mirage/prod.crt",
+      "client_key_path": "~/.mirage/prod.key",
       "server_ca_cert": "~/.mirage/prod-ca.crt"
     }
   ]

@@ -83,13 +83,10 @@ After a successful deploy, add the server with:
 			fmt.Printf("Secret hostname : %s\n", result.SecretHostname)
 			fmt.Printf("Status URL      : %s\n", result.StatusURL)
 			fmt.Println()
-			fmt.Println("Next step — download operator certs from the remote server,")
-			fmt.Println("then register it with:")
-			fmt.Printf("  mirage server add --alias %s --address https://%s \\\n", alias, host)
+			fmt.Println("Next step — check the daemon logs for the invite token, then enroll:")
+			fmt.Printf("  mirage server add --alias %s --address %s:%d \\\n", alias, host, httpsPort)
 			fmt.Printf("    --secret-hostname %s \\\n", result.SecretHostname)
-			fmt.Printf("    --cert /var/lib/mirage/operator.crt \\\n")
-			fmt.Printf("    --key /var/lib/mirage/operator.key \\\n")
-			fmt.Printf("    --ca-cert /var/lib/mirage/api-ca.crt\n")
+			fmt.Printf("    --token <token from daemon logs>\n")
 
 			return nil
 		},

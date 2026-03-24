@@ -128,37 +128,59 @@ func TestAPI_OperatorInviteAndEnroll(t *testing.T) {
 	}
 }
 
-// TestAPI_OperatorDelete tests removing an operator.
+// TestAPI_OperatorDelete tests inviting then removing an operator.
 func TestAPI_OperatorDelete(t *testing.T) {
 	harness := test.NewHarness(t)
 
-	// The default "operator" is seeded on startup.
+	// Invite creates the operator name reservation. Enroll would register it,
+	// but for this test we just need a registered operator to delete.
+	// Use the full invite+enroll flow from TestAPI_OperatorInviteAndEnroll
+	// to create "bob", then delete.
+	invite, err := harness.API.InviteOperator(sdk.InviteOperatorRequest{Name: "bob"})
+	if err != nil {
+		t.Fatalf("InviteOperator: %v", err)
+	}
+
+	// Enroll bob.
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	csrDER, _ := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
+		Subject: pkix.Name{CommonName: "pending"},
+	}, key)
+	csrPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})
+
+	enrollReq := sdk.EnrollRequest{Token: invite.Token, CSRPEM: string(csrPEM)}
+	body, _ := json.Marshal(enrollReq)
+
+	enrollClient := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				ServerName:         "api.phish.test",
+				InsecureSkipVerify: true, //nolint:gosec
+			},
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, network, harness.ProxyAddr)
+			},
+		},
+	}
+	resp, err := enrollClient.Post("https://api.phish.test"+sdk.RouteEnroll, "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("enroll: %v", err)
+	}
+	resp.Body.Close()
+
+	// Delete bob.
+	if err := harness.API.DeleteOperator("bob"); err != nil {
+		t.Fatalf("DeleteOperator: %v", err)
+	}
+
 	operators, err := harness.API.ListOperators()
 	if err != nil {
 		t.Fatalf("ListOperators: %v", err)
 	}
-	found := false
 	for _, op := range operators.Operators {
-		if op.Name == "operator" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("expected default operator in list")
-	}
-
-	if err := harness.API.DeleteOperator("operator"); err != nil {
-		t.Fatalf("DeleteOperator: %v", err)
-	}
-
-	operators, err = harness.API.ListOperators()
-	if err != nil {
-		t.Fatalf("ListOperators after delete: %v", err)
-	}
-	for _, op := range operators.Operators {
-		if op.Name == "operator" {
-			t.Error("expected operator to be removed")
+		if op.Name == "bob" {
+			t.Error("expected bob to be removed")
 		}
 	}
 }

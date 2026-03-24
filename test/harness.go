@@ -23,6 +23,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/travisbale/mirage/internal/api"
 	"github.com/travisbale/mirage/internal/config"
 	"github.com/travisbale/mirage/internal/daemon"
 	"github.com/travisbale/mirage/sdk"
@@ -101,18 +102,18 @@ func NewHarness(t *testing.T) *Harness {
 		t.Fatalf("proxy did not become ready: %v", err)
 	}
 
-	// Read certs written to disk by daemon.New.
+	// Read CA certs and issue a test operator cert.
 	proxyCACertPEM, err := os.ReadFile(filepath.Join(tmpDir, "ca", "mirage-ca.crt"))
 	if err != nil {
 		t.Fatalf("reading proxy CA cert: %v", err)
 	}
-	operatorCertPEM, err := os.ReadFile(filepath.Join(tmpDir, "operator.crt"))
+	apiCA, err := api.Load(filepath.Join(tmpDir, "api-ca.crt"))
 	if err != nil {
-		t.Fatalf("reading operator cert: %v", err)
+		t.Fatalf("loading API CA: %v", err)
 	}
-	operatorKeyPEM, err := os.ReadFile(filepath.Join(tmpDir, "operator.key"))
+	operatorCertPEM, operatorKeyPEM, err := apiCA.IssueClientCert("test-operator")
 	if err != nil {
-		t.Fatalf("reading operator key: %v", err)
+		t.Fatalf("issuing test operator cert: %v", err)
 	}
 
 	// Build SDK client. Dials proxyAddr but uses testAPIHostname for SNI/Host.
