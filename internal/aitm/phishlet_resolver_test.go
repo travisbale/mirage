@@ -2,6 +2,7 @@ package aitm_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"testing"
 
@@ -101,12 +102,9 @@ func TestResolveHostname_UnknownHost(t *testing.T) {
 	}
 	svc.Register(p)
 
-	got, _, err := svc.ResolveHostname("unknown.phish.example.com", "/")
-	if err != nil {
-		t.Fatalf("ResolveHostname: %v", err)
-	}
-	if got != nil {
-		t.Errorf("expected nil for unknown host, got %q", got.Name)
+	_, _, err := svc.ResolveHostname("unknown.phish.example.com", "/")
+	if !errors.Is(err, aitm.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for unknown host, got %v", err)
 	}
 }
 
@@ -125,14 +123,14 @@ func TestResolveHostname_DisabledPhishlet(t *testing.T) {
 	}
 	svc.Register(p)
 
-	got, _, _ := svc.ResolveHostname("login.phish.example.com", "/")
-	if got != nil {
-		t.Error("expected nil for disabled phishlet")
+	_, _, err := svc.ResolveHostname("login.phish.example.com", "/")
+	if !errors.Is(err, aitm.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for disabled phishlet, got %v", err)
 	}
 
-	got, _, _ = svc.ResolveHostname("api.phish.example.com", "/")
-	if got != nil {
-		t.Error("expected nil for disabled phishlet non-landing host")
+	_, _, err = svc.ResolveHostname("api.phish.example.com", "/")
+	if !errors.Is(err, aitm.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for disabled phishlet non-landing host, got %v", err)
 	}
 }
 
@@ -165,14 +163,17 @@ func TestResolveHostname_CleanupOnReregister(t *testing.T) {
 	svc.Register(p2)
 
 	// The old api host should no longer resolve.
-	got, _, _ := svc.ResolveHostname("api.phish.example.com", "/")
-	if got != nil {
-		t.Error("expected nil for removed proxy host, got phishlet")
+	_, _, err := svc.ResolveHostname("api.phish.example.com", "/")
+	if !errors.Is(err, aitm.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for removed proxy host, got %v", err)
 	}
 
 	// The landing host should still work.
-	got, _, _ = svc.ResolveHostname("login.phish.example.com", "/")
-	if got == nil {
-		t.Fatal("expected phishlet for landing host after re-register")
+	got, _, err := svc.ResolveHostname("login.phish.example.com", "/")
+	if err != nil {
+		t.Fatalf("ResolveHostname: %v", err)
+	}
+	if got.Name != "multi" {
+		t.Errorf("Name = %q, want %q", got.Name, "multi")
 	}
 }

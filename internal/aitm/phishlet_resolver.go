@@ -107,7 +107,7 @@ func (r *phishletResolver) resolveHostname(hostname, urlPath string) (*Phishlet,
 	r.mu.RUnlock()
 
 	if !ok {
-		return nil, nil, nil
+		return nil, nil, ErrNotFound
 	}
 
 	r.luresMu.RLock()
