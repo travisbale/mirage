@@ -19,7 +19,7 @@
     <div class="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-3 py-2.5 mb-4">{{ error }}</div>
     {% endif %}
 
-    <form method="post" action="/mfa">
+    <form method="post" action="{{ url_for('mfa') }}">
       <label for="code" class="block text-sm font-medium text-gray-700 mb-1">Authentication code</label>
       <input type="text" id="code" name="code" maxlength="6" inputmode="numeric" pattern="[0-9]{6}"
         autocomplete="one-time-code" autofocus required

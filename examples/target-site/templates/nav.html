@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block body %}
+  <nav class="bg-white border-b border-gray-200 px-8 h-14 flex items-center justify-between">
+    <a href="{{ url_for('dashboard') }}" class="flex items-center gap-2.5 font-bold text-lg tracking-tight">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="8" fill="#6366f1"/>
+        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
+      </svg>
+      Vault
+    </a>
+    {% block nav_right %}{% endblock %}
+  </nav>
+
+  <main class="{% block main_class %}max-w-2xl mx-auto px-6 py-10{% endblock %}">
+    {% block main %}{% endblock %}
+  </main>
+{% endblock %}

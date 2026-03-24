@@ -1,21 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign in — Vault</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen bg-gray-100 flex flex-col items-center justify-center font-sans text-gray-900">
-  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-10 w-full max-w-sm">
-    <div class="flex items-center gap-2.5 mb-7">
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" rx="8" fill="#6366f1"/>
-        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
-      </svg>
-      <span class="text-xl font-bold tracking-tight">Vault</span>
-    </div>
+{% extends "card.html" %}
 
+{% block title %}Sign in — Vault{% endblock %}
+
+{% block card %}
     <h1 class="text-xl font-semibold mb-1">Sign in</h1>
     <p class="text-sm text-gray-500 mb-7">Authenticate with the Vault API.</p>
 
@@ -52,97 +39,10 @@
         </button>
       </form>
     </div>
-  </div>
 
-  <footer class="mt-7 text-xs text-gray-400 flex gap-4">
-    <span>&copy; 2025 Vault Inc.</span>
-    <a href="https://login.target.local/terms" class="hover:underline">Terms</a>
-    <a href="https://login.target.local/privacy" class="hover:underline">Privacy</a>
-  </footer>
-
+  <script src="{{ url_for('static', filename='js/api-auth.js') }}"></script>
   <script>
     var API_HOST = "https://api.target.local";
-    var errorEl = document.getElementById("error");
-    var pendingToken = null;
-
-    function showError(msg) {
-      errorEl.textContent = msg;
-      errorEl.classList.remove("hidden");
-    }
-
-    function hideError() {
-      errorEl.classList.add("hidden");
-    }
-
-    function apiCall(url, body) {
-      return fetch(url, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        credentials: "include",
-        body: JSON.stringify(body)
-      }).then(function(resp) {
-        return resp.json().then(function(data) { return {ok: resp.ok, data: data}; });
-      });
-    }
-
-    // Step 1: email + password
-    document.getElementById("login-form").addEventListener("submit", function(e) {
-      e.preventDefault();
-      hideError();
-      var btn = document.getElementById("login-btn");
-      btn.textContent = "Signing in...";
-      btn.disabled = true;
-
-      apiCall(API_HOST + "/auth", {
-        email: document.getElementById("email").value,
-        password: document.getElementById("password").value
-      })
-      .then(function(result) {
-        if (!result.ok) {
-          showError(result.data.error || "Login failed.");
-          btn.textContent = "Sign in";
-          btn.disabled = false;
-          return;
-        }
-        pendingToken = result.data.pending_token;
-        document.getElementById("step-login").classList.add("hidden");
-        document.getElementById("step-mfa").classList.remove("hidden");
-        document.getElementById("code").focus();
-      })
-      .catch(function() {
-        showError("Network error. Please try again.");
-        btn.textContent = "Sign in";
-        btn.disabled = false;
-      });
-    });
-
-    // Step 2: MFA code
-    document.getElementById("mfa-form").addEventListener("submit", function(e) {
-      e.preventDefault();
-      hideError();
-      var btn = document.getElementById("mfa-btn");
-      btn.textContent = "Verifying...";
-      btn.disabled = true;
-
-      apiCall(API_HOST + "/auth/mfa", {
-        pending_token: pendingToken,
-        code: document.getElementById("code").value
-      })
-      .then(function(result) {
-        if (!result.ok) {
-          showError(result.data.error || "Verification failed.");
-          btn.textContent = "Verify";
-          btn.disabled = false;
-          return;
-        }
-        window.location.href = "/dashboard";
-      })
-      .catch(function() {
-        showError("Network error. Please try again.");
-        btn.textContent = "Verify";
-        btn.disabled = false;
-      });
-    });
+    apiAuth(API_HOST + "/auth", API_HOST + "/auth/mfa", "{{ url_for('dashboard') }}");
   </script>
-</body>
-</html>
+{% endblock %}

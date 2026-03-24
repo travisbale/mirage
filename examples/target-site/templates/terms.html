@@ -1,23 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Terms of Service — Vault</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen bg-gray-100 font-sans text-gray-900">
-  <nav class="bg-white border-b border-gray-200 px-8 h-14 flex items-center justify-between">
-    <a href="http://login.target.local/login" class="flex items-center gap-2.5 font-bold text-lg tracking-tight">
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" rx="8" fill="#6366f1"/>
-        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
-      </svg>
-      Vault
-    </a>
-  </nav>
+{% extends "nav.html" %}
 
-  <main class="max-w-2xl mx-auto px-6 py-12">
+{% block title %}Terms of Service — Vault{% endblock %}
+
+{% block main_class %}max-w-2xl mx-auto px-6 py-12{% endblock %}
+
+{% block main %}
     <h1 class="text-2xl font-bold mb-6">Terms of Service</h1>
 
     <div class="prose text-sm text-gray-700 space-y-4">
@@ -35,6 +22,4 @@
       <h2 class="text-base font-semibold text-gray-900 mt-6">4. Contact</h2>
       <p>Questions? Email <a href="mailto:legal@target.local" class="text-indigo-500 hover:underline">legal@target.local</a>.</p>
     </div>
-  </main>
-</body>
-</html>
+{% endblock %}

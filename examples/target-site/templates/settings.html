@@ -1,27 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Settings — Vault</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen bg-gray-100 font-sans text-gray-900">
-  <nav class="bg-white border-b border-gray-200 px-8 h-14 flex items-center justify-between">
-    <a href="http://login.target.local/dashboard" class="flex items-center gap-2.5 font-bold text-lg tracking-tight">
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" rx="8" fill="#6366f1"/>
-        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
-      </svg>
-      Vault
-    </a>
+{% extends "nav.html" %}
+
+{% block title %}Settings — Vault{% endblock %}
+
+{% block nav_right %}
     <div class="flex items-center gap-4">
       <span class="text-sm text-gray-500">{{ email }}</span>
-      <a href="/logout" class="text-sm text-indigo-500 font-medium hover:underline">Sign out</a>
+      <a href="{{ url_for('logout') }}" class="text-sm text-indigo-500 font-medium hover:underline">Sign out</a>
     </div>
-  </nav>
+{% endblock %}
 
-  <main class="max-w-2xl mx-auto px-6 py-10">
+{% block main %}
     <h1 class="text-2xl font-bold mb-8">Account settings</h1>
 
     <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
@@ -42,7 +30,7 @@
             <div class="text-sm font-medium">Password</div>
             <div class="text-sm text-gray-500 mt-0.5">Last changed 3 months ago</div>
           </div>
-          <a href="http://login.target.local/forgot" class="text-sm text-indigo-500 hover:underline">Reset</a>
+          <a href="{{ url_for('forgot') }}" class="text-sm text-indigo-500 hover:underline">Reset</a>
         </div>
       </div>
 
@@ -60,11 +48,8 @@
       <div class="px-6 py-5">
         <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Legal</div>
         <div class="flex gap-4 text-sm text-indigo-500">
-          <a href="http://login.target.local/terms" class="hover:underline">Terms of Service</a>
-          <a href="http://login.target.local/privacy" class="hover:underline">Privacy Policy</a>
+          <a href="{{ url_for('terms') }}" class="hover:underline">Terms of Service</a>
         </div>
       </div>
     </div>
-  </main>
-</body>
-</html>
+{% endblock %}

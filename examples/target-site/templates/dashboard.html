@@ -1,28 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard — Vault</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen bg-gray-100 font-sans text-gray-900">
-  <nav class="bg-white border-b border-gray-200 px-8 h-14 flex items-center justify-between">
-    <div class="flex items-center gap-2.5 font-bold text-lg tracking-tight">
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" rx="8" fill="#6366f1"/>
-        <path d="M10 10h5l3 8 3-8h5l-5.5 12h-5L10 10z" fill="#fff"/>
-      </svg>
-      Vault
-    </div>
+{% extends "nav.html" %}
+
+{% block title %}Dashboard — Vault{% endblock %}
+
+{% block nav_right %}
     <div class="flex items-center gap-4">
       <span class="text-sm text-gray-500">{{ email }}</span>
-      <a href="http://login.target.local/settings" class="text-sm text-gray-500 hover:underline">Settings</a>
-      <a href="/logout" class="text-sm text-indigo-500 font-medium hover:underline">Sign out</a>
+      <a href="{{ url_for('settings') }}" class="text-sm text-gray-500 hover:underline">Settings</a>
+      <a href="{{ url_for('logout') }}" class="text-sm text-indigo-500 font-medium hover:underline">Sign out</a>
     </div>
-  </nav>
+{% endblock %}
 
-  <main class="max-w-4xl mx-auto px-6 py-10">
+{% block main_class %}max-w-4xl mx-auto px-6 py-10{% endblock %}
+
+{% block main %}
     <div class="mb-8">
       <h1 class="text-2xl font-bold mb-1">Welcome back</h1>
       <p class="text-sm text-gray-500">Signed in as {{ email }}</p>
@@ -69,6 +59,4 @@
         <div class="text-xs text-gray-400">3 days ago</div>
       </div>
     </div>
-  </main>
-</body>
-</html>
+{% endblock %}

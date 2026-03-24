@@ -20,8 +20,7 @@
   <footer class="mt-7 text-xs text-gray-400 flex gap-4">
     {% block footer %}
     <span>&copy; 2025 Vault Inc.</span>
-    <a href="http://login.target.local/terms" class="hover:underline">Terms</a>
-    <a href="http://login.target.local/privacy" class="hover:underline">Privacy</a>
+    <a href="{{ url_for('terms') }}" class="hover:underline">Terms</a>
     {% endblock %}
   </footer>
 {% endblock %}

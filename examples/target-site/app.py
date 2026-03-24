@@ -1,5 +1,6 @@
 import logging
 import secrets
+from functools import wraps
 
 from flask import Flask, jsonify, make_response, redirect, render_template, request, url_for
 
@@ -64,12 +65,20 @@ def mfa():
     return render_template("mfa.html", email=email, error=error)
 
 
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        token = request.cookies.get("auth_session")
+        if not token or token not in sessions:
+            return redirect(url_for("login"))
+        return f(*args, email=sessions[token], **kwargs)
+    return wrapper
+
+
 @app.route("/dashboard")
-def dashboard():
-    token = request.cookies.get("auth_session")
-    if not token or token not in sessions:
-        return redirect(url_for("login"))
-    return render_template("dashboard.html", email=sessions[token])
+@login_required
+def dashboard(email):
+    return render_template("dashboard.html", email=email)
 
 
 @app.route("/logout")
@@ -100,11 +109,9 @@ def terms():
 
 
 @app.route("/settings")
-def settings():
-    token = request.cookies.get("auth_session")
-    if not token or token not in sessions:
-        return redirect(url_for("login"))
-    return render_template("settings.html", email=sessions[token])
+@login_required
+def settings(email):
+    return render_template("settings.html", email=email)
 
 
 @app.route("/api/telemetry", methods=["POST"])
