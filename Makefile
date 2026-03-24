@@ -1,7 +1,7 @@
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
 
-.PHONY: build build-daemon scripts sidecar-install clean test unit fmt lint docker
+.PHONY: build release scripts sidecar-install clean test unit fmt lint docker
 
 scripts:
 	@echo "Minifying injected JavaScript..."
@@ -12,18 +12,20 @@ sidecar-install:
 	@cd internal/obfuscator/sidecar && npm ci --omit=dev
 
 build: scripts
-	@echo "Building production binaries..."
+	@echo "Building binaries..."
 	@mkdir -p build
 	@go build $(LDFLAGS) -o build/miraged ./cmd/miraged
 	@go build $(LDFLAGS) -o build/mirage ./cmd/mirage
 	@echo "  build/miraged"
 	@echo "  build/mirage"
 
-build-daemon: scripts
-	@echo "Building miraged..."
+release: scripts
 	@mkdir -p build
-	@go build $(LDFLAGS) -o build/miraged ./cmd/miraged
-	@echo "  build/miraged"
+	@GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o build/miraged-linux-amd64       ./cmd/miraged
+	@GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o build/miraged-linux-arm64       ./cmd/miraged
+	@GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o build/mirage-linux-amd64        ./cmd/mirage
+	@GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o build/mirage-linux-arm64        ./cmd/mirage
+	@GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o build/mirage-windows-amd64.exe  ./cmd/mirage
 
 clean:
 	@echo "Cleaning build artifacts..."

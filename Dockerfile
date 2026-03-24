@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 
 ARG VERSION=dev
-RUN make build-daemon VERSION=${VERSION}
+RUN make build VERSION=${VERSION}
 
 
 # Runtime stage
