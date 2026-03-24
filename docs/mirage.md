@@ -92,6 +92,15 @@ mirage botguard add <ja4-hash> [--description "Googlebot"]
 mirage botguard remove <ja4-hash>
 ```
 
+### `notify` — Manage notification channels
+
+```bash
+mirage notify list
+mirage notify add --type <webhook|slack> --url <url> [--auth-header "Bearer ..."] [--filter session.completed,session.creds_captured]
+mirage notify remove <id>
+mirage notify test <id>
+```
+
 ## Client config
 
 The client config is stored at `~/.mirage/client.json` and tracks server connections:

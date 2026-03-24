@@ -36,13 +36,14 @@ On startup, `miraged` initializes these subsystems:
 6. **BotGuard** — computes JA4 TLS fingerprints and scores requests against a signature database; suspicious clients are spoofed
 7. **Puppet service** (optional) — headless Chromium visits the real target site and collects browser telemetry; injects JS overrides into proxied responses so victim sessions match a legitimate visit's fingerprint
 8. **JS obfuscator** (optional) — Node.js sidecar that transforms injected JavaScript on every request to defeat static fingerprinting
-9. **Management API** — REST API served on `api.secret_hostname`, authenticated via mutual TLS
+9. **Notification service** — delivers event notifications to webhook and Slack channels configured via the API
+10. **Management API** — REST API served on `api.secret_hostname`, authenticated via mutual TLS
 
 ## Proxy architecture
 
-Each victim's TLS connection is represented by an unexported `connection` struct that holds all connection-level state (JA4 hash, client IP, phishlet, lure, session). Connection setup runs once via `handleInit()`; individual HTTP requests are processed by `handleRequest()` as linear method calls — no pipeline abstraction or dynamic dispatch. All response writing is centralized in `handleRequest`.
+Each victim's TLS connection is represented by an unexported `connection` struct that holds all connection-level state (JA4 hash, client IP, phishlet, lure, session). The `serve()` loop reads HTTP requests and routes them: WebSocket upgrades, telemetry POSTs, CORS preflights, and API requests are handled directly; all other requests go through `initSession()` (first request only) and `handleRequest()`. All response writing is centralized in `handleRequest`.
 
-### Connection setup (`handleInit`)
+### Connection setup (`initSession`)
 
 Runs once on the first HTTP request. Spoofs or blocks the connection if any check fails.
 
@@ -72,11 +73,12 @@ Methods run in order. Handler methods only make decisions or mutate the request/
 **After receiving upstream response:**
 
 1. Security header stripping — removes CSP, HSTS, X-Frame-Options, etc.
-2. Token extraction — captures auth cookies, headers, and body tokens; marks session complete when all required tokens are captured; whitelists victim IP
-3. Cookie rewriting — rewrites Set-Cookie domains to phishing domain; injects `__ss` tracking cookie on new sessions
-4. Sub-filter application — applies phishlet regex rules + auto_filter to rewrite domain references in response bodies
-5. JS injection — injects telemetry, redirect, puppet override, and custom scripts
-6. JS obfuscation — transforms injected scripts via Node.js sidecar
+2. CORS header rewriting — rewrites `Access-Control-Allow-Origin` from upstream domain to phishing domain for multi-host phishlets
+4. Token extraction — captures auth cookies, headers, and body tokens; marks session complete when all required tokens are captured; whitelists victim IP
+5. Cookie rewriting — rewrites Set-Cookie domains to phishing domain; injects `__ss` tracking cookie on new sessions
+6. Sub-filter application — applies phishlet regex rules + auto_filter to rewrite domain references in response bodies
+7. JS injection — injects telemetry, redirect, puppet override, and custom scripts
+8. JS obfuscation — transforms injected scripts via Node.js sidecar
 
 ## Configuration reference
 
