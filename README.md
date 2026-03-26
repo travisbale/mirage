@@ -141,6 +141,10 @@ mirage deploy 203.0.113.5 \
 
 This uploads the `miraged` binary, writes the config, installs a systemd unit, and performs a health check.
 
+### Redirectors
+
+For additional protection against automated scanners, see [Redirectors](docs/redirectors.md).
+
 ## First-time setup
 
 > For a guided local setup using the bundled target site, see the [Quickstart Guide](docs/quickstart.md). No domain registration or ACME certificates required.

