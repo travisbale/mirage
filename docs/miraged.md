@@ -74,11 +74,11 @@ Methods run in order. Handler methods only make decisions or mutate the request/
 
 1. Security header stripping — removes CSP, HSTS, X-Frame-Options, etc.
 2. CORS header rewriting — rewrites `Access-Control-Allow-Origin` from upstream domain to phishing domain for multi-host phishlets
-4. Token extraction — captures auth cookies, headers, and body tokens; marks session complete when all required tokens are captured; whitelists victim IP
-5. Cookie rewriting — rewrites Set-Cookie domains to phishing domain; injects `__ss` tracking cookie on new sessions
-6. Sub-filter application — applies phishlet regex rules + auto_filter to rewrite domain references in response bodies
-7. JS injection — injects telemetry, redirect, puppet override, and custom scripts
-8. JS obfuscation — transforms injected scripts via Node.js sidecar
+3. Token extraction — captures auth cookies, headers, and body tokens; marks session complete when all required tokens are captured; whitelists victim IP
+4. Cookie rewriting — rewrites Set-Cookie domains to phishing domain; injects `__ss` tracking cookie on new sessions
+5. Sub-filter application — applies phishlet regex rules + auto_filter to rewrite domain references in response bodies
+6. JS injection — injects telemetry, redirect, puppet override, and custom scripts
+7. JS obfuscation — transforms injected scripts via Node.js sidecar
 
 ## Configuration reference
 

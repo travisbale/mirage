@@ -154,7 +154,7 @@ miraged --config /etc/mirage/miraged.yaml
 On first start, `miraged` generates a TLS CA and an mTLS operator CA, then prints the enrollment command:
 
 ```txt
-level=INFO msg="enroll with: mirage server add --address <address> --secret-hostname <secret_hostname> --token <token>"
+level=INFO msg="enroll with: mirage server add --address 203.0.113.5:443 --secret-hostname api.phish.example.com --token <token>"
 ```
 
 **2. Enroll from your operator machine.**
