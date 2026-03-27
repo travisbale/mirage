@@ -49,7 +49,7 @@ After a successful deploy, add the server with:
 				secretHost = deploy.GenerateSecretHostname(domain)
 			}
 
-			cfg := deploy.DeployConfig{
+			cfg := deploy.Config{
 				Host:             host,
 				SSHUser:          sshUser,
 				SSHKeyPath:       sshKey,
@@ -66,9 +66,10 @@ After a successful deploy, add the server with:
 				Force:            force,
 			}
 
-			svc := deploy.NewDeployService()
-			svc.Progress = func(step, total int, name string) {
-				fmt.Printf("[%d/%d] %s... ", step, total, name)
+			svc := &deploy.Service{
+				Progress: func(step, total int, name string) {
+					fmt.Printf("[%d/%d] %s... ", step, total, name)
+				},
 			}
 
 			fmt.Printf("Deploying miraged to %s\n\n", host)

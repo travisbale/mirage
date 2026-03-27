@@ -23,8 +23,8 @@ func TestGenerateSecretHostname(t *testing.T) {
 	}
 }
 
-func testDeployConfig() DeployConfig {
-	return DeployConfig{
+func testConfig() Config {
+	return Config{
 		Domain:           "attacker.com",
 		ExternalIPv4:     "203.0.113.5",
 		HTTPSPort:        443,
@@ -38,7 +38,7 @@ func testDeployConfig() DeployConfig {
 }
 
 func TestRenderConfig(t *testing.T) {
-	out, err := renderConfig(testDeployConfig())
+	out, err := renderConfig(testConfig())
 	if err != nil {
 		t.Fatalf("renderConfig: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestRenderConfig(t *testing.T) {
 // loaded and validated by the real config package. This catches field name
 // mismatches between the template and the config struct.
 func TestRenderConfig_ParseableByDaemon(t *testing.T) {
-	out, err := renderConfig(testDeployConfig())
+	out, err := renderConfig(testConfig())
 	if err != nil {
 		t.Fatalf("renderConfig: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestRenderConfig_ParseableByDaemon(t *testing.T) {
 }
 
 func TestRenderSystemdUnit(t *testing.T) {
-	out, err := renderSystemdUnit(testDeployConfig())
+	out, err := renderSystemdUnit(testConfig())
 	if err != nil {
 		t.Fatalf("renderSystemdUnit: %v", err)
 	}

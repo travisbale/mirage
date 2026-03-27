@@ -48,7 +48,7 @@ WantedBy=multi-user.target
 `
 
 // render parses and executes a template string against cfg.
-func render(name, tmplStr string, cfg DeployConfig) (string, error) {
+func render(name, tmplStr string, cfg Config) (string, error) {
 	tmpl, err := template.New(name).Parse(tmplStr)
 	if err != nil {
 		return "", fmt.Errorf("parsing template %q: %w", name, err)
@@ -61,12 +61,12 @@ func render(name, tmplStr string, cfg DeployConfig) (string, error) {
 }
 
 // renderConfig renders the miraged.yaml config template with the given values.
-func renderConfig(cfg DeployConfig) (string, error) {
+func renderConfig(cfg Config) (string, error) {
 	return render("config", configTemplate, cfg)
 }
 
 // renderSystemdUnit renders the systemd unit file content with the given values.
-func renderSystemdUnit(cfg DeployConfig) (string, error) {
+func renderSystemdUnit(cfg Config) (string, error) {
 	return render("unit", systemdUnitTemplate, cfg)
 }
 
@@ -87,7 +87,7 @@ func writeRemoteFile(client *ssh.Client, path, content string) error {
 }
 
 // writeConfig renders the config template and writes it to the remote host.
-func writeConfig(client *ssh.Client, cfg DeployConfig) error {
+func writeConfig(client *ssh.Client, cfg Config) error {
 	content, err := renderConfig(cfg)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func writeConfig(client *ssh.Client, cfg DeployConfig) error {
 }
 
 // writeSystemdUnit writes the systemd unit file to /etc/systemd/system/miraged.service.
-func writeSystemdUnit(client *ssh.Client, cfg DeployConfig) error {
+func writeSystemdUnit(client *ssh.Client, cfg Config) error {
 	content, err := renderSystemdUnit(cfg)
 	if err != nil {
 		return err
