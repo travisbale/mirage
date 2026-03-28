@@ -162,8 +162,4 @@ func (r *Router) registerRoutes() {
 	// System
 	h("GET", sdk.RouteStatus, r.getStatus)
 	h("POST", sdk.RouteReload, r.reload)
-
-	// Campaigns
-	h("GET", sdk.RouteCampaigns, r.listCampaignMappings)
-	h("POST", sdk.RouteCampaignSync, r.syncCampaign)
 }

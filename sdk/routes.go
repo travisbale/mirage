@@ -54,10 +54,6 @@ const (
 	// System
 	RouteStatus = "/api/status"
 	RouteReload = "/api/reload"
-
-	// Campaigns
-	RouteCampaignSync = "/api/campaigns/sync"
-	RouteCampaigns    = "/api/campaigns"
 )
 
 // ResolveRoute replaces {param} placeholders in a route pattern with concrete values.
