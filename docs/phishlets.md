@@ -1,6 +1,6 @@
 # Phishlet Reference
 
-A phishlet is a YAML file that describes how to proxy and attack a specific target site. Phishlet files live in `phishlets_dir` (configured in `miraged.yaml`) and are hot-reloaded on save.
+A phishlet is a YAML file that describes how to proxy and attack a specific target site. Phishlets are pushed to the daemon via the CLI (`mirage phishlets push <file>`) and stored in the database.
 
 ## File structure
 
@@ -213,15 +213,9 @@ The script is injected as a `<script>` tag at the end of the `<body>`. If the JS
 
 ## Validation
 
-miraged validates phishlets on load and on file change. To check a phishlet without starting the daemon:
-
-```bash
-miraged --config /etc/mirage/miraged.yaml validate
-```
-
-Parse errors include the field path and a human-readable message:
+Phishlets are validated when pushed via the CLI. Parse errors include the field path and a human-readable message:
 
 ```txt
-microsoft.yaml: proxy_hosts[0].phish_sub: required
-microsoft.yaml: sub_filters[1].search: invalid regex: error parsing regexp: ...
+api: proxy_hosts[0].phish_sub: required
+api: sub_filters[1].search: invalid regex: error parsing regexp: ...
 ```

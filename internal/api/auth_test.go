@@ -44,16 +44,15 @@ func (s *stubLures) URLWithParams(_ *aitm.Lure, _ int, _ map[string]string) (str
 
 type stubPhishlets struct{}
 
-func (s *stubPhishlets) Enable(_ context.Context, _, _, _ string) (*aitm.Phishlet, error) {
+func (s *stubPhishlets) Push(_ string) (*aitm.Phishlet, error) { return nil, nil }
+func (s *stubPhishlets) Enable(_ context.Context, _, _, _ string) (*aitm.ConfiguredPhishlet, error) {
 	return nil, nil
 }
-func (s *stubPhishlets) Disable(_ context.Context, _ string) (*aitm.Phishlet, error) {
+func (s *stubPhishlets) Disable(_ context.Context, _ string) (*aitm.ConfiguredPhishlet, error) {
 	return nil, nil
 }
-func (s *stubPhishlets) Hide(_ string) (*aitm.Phishlet, error)   { return nil, nil }
-func (s *stubPhishlets) Unhide(_ string) (*aitm.Phishlet, error) { return nil, nil }
-func (s *stubPhishlets) Get(_ string) (*aitm.Phishlet, error)    { return nil, nil }
-func (s *stubPhishlets) List() ([]*aitm.Phishlet, error)         { return nil, nil }
+func (s *stubPhishlets) Get(_ string) (*aitm.PhishletConfig, error) { return nil, nil }
+func (s *stubPhishlets) List() ([]*aitm.PhishletConfig, error)      { return nil, nil }
 
 type stubBlacklist struct{}
 

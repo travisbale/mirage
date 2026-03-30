@@ -19,12 +19,9 @@ FROM gcr.io/distroless/static:nonroot
 
 COPY --from=builder /src/build/miraged /usr/local/bin/miraged
 
-# Phishlets, redirectors, config, and database are operator-supplied at runtime.
-# Mount them as volumes:
+# Config and data are operator-supplied at runtime. Mount them as volumes:
 #   /etc/mirage/miraged.yaml   — config file
-#   /etc/mirage/phishlets/     — phishlet YAML files
-#   /etc/mirage/redirectors/   — redirector files
-#   /var/lib/mirage/           — SQLite database and generated certs
+#   /var/lib/mirage/           — SQLite database (includes phishlet definitions) and generated certs
 VOLUME ["/etc/mirage", "/var/lib/mirage"]
 
 # HTTPS proxy (443) and DNS (53/udp).

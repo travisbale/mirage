@@ -58,7 +58,6 @@ After a successful deploy, add the server with:
 				HTTPSPort:        httpsPort,
 				DNSPort:          dnsPort,
 				DataDir:          config.DefaultDataDir,
-				PhishletsDir:     filepath.Join(configDir, "phishlets"),
 				RemoteBinaryPath: "/usr/local/bin/miraged",
 				RemoteConfigDir:  configDir,
 				LocalBinaryPath:  binary,

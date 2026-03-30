@@ -33,8 +33,7 @@ docker compose -f examples/target-site/docker-compose.yml up -d
 ## 3. Create directories and config
 
 ```bash
-mkdir -p /tmp/mirage/{phishlets,data}
-cp examples/phishlets/form-login.yaml /tmp/mirage/phishlets/
+mkdir -p /tmp/mirage/data
 ```
 
 Create `/tmp/mirage/miraged.yaml`:
@@ -44,7 +43,6 @@ domain: phish.local
 external_ipv4: 127.0.0.1
 bind_address: 127.0.0.1
 data_dir: /tmp/mirage/data
-phishlets_dir: /tmp/mirage/phishlets
 
 self_signed: true
 
@@ -83,7 +81,6 @@ On first run it will:
 - Create a TLS CA at `/tmp/mirage/data/ca/mirage-ca.crt`
 - Create an mTLS API CA at `/tmp/mirage/data/api-ca.crt`
 - Generate an invite token for the first operator
-- Load any phishlets found in `phishlets_dir`
 
 Look for the enrollment command in the output:
 
@@ -114,9 +111,12 @@ On success you'll see `Enrolled successfully. Server saved as "local".`
 
 ---
 
-## 8. Enable the phishlet and create a lure
+## 8. Push the phishlet, enable it, and create a lure
 
 ```bash
+# Push the phishlet definition
+./build/mirage phishlets push examples/phishlets/form-login.yaml
+
 # Enable the phishlet on a hostname
 ./build/mirage phishlets enable form-login --hostname login.phish.local
 
@@ -138,10 +138,8 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
 ```txt
 /tmp/mirage/                        # server
 ├── miraged.yaml
-├── phishlets/
-│   └── form-login.yaml
 └── data/
-    ├── data.db                     # SQLite — sessions, lures, operators
+    ├── data.db                     # SQLite — sessions, lures, phishlets, operators
     ├── ca/
     │   ├── mirage-ca.crt           # TLS CA — import into browser
     │   └── mirage-ca.key
@@ -159,7 +157,6 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
 
 ## Tips
 
-- Phishlet YAML files are hot-reloaded on save — no restart needed.
 - Run `./build/miraged --config /tmp/mirage/miraged.yaml validate` to check your config without starting the daemon.
 - `./build/mirage` with no subcommand drops into an interactive REPL.
 - The CLI `--json` flag outputs raw JSON for scripting.
@@ -175,7 +172,7 @@ The target site includes two additional login flows you can test with different 
 - **API login phishlet** — Captures bearer tokens from JSON responses instead of cookies.
 
   ```bash
-  cp examples/phishlets/api-login.yaml /tmp/mirage/phishlets/
+  mirage phishlets push examples/phishlets/api-login.yaml
   mirage phishlets enable api-login --hostname login.phish.local
   mirage lures create api-login --redirect https://login.target.local/demo-complete
   ```
@@ -183,7 +180,7 @@ The target site includes two additional login flows you can test with different 
 - **Multi-host phishlet** — Proxies two subdomains (`login` and `api`), demonstrating cross-origin auth and multi-host routing.
 
   ```bash
-  cp examples/phishlets/multi-host.yaml /tmp/mirage/phishlets/
+  mirage phishlets push examples/phishlets/multi-host.yaml
   mirage phishlets enable multi-host --hostname login.phish.local
   mirage lures create multi-host --redirect https://login.target.local/demo-complete
   ```

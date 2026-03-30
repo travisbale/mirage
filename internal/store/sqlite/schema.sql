@@ -36,14 +36,14 @@ CREATE TABLE IF NOT EXISTS lures (
 
 CREATE INDEX IF NOT EXISTS idx_lures_phishlet ON lures(phishlet);
 
-CREATE TABLE IF NOT EXISTS phishlet_configs (
+CREATE TABLE IF NOT EXISTS phishlets (
     name            TEXT    PRIMARY KEY,
+    yaml            TEXT    NOT NULL DEFAULT '',
     base_domain     TEXT    NOT NULL DEFAULT '',
     dns_provider    TEXT    NOT NULL DEFAULT '',
     hostname        TEXT    NOT NULL DEFAULT '',
     spoof_url       TEXT    NOT NULL DEFAULT '',
-    enabled         INTEGER NOT NULL DEFAULT 0,
-    hidden          INTEGER NOT NULL DEFAULT 0
+    enabled         INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS bot_signatures (

@@ -208,6 +208,10 @@ func (c *Client) UnpauseLure(id string) error {
 
 // --- Phishlets ---
 
+func (c *Client) PushPhishlet(req PushPhishletRequest) (*PhishletResponse, error) {
+	return send[PhishletResponse](c, http.MethodPost, RoutePhishlets, req)
+}
+
 func (c *Client) GetPhishlet(name string) (*PhishletResponse, error) {
 	return get[PhishletResponse](c, ResolveRoute(RoutePhishlet, "name", name))
 }
@@ -222,14 +226,6 @@ func (c *Client) EnablePhishlet(name string, req EnablePhishletRequest) (*Phishl
 
 func (c *Client) DisablePhishlet(name string) (*PhishletResponse, error) {
 	return send[PhishletResponse](c, http.MethodPost, ResolveRoute(RoutePhishletDisable, "name", name), nil)
-}
-
-func (c *Client) HidePhishlet(name string) (*PhishletResponse, error) {
-	return send[PhishletResponse](c, http.MethodPost, ResolveRoute(RoutePhishletHide, "name", name), nil)
-}
-
-func (c *Client) UnhidePhishlet(name string) (*PhishletResponse, error) {
-	return send[PhishletResponse](c, http.MethodPost, ResolveRoute(RoutePhishletUnhide, "name", name), nil)
 }
 
 // --- Blacklist ---

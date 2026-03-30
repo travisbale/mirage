@@ -31,12 +31,11 @@ type lureManager interface {
 }
 
 type phishletManager interface {
-	Enable(ctx context.Context, name, hostname, dnsProvider string) (*aitm.Phishlet, error)
-	Disable(ctx context.Context, name string) (*aitm.Phishlet, error)
-	Hide(name string) (*aitm.Phishlet, error)
-	Unhide(name string) (*aitm.Phishlet, error)
-	Get(name string) (*aitm.Phishlet, error)
-	List() ([]*aitm.Phishlet, error)
+	Push(yaml string) (*aitm.Phishlet, error)
+	Enable(ctx context.Context, name, hostname, dnsProvider string) (*aitm.ConfiguredPhishlet, error)
+	Disable(ctx context.Context, name string) (*aitm.ConfiguredPhishlet, error)
+	Get(name string) (*aitm.PhishletConfig, error)
+	List() ([]*aitm.PhishletConfig, error)
 }
 
 type blacklistManager interface {
@@ -125,8 +124,7 @@ func (r *Router) registerRoutes() {
 	h("GET", sdk.RoutePhishletHosts, r.getPhishletHosts)
 	h("POST", sdk.RoutePhishletEnable, r.enablePhishlet)
 	h("POST", sdk.RoutePhishletDisable, r.disablePhishlet)
-	h("POST", sdk.RoutePhishletHide, r.hidePhishlet)
-	h("POST", sdk.RoutePhishletUnhide, r.unhidePhishlet)
+	h("POST", sdk.RoutePhishlets, r.pushPhishlet)
 	h("GET", sdk.RoutePhishlet, r.getPhishlet)
 	h("GET", sdk.RoutePhishlets, r.listPhishlets)
 

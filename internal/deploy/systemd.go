@@ -20,7 +20,6 @@ https_port: {{ .HTTPSPort }}
 dns_port: {{ .DNSPort }}
 self_signed: true
 data_dir: {{ .DataDir }}
-phishlets_dir: {{ .PhishletsDir }}
 
 api:
   secret_hostname: {{ .SecretHostname }}

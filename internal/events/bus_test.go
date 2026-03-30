@@ -131,7 +131,7 @@ func TestUnsubscribeNeverSubscribedChannel(t *testing.T) {
 		}
 	}()
 
-	bus.Unsubscribe(sdk.EventPhishletReloaded, foreign)
+	bus.Unsubscribe(sdk.EventPhishletPushed, foreign)
 }
 
 func TestSubscribeFuncDeliversEvents(t *testing.T) {

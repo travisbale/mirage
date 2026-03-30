@@ -13,11 +13,11 @@ import (
 // ── token extraction ─────────────────────────────────────────────────────────
 
 func TestExtractTokens_CookieCapture(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
+	c := testConn(configured(&aitm.Phishlet{
 		AuthTokens: []aitm.TokenRule{
 			{Type: aitm.TokenTypeCookie, Name: regexp.MustCompile(`^authToken$`)},
 		},
-	}, &aitm.Session{ID: "s1"})
+	}), &aitm.Session{ID: "s1"})
 	c.server.SessionSvc = &stubSessionSvc{}
 
 	resp := testResp(http.StatusOK, "text/html", "")
@@ -31,11 +31,11 @@ func TestExtractTokens_CookieCapture(t *testing.T) {
 }
 
 func TestExtractTokens_HeaderCapture(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
+	c := testConn(configured(&aitm.Phishlet{
 		AuthTokens: []aitm.TokenRule{
 			{Type: aitm.TokenTypeHTTPHeader, Name: regexp.MustCompile(`^X-Auth-Token$`), Search: regexp.MustCompile(`Bearer (.+)`)},
 		},
-	}, &aitm.Session{ID: "s1"})
+	}), &aitm.Session{ID: "s1"})
 	c.server.SessionSvc = &stubSessionSvc{}
 
 	resp := testResp(http.StatusOK, "application/json", `{"ok":true}`)
@@ -49,11 +49,11 @@ func TestExtractTokens_HeaderCapture(t *testing.T) {
 }
 
 func TestExtractTokens_BodyCapture(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
+	c := testConn(configured(&aitm.Phishlet{
 		AuthTokens: []aitm.TokenRule{
 			{Type: aitm.TokenTypeBody, Name: regexp.MustCompile(`access_token`), Search: regexp.MustCompile(`"access_token"\s*:\s*"([^"]+)"`)},
 		},
-	}, &aitm.Session{ID: "s1"})
+	}), &aitm.Session{ID: "s1"})
 	c.server.SessionSvc = &stubSessionSvc{}
 
 	resp := testResp(http.StatusOK, "application/json", `{"access_token":"tok_abc123"}`)
@@ -68,12 +68,14 @@ func TestExtractTokens_BodyCapture(t *testing.T) {
 // ── cookie rewriting ─────────────────────────────────────────────────────────
 
 func TestRewriteCookies_DomainRewrite(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
+	c := testConn(configured(
+		&aitm.Phishlet{
+			ProxyHosts: []aitm.ProxyHost{
+				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com"},
+			},
 		},
-		BaseDomain: "phish.example.com",
-	}, &aitm.Session{ID: "s1"})
+		&aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+	), &aitm.Session{ID: "s1"})
 
 	resp := testResp(http.StatusOK, "text/html", "")
 	resp.Header.Set("Set-Cookie", "session=abc123; Domain=login.microsoft.com; Path=/; Secure")
@@ -86,13 +88,15 @@ func TestRewriteCookies_DomainRewrite(t *testing.T) {
 }
 
 func TestRewriteCookies_MultiHost_SessionCookieDomain(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login"},
-			{PhishSubdomain: "api"},
+	c := testConn(configured(
+		&aitm.Phishlet{
+			ProxyHosts: []aitm.ProxyHost{
+				{PhishSubdomain: "login"},
+				{PhishSubdomain: "api"},
+			},
 		},
-		BaseDomain: "phish.local",
-	}, &aitm.Session{ID: "s1"})
+		&aitm.PhishletConfig{BaseDomain: "phish.local"},
+	), &aitm.Session{ID: "s1"})
 	c.isNewSession = true
 
 	resp := testResp(http.StatusOK, "text/html", "")
@@ -112,12 +116,14 @@ func TestRewriteCookies_MultiHost_SessionCookieDomain(t *testing.T) {
 // ── sub filter ───────────────────────────────────────────────────────────────
 
 func TestApplySubFilters_AutoFilter(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "target.local", UpstreamScheme: "http", AutoFilter: true},
+	c := testConn(configured(
+		&aitm.Phishlet{
+			ProxyHosts: []aitm.ProxyHost{
+				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "target.local", UpstreamScheme: "http", AutoFilter: true},
+			},
 		},
-		BaseDomain: "phish.local",
-	}, &aitm.Session{ID: "s1"})
+		&aitm.PhishletConfig{BaseDomain: "phish.local"},
+	), &aitm.Session{ID: "s1"})
 
 	resp := testResp(http.StatusOK, "text/html", `<a href="http://login.target.local/page">link</a>`)
 
@@ -132,7 +138,7 @@ func TestApplySubFilters_AutoFilter(t *testing.T) {
 // ── security header stripping ────────────────────────────────────────────────
 
 func TestStripSecurityHeaders(t *testing.T) {
-	c := testConn(&aitm.Phishlet{}, &aitm.Session{ID: "s1"})
+	c := testConn(configured(&aitm.Phishlet{}), &aitm.Session{ID: "s1"})
 
 	resp := testResp(http.StatusOK, "text/html", "")
 	resp.Header.Set("Content-Security-Policy", "default-src 'self'")

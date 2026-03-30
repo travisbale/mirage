@@ -16,8 +16,6 @@ func newPhishletsCmd() *cobra.Command {
 		newPhishletsListCmd(),
 		newPhishletsEnableCmd(),
 		newPhishletsDisableCmd(),
-		newPhishletsHideCmd(),
-		newPhishletsUnhideCmd(),
 	)
 	return cmd
 }
@@ -50,10 +48,9 @@ func newPhishletsListCmd() *cobra.Command {
 					p.Hostname,
 					p.BaseDomain,
 					fmtBool(p.Enabled),
-					fmtBool(p.Hidden),
 				}
 			}
-			printTable([]string{"NAME", "HOSTNAME", "DOMAIN", "ENABLED", "HIDDEN"}, rows)
+			printTable([]string{"NAME", "HOSTNAME", "DOMAIN", "ENABLED"}, rows)
 			return nil
 		},
 	}
@@ -111,52 +108,6 @@ func newPhishletsDisableCmd() *cobra.Command {
 				return printJSON(p)
 			}
 			fmt.Printf("Disabled %s\n", p.Name)
-			return nil
-		},
-	}
-}
-
-func newPhishletsHideCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "hide <name>",
-		Short: "Hide a phishlet (serve blank page to non-lure traffic)",
-		Args:  requireOneArg,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := resolveClient(cmd)
-			if err != nil {
-				return err
-			}
-			p, err := client.HidePhishlet(args[0])
-			if err != nil {
-				return err
-			}
-			if jsonMode(cmd) {
-				return printJSON(p)
-			}
-			fmt.Printf("Hidden %s\n", p.Name)
-			return nil
-		},
-	}
-}
-
-func newPhishletsUnhideCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "unhide <name>",
-		Short: "Unhide a phishlet",
-		Args:  requireOneArg,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := resolveClient(cmd)
-			if err != nil {
-				return err
-			}
-			p, err := client.UnhidePhishlet(args[0])
-			if err != nil {
-				return err
-			}
-			if jsonMode(cmd) {
-				return printJSON(p)
-			}
-			fmt.Printf("Unhidden %s\n", p.Name)
 			return nil
 		},
 	}

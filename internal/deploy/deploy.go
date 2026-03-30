@@ -29,7 +29,6 @@ type Config struct {
 	HTTPSPort    int
 	DNSPort      int
 	DataDir      string // data directory on remote host
-	PhishletsDir string // phishlets directory on remote host
 
 	// Remote paths
 	RemoteBinaryPath string

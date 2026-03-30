@@ -84,6 +84,8 @@ func buildNotification(event aitm.Event) Notification {
 		}
 	case *aitm.Phishlet:
 		notification.Phishlet = payload.Name
+	case *aitm.ConfiguredPhishlet:
+		notification.Phishlet = payload.Definition.Name
 	}
 
 	return notification

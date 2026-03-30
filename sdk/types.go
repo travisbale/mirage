@@ -16,8 +16,8 @@ const (
 	EventTokensCaptured   EventType = "session.tokens_captured"
 	EventSessionCompleted EventType = "session.completed"
 	EventBotDetected      EventType = "botguard.detected"
+	EventPhishletPushed   EventType = "phishlet.pushed"
 	EventPhishletEnabled  EventType = "phishlet.enabled"
-	EventPhishletReloaded EventType = "phishlet.reloaded"
 	EventDNSRecordSynced  EventType = "dns.synced"
 )
 
@@ -30,8 +30,8 @@ func AllEventTypes() []EventType {
 		EventTokensCaptured,
 		EventSessionCompleted,
 		EventBotDetected,
+		EventPhishletPushed,
 		EventPhishletEnabled,
-		EventPhishletReloaded,
 		EventDNSRecordSynced,
 	}
 }
@@ -137,7 +137,17 @@ type PhishletResponse struct {
 	DNSProvider string `json:"dns_provider"`
 	SpoofURL    string `json:"spoof_url"`
 	Enabled     bool   `json:"enabled"`
-	Hidden      bool   `json:"hidden"`
+}
+
+type PushPhishletRequest struct {
+	YAML string `json:"yaml"`
+}
+
+func (r PushPhishletRequest) Validate() error {
+	if r.YAML == "" {
+		return fmt.Errorf("yaml: required")
+	}
+	return nil
 }
 
 type EnablePhishletRequest struct {

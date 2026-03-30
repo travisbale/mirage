@@ -20,7 +20,7 @@ type connection struct {
 	ja4Hash        string
 	clientIP       string
 	botVerdict     aitm.BotVerdict
-	phishlet       *aitm.Phishlet
+	phishlet       *aitm.ConfiguredPhishlet
 	lure           *aitm.Lure
 	session        *aitm.Session
 	isNewSession   bool

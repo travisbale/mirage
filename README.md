@@ -45,7 +45,6 @@ external_ipv4: 1.2.3.4
 https_port: 443
 dns_port: 53
 data_dir: /var/lib/mirage
-phishlets_dir: /etc/mirage/phishlets
 
 # Set to true to use self-signed certificates instead of ACME (useful for local testing).
 # When false, acme.email and acme.directory_url are required.
@@ -95,11 +94,11 @@ miraged --config /etc/mirage/miraged.yaml validate
 
 ### Docker
 
-The Docker image contains only `miraged`. Config, phishlets, and data are supplied at runtime via two volume mounts:
+The Docker image contains only `miraged`. Config and data are supplied at runtime via two volume mounts:
 
 | Mount | Contents |
 |-------|----------|
-| `/etc/mirage` | `miraged.yaml`, `phishlets/` |
+| `/etc/mirage` | `miraged.yaml` |
 | `/var/lib/mirage` | SQLite database, generated TLS certs |
 
 Build the image:
@@ -178,7 +177,7 @@ mirage operators invite alice
 Manage phishlets, lures, and sessions:
 
 ```bash
-mirage phishlets list
+mirage phishlets push microsoft.yaml
 mirage phishlets enable microsoft --hostname login.phish.example.com
 mirage lures create microsoft --redirect https://microsoft.com
 mirage sessions list

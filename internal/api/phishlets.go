@@ -8,8 +8,27 @@ import (
 	"github.com/travisbale/mirage/sdk"
 )
 
+func (r *Router) pushPhishlet(w http.ResponseWriter, req *http.Request) {
+	body, ok := decodeAndValidate[sdk.PushPhishletRequest](w, req)
+	if !ok {
+		return
+	}
+
+	phishlet, err := r.Phishlets.Push(body.YAML)
+	if err != nil {
+		if _, ok := errors.AsType[aitm.ParseErrors](err); ok {
+			r.writeError(w, http.StatusUnprocessableEntity, err.Error(), nil)
+		} else {
+			r.writeError(w, http.StatusInternalServerError, "failed to push phishlet", err)
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, definitionToResponse(phishlet))
+}
+
 func (r *Router) getPhishlet(w http.ResponseWriter, req *http.Request) {
-	phishlet, err := r.Phishlets.Get(req.PathValue("name"))
+	cfg, err := r.Phishlets.Get(req.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, aitm.ErrNotFound) {
 			r.writeError(w, http.StatusNotFound, "phishlet not found", err)
@@ -20,7 +39,7 @@ func (r *Router) getPhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, phishletToResponse(phishlet))
+	writeJSON(w, http.StatusOK, configToResponse(cfg))
 }
 
 func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
@@ -35,8 +54,8 @@ func (r *Router) listPhishlets(w http.ResponseWriter, req *http.Request) {
 	page := paginateSlice(phishlets, limit, offset)
 
 	items := make([]sdk.PhishletResponse, len(page))
-	for i, phishlet := range page {
-		items[i] = phishletToResponse(phishlet)
+	for i, cfg := range page {
+		items[i] = configToResponse(cfg)
 	}
 	writeJSON(w, http.StatusOK, sdk.PaginatedResponse[sdk.PhishletResponse]{
 		Items:  items,
@@ -68,7 +87,7 @@ func (r *Router) enablePhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, phishletToResponse(p))
+	writeJSON(w, http.StatusOK, configToResponse(p.Config))
 }
 
 func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
@@ -83,37 +102,7 @@ func (r *Router) disablePhishlet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, phishletToResponse(p))
-}
-
-func (r *Router) hidePhishlet(w http.ResponseWriter, req *http.Request) {
-	p, err := r.Phishlets.Hide(req.PathValue("name"))
-	if err != nil {
-		if errors.Is(err, aitm.ErrNotFound) {
-			r.writeError(w, http.StatusNotFound, "phishlet does not exist", err)
-		} else {
-			r.writeError(w, http.StatusInternalServerError, "failed to hide phishlet", err)
-		}
-
-		return
-	}
-
-	writeJSON(w, http.StatusOK, phishletToResponse(p))
-}
-
-func (r *Router) unhidePhishlet(w http.ResponseWriter, req *http.Request) {
-	p, err := r.Phishlets.Unhide(req.PathValue("name"))
-	if err != nil {
-		if errors.Is(err, aitm.ErrNotFound) {
-			r.writeError(w, http.StatusNotFound, "phishlet does not exist", err)
-		} else {
-			r.writeError(w, http.StatusInternalServerError, "failed to unhide phishlet", err)
-		}
-
-		return
-	}
-
-	writeJSON(w, http.StatusOK, phishletToResponse(p))
+	writeJSON(w, http.StatusOK, configToResponse(p.Config))
 }
 
 // getPhishletHosts returns /etc/hosts lines for a phishlet. Stubbed until
@@ -123,7 +112,7 @@ func (r *Router) getPhishletHosts(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func phishletToResponse(p *aitm.Phishlet) sdk.PhishletResponse {
+func configToResponse(p *aitm.PhishletConfig) sdk.PhishletResponse {
 	return sdk.PhishletResponse{
 		Name:        p.Name,
 		BaseDomain:  p.BaseDomain,
@@ -131,6 +120,11 @@ func phishletToResponse(p *aitm.Phishlet) sdk.PhishletResponse {
 		DNSProvider: p.DNSProvider,
 		SpoofURL:    p.SpoofURL,
 		Enabled:     p.Enabled,
-		Hidden:      p.Hidden,
+	}
+}
+
+func definitionToResponse(p *aitm.Phishlet) sdk.PhishletResponse {
+	return sdk.PhishletResponse{
+		Name: p.Name,
 	}
 }

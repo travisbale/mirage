@@ -2,19 +2,14 @@ package phishlet_test
 
 import (
 	"errors"
-	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/events"
 	"github.com/travisbale/mirage/internal/phishlet"
-	"github.com/travisbale/mirage/sdk"
 )
 
 func TestLoader(t *testing.T) {
-	var loader phishlet.Loader
 
 	tests := []struct {
 		name        string
@@ -118,7 +113,7 @@ func TestLoader(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			def, err := loader.Load(tc.file)
+			def, err := phishlet.Load(tc.file)
 
 			if tc.wantErr {
 				if err == nil {
@@ -149,15 +144,15 @@ func TestLoader(t *testing.T) {
 // TestParseError_FieldPaths verifies that errors from a bad regex include
 // the full dot-separated field path in the error message.
 func TestParseError_FieldPaths(t *testing.T) {
-	var loader phishlet.Loader
-	_, err := loader.Load("testdata/bad_regex.yaml")
+
+	_, err := phishlet.Load("testdata/bad_regex.yaml")
 	if err == nil {
 		t.Fatal("expected error for bad regex")
 	}
 
-	var pe phishlet.ParseErrors
-	if !errors.As(err, &pe) {
-		t.Fatalf("expected ParseErrors, got %T: %v", err, err)
+	pe, ok := errors.AsType[aitm.ParseErrors](err)
+	if !ok {
+		t.Fatalf("expected aitm.ParseErrors, got %T: %v", err, err)
 	}
 
 	found := false
@@ -172,46 +167,20 @@ func TestParseError_FieldPaths(t *testing.T) {
 	}
 }
 
-// TestWatcher publishes EventPhishletReloaded when a YAML file is modified.
-func TestWatcher(t *testing.T) {
-	dir := t.TempDir()
-	phishletPath := dir + "/test_watch.yaml"
-
-	// Write a valid initial file.
-	writeFile(t, phishletPath, minimalYAML("watch-initial"))
-
-	bus := events.NewBus(8)
-	ch := bus.Subscribe(sdk.EventPhishletReloaded)
-	defer bus.Unsubscribe(sdk.EventPhishletReloaded, ch)
-
-	w, err := phishlet.NewWatcher(dir, bus)
+func TestCompile(t *testing.T) {
+	def, err := phishlet.Compile(minimalYAML("test-compile"))
 	if err != nil {
-		t.Fatalf("NewWatcher: %v", err)
+		t.Fatalf("Compile: %v", err)
 	}
-	w.Start()
-	defer w.Close()
-
-	// Overwrite the file with a new name to trigger a Write event.
-	writeFile(t, phishletPath, minimalYAML("watch-reloaded"))
-
-	select {
-	case e := <-ch:
-		def, ok := e.Payload.(*aitm.Phishlet)
-		if !ok {
-			t.Fatalf("payload is %T, want *aitm.Phishlet", e.Payload)
-		}
-		if def.Name != "watch-reloaded" {
-			t.Errorf("reloaded phishlet name: got %q, want %q", def.Name, "watch-reloaded")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for EventPhishletReloaded")
+	if def.Name != "test-compile" {
+		t.Errorf("Name = %q, want %q", def.Name, "test-compile")
 	}
 }
 
-func writeFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("writeFile %q: %v", path, err)
+func TestCompile_InvalidYAML(t *testing.T) {
+	_, err := phishlet.Compile("not: valid: yaml: [")
+	if err == nil {
+		t.Fatal("expected error for invalid YAML")
 	}
 }
 

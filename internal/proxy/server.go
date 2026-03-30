@@ -39,7 +39,7 @@ type ipBlocker interface {
 }
 
 type phishletResolver interface {
-	ResolveHostname(hostname, urlPath string) (*aitm.Phishlet, *aitm.Lure, error)
+	ResolveHostname(hostname, urlPath string) (*aitm.ConfiguredPhishlet, *aitm.Lure, error)
 }
 
 type sessionManager interface {

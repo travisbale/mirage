@@ -13,17 +13,28 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
+// helper to build a *aitm.ConfiguredPhishlet from a definition and optional config.
+func configured(def *aitm.Phishlet, cfgs ...*aitm.PhishletConfig) *aitm.ConfiguredPhishlet {
+	var cfg *aitm.PhishletConfig
+	if len(cfgs) > 0 {
+		cfg = cfgs[0]
+	} else {
+		cfg = &aitm.PhishletConfig{Name: def.Name}
+	}
+	return &aitm.ConfiguredPhishlet{Definition: def, Config: cfg}
+}
+
 // ── intercept ────────────────────────────────────────────────────────────────
 
 func TestIntercept_MatchingPath(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
+	c := testConn(configured(&aitm.Phishlet{
 		Intercepts: []aitm.InterceptRule{{
 			Path:        regexp.MustCompile(`^/api/telemetry$`),
 			StatusCode:  200,
 			ContentType: "application/json",
 			Body:        `{"status":"ok"}`,
 		}},
-	}, &aitm.Session{ID: "s1"})
+	}), &aitm.Session{ID: "s1"})
 
 	req := testReq(http.MethodPost, "https://login.phish.local/api/telemetry", strings.NewReader(`{}`))
 
@@ -40,12 +51,12 @@ func TestIntercept_MatchingPath(t *testing.T) {
 }
 
 func TestIntercept_NonMatchingPath(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
+	c := testConn(configured(&aitm.Phishlet{
 		Intercepts: []aitm.InterceptRule{{
 			Path:       regexp.MustCompile(`^/api/telemetry$`),
 			StatusCode: 200,
 		}},
-	}, &aitm.Session{ID: "s1"})
+	}), &aitm.Session{ID: "s1"})
 
 	req := testReq(http.MethodGet, "https://login.phish.local/dashboard", nil)
 
@@ -57,12 +68,14 @@ func TestIntercept_NonMatchingPath(t *testing.T) {
 // ── URL rewriting ────────────────────────────────────────────────────────────
 
 func TestRewriteURL_HostAndScheme(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com", UpstreamScheme: "https"},
+	c := testConn(configured(
+		&aitm.Phishlet{
+			ProxyHosts: []aitm.ProxyHost{
+				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com", UpstreamScheme: "https"},
+			},
 		},
-		BaseDomain: "phish.example.com",
-	}, &aitm.Session{ID: "s1"})
+		&aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+	), &aitm.Session{ID: "s1"})
 
 	req := testReq(http.MethodGet, "https://login.phish.example.com/oauth2", nil)
 	c.rewriteURL(req)
@@ -76,12 +89,14 @@ func TestRewriteURL_HostAndScheme(t *testing.T) {
 }
 
 func TestRewriteURL_OriginHeader(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com", UpstreamScheme: "https"},
+	c := testConn(configured(
+		&aitm.Phishlet{
+			ProxyHosts: []aitm.ProxyHost{
+				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "microsoft.com", UpstreamScheme: "https"},
+			},
 		},
-		BaseDomain: "phish.example.com",
-	}, &aitm.Session{ID: "s1"})
+		&aitm.PhishletConfig{BaseDomain: "phish.example.com"},
+	), &aitm.Session{ID: "s1"})
 
 	req := testReq(http.MethodPost, "https://login.phish.example.com/login", nil)
 	req.Header.Set("Origin", "https://login.phish.example.com")
@@ -93,12 +108,14 @@ func TestRewriteURL_OriginHeader(t *testing.T) {
 }
 
 func TestRewriteURL_StripsSessionCookie(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "example.com", UpstreamScheme: "https"},
+	c := testConn(configured(
+		&aitm.Phishlet{
+			ProxyHosts: []aitm.ProxyHost{
+				{PhishSubdomain: "login", OrigSubdomain: "login", Domain: "example.com", UpstreamScheme: "https"},
+			},
 		},
-		BaseDomain: "phish.local",
-	}, &aitm.Session{ID: "s1"})
+		&aitm.PhishletConfig{BaseDomain: "phish.local"},
+	), &aitm.Session{ID: "s1"})
 
 	req := testReq(http.MethodGet, "https://login.phish.local/page", nil)
 	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "sess-123"})
@@ -115,13 +132,13 @@ func TestRewriteURL_StripsSessionCookie(t *testing.T) {
 // ── credential extraction ────────────────────────────────────────────────────
 
 func TestExtractCredentials_FormPost(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
+	c := testConn(configured(&aitm.Phishlet{
 		Login: aitm.LoginSpec{Domain: "login.example.com"},
 		Credentials: aitm.CredentialRules{
 			Username: aitm.CredentialRule{Key: regexp.MustCompile(`^username$`), Search: regexp.MustCompile(`^(.+)$`), Type: "post"},
 			Password: aitm.CredentialRule{Key: regexp.MustCompile(`^password$`), Search: regexp.MustCompile(`^(.+)$`), Type: "post"},
 		},
-	}, &aitm.Session{ID: "s1"})
+	}), &aitm.Session{ID: "s1"})
 	c.server.SessionSvc = &stubSessionSvc{}
 
 	req := testReq(http.MethodPost, "https://login.example.com/login", strings.NewReader("username=alice&password=s3cret"))
@@ -137,13 +154,13 @@ func TestExtractCredentials_FormPost(t *testing.T) {
 }
 
 func TestExtractCredentials_JSON(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
+	c := testConn(configured(&aitm.Phishlet{
 		Login: aitm.LoginSpec{Domain: "login.example.com"},
 		Credentials: aitm.CredentialRules{
 			Username: aitm.CredentialRule{Key: regexp.MustCompile(`email`), Search: regexp.MustCompile(`"email"\s*:\s*"([^"]+)"`), Type: "json"},
 			Password: aitm.CredentialRule{Key: regexp.MustCompile(`password`), Search: regexp.MustCompile(`"password"\s*:\s*"([^"]+)"`), Type: "json"},
 		},
-	}, &aitm.Session{ID: "s1"})
+	}), &aitm.Session{ID: "s1"})
 	c.server.SessionSvc = &stubSessionSvc{}
 
 	req := testReq(http.MethodPost, "https://login.example.com/api/login", strings.NewReader(`{"email":"alice@example.com","password":"s3cret"}`))
@@ -158,7 +175,7 @@ func TestExtractCredentials_JSON(t *testing.T) {
 // ── force post ───────────────────────────────────────────────────────────────
 
 func TestForcePost_InjectsParam(t *testing.T) {
-	c := testConn(&aitm.Phishlet{
+	c := testConn(configured(&aitm.Phishlet{
 		ForcePosts: []aitm.ForcePost{{
 			Path: regexp.MustCompile(`^/login$`),
 			Conditions: []aitm.ForcePostCondition{{
@@ -166,7 +183,7 @@ func TestForcePost_InjectsParam(t *testing.T) {
 			}},
 			Params: []aitm.ForcePostParam{{Key: "login_source", Value: "web"}},
 		}},
-	}, &aitm.Session{ID: "s1"})
+	}), &aitm.Session{ID: "s1"})
 
 	req := testReq(http.MethodPost, "https://login.example.com/login", strings.NewReader("email=alice&password=s3cret"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -181,7 +198,7 @@ func TestForcePost_InjectsParam(t *testing.T) {
 // ── lure path rewrite ────────────────────────────────────────────────────────
 
 func TestRewriteLurePath_MatchingPath(t *testing.T) {
-	c := testConn(&aitm.Phishlet{Login: aitm.LoginSpec{Path: "/login"}}, &aitm.Session{ID: "s1"})
+	c := testConn(configured(&aitm.Phishlet{Login: aitm.LoginSpec{Path: "/login"}}), &aitm.Session{ID: "s1"})
 	c.lure = &aitm.Lure{Path: "/p/abc123"}
 
 	req := testReq(http.MethodGet, "https://login.phish.local/p/abc123", nil)
@@ -193,7 +210,7 @@ func TestRewriteLurePath_MatchingPath(t *testing.T) {
 }
 
 func TestRewriteLurePath_NonMatchingPath(t *testing.T) {
-	c := testConn(&aitm.Phishlet{Login: aitm.LoginSpec{Path: "/login"}}, &aitm.Session{ID: "s1"})
+	c := testConn(configured(&aitm.Phishlet{Login: aitm.LoginSpec{Path: "/login"}}), &aitm.Session{ID: "s1"})
 	c.lure = &aitm.Lure{Path: "/p/abc123"}
 
 	req := testReq(http.MethodGet, "https://login.phish.local/dashboard", nil)
@@ -208,7 +225,7 @@ func TestRewriteLurePath_NonMatchingPath(t *testing.T) {
 
 func TestHandleRequest_CompletedSession_Redirects(t *testing.T) {
 	now := time.Now()
-	c := testConn(&aitm.Phishlet{}, &aitm.Session{ID: "s1", CompletedAt: &now})
+	c := testConn(configured(&aitm.Phishlet{}), &aitm.Session{ID: "s1", CompletedAt: &now})
 	c.lure = &aitm.Lure{RedirectURL: "https://real-site.com/dashboard"}
 
 	// Use a pipe to capture the raw response written to rawConn.

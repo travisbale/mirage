@@ -13,7 +13,7 @@ groups of fields that have different lifecycles:
   - Compiled rules (ProxyHosts, SubFilters, AuthTokens, etc.) are populated
     by the phishlet loader from the YAML file. They are never persisted.
 
-  - Operator config (Hostname, BaseDomain, Enabled, Hidden, etc.) is
+  - Operator config (Hostname, BaseDomain, Enabled, etc.) is
     persisted to the database and survives restarts.
 
 Either group may be zero-valued. A freshly loaded YAML has no operator

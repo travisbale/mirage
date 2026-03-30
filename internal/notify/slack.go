@@ -102,7 +102,7 @@ func (s *SlackChannel) buildMessage(notification Notification) slackMessage {
 		return s.buildBotDetected(notification)
 	case sdk.EventDNSRecordSynced:
 		return s.buildDNSSynced(notification)
-	case sdk.EventPhishletEnabled, sdk.EventPhishletReloaded:
+	case sdk.EventPhishletPushed, sdk.EventPhishletEnabled:
 		return s.buildPhishletEvent(notification)
 	default:
 		return slackMessage{Text: fmt.Sprintf("Mirage event: %s", notification.Event)}
@@ -214,8 +214,8 @@ func (s *SlackChannel) buildDNSSynced(notification Notification) slackMessage {
 
 func (s *SlackChannel) buildPhishletEvent(notification Notification) slackMessage {
 	verb := "Enabled"
-	if notification.Event == sdk.EventPhishletReloaded {
-		verb = "Reloaded"
+	if notification.Event == sdk.EventPhishletPushed {
+		verb = "Pushed"
 	}
 	return newBlockMessage(
 		fmt.Sprintf(":gear: *Phishlet %s*", verb),

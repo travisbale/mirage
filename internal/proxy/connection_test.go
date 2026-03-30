@@ -16,7 +16,7 @@ import (
 
 // ── test helpers ─────────────────────────────────────────────────────────────
 
-func testConn(phishlet *aitm.Phishlet, session *aitm.Session) *connection {
+func testConn(phishlet *aitm.ConfiguredPhishlet, session *aitm.Session) *connection {
 	return &connection{
 		phishlet: phishlet,
 		session:  session,

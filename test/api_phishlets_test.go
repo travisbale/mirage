@@ -44,37 +44,3 @@ func TestAPI_PhishletEnableDisable(t *testing.T) {
 		}
 	}
 }
-
-// TestAPI_PhishletHideUnhide verifies that hiding and unhiding a phishlet is
-// reflected in its config. Hiding does not affect routing.
-func TestAPI_PhishletHideUnhide(t *testing.T) {
-	harness := test.NewHarness(t)
-
-	if _, err := harness.API.HidePhishlet("testsite"); err != nil {
-		t.Fatalf("HidePhishlet: %v", err)
-	}
-
-	phishlets, err := harness.API.ListPhishlets()
-	if err != nil {
-		t.Fatalf("ListPhishlets: %v", err)
-	}
-	for _, p := range phishlets.Items {
-		if p.Name == "testsite" && !p.Hidden {
-			t.Error("expected testsite to be hidden")
-		}
-	}
-
-	if _, err := harness.API.UnhidePhishlet("testsite"); err != nil {
-		t.Fatalf("UnhidePhishlet: %v", err)
-	}
-
-	phishlets, err = harness.API.ListPhishlets()
-	if err != nil {
-		t.Fatalf("ListPhishlets after unhide: %v", err)
-	}
-	for _, p := range phishlets.Items {
-		if p.Name == "testsite" && p.Hidden {
-			t.Error("expected testsite to be unhidden after unhide")
-		}
-	}
-}

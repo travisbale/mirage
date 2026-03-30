@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/travisbale/mirage/sdk"
 )
 
 // Run starts the proxy and blocks until the context is cancelled or the proxy
@@ -71,16 +69,6 @@ func (d *Daemon) Reload() error {
 // Called after Run returns. The context controls the deadline for
 // services that perform cleanup (puppet, obfuscator).
 func (d *Daemon) Shutdown(ctx context.Context) {
-	if d.phishletReloadSub != nil {
-		d.bus.Unsubscribe(sdk.EventPhishletReloaded, d.phishletReloadSub)
-	}
-
-	if d.watcher != nil {
-		if err := d.watcher.Close(); err != nil {
-			d.logger.Error("watcher close error", "error", err)
-		}
-	}
-
 	if err := d.puppetSvc.Shutdown(ctx); err != nil {
 		d.logger.Error("puppet shutdown error", "error", err)
 	}

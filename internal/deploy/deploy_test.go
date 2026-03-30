@@ -30,7 +30,6 @@ func testConfig() Config {
 		HTTPSPort:        443,
 		DNSPort:          53,
 		DataDir:          config.DefaultDataDir,
-		PhishletsDir:     "/etc/mirage/phishlets",
 		SecretHostname:   "abc123.mgmt.attacker.com",
 		RemoteBinaryPath: "/usr/local/bin/miraged",
 		RemoteConfigDir:  "/etc/mirage",
@@ -49,7 +48,6 @@ func TestRenderConfig(t *testing.T) {
 		"https_port: 443",
 		"self_signed: true",
 		"data_dir: /var/lib/mirage",
-		"phishlets_dir: /etc/mirage/phishlets",
 		"secret_hostname: abc123.mgmt.attacker.com",
 	} {
 		if !strings.Contains(out, want) {

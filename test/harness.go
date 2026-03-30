@@ -68,11 +68,9 @@ func NewHarness(t *testing.T) *Harness {
 	upstream := httptest.NewTLSServer(mux)
 	t.Cleanup(upstream.Close)
 
-	// Write config and phishlet files.
 	httpsPort := freePort(t)
 	dnsPort := freePort(t)
 	cfgPath := writeConfig(t, tmpDir, httpsPort, dnsPort)
-	writePhishlet(t, tmpDir)
 
 	// Start daemon.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -126,6 +124,15 @@ func NewHarness(t *testing.T) *Harness {
 	)
 	if err != nil {
 		t.Fatalf("sdk.NewClient: %v", err)
+	}
+
+	// Push the test phishlet definition.
+	testPhishletYAML, err := os.ReadFile(filepath.Join("testdata", "phishlets", "testsite.yaml"))
+	if err != nil {
+		t.Fatalf("reading test phishlet: %v", err)
+	}
+	if _, err := apiClient.PushPhishlet(sdk.PushPhishletRequest{YAML: string(testPhishletYAML)}); err != nil {
+		t.Fatalf("PushPhishlet: %v", err)
 	}
 
 	// Enable the test phishlet via the API.
@@ -242,7 +249,6 @@ func writeConfig(t *testing.T, tmpDir string, httpsPort, dnsPort int) string {
 		HTTPSPort:    httpsPort,
 		DNSPort:      dnsPort,
 		DataDir:      tmpDir,
-		PhishletsDir: filepath.Join(tmpDir, "phishlets"),
 		SelfSigned:   true,
 		API: config.APIConfig{
 			SecretHostname: testAPIHostname,
@@ -257,22 +263,6 @@ func writeConfig(t *testing.T, tmpDir string, httpsPort, dnsPort int) string {
 		t.Fatalf("writing config: %v", err)
 	}
 	return cfgPath
-}
-
-func writePhishlet(t *testing.T, tmpDir string) {
-	t.Helper()
-	destDir := filepath.Join(tmpDir, "phishlets")
-	if err := os.MkdirAll(destDir, 0755); err != nil {
-		t.Fatalf("creating phishlets dir: %v", err)
-	}
-	src := filepath.Join("testdata", "phishlets", "testsite.yaml")
-	data, err := os.ReadFile(src)
-	if err != nil {
-		t.Fatalf("reading test phishlet: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(destDir, "testsite.yaml"), data, 0644); err != nil {
-		t.Fatalf("writing test phishlet: %v", err)
-	}
 }
 
 // freePort binds to :0, reads the OS-assigned port, then closes the listener.
