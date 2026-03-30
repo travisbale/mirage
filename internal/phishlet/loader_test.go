@@ -10,7 +10,6 @@ import (
 )
 
 func TestLoader(t *testing.T) {
-
 	tests := []struct {
 		name        string
 		file        string
@@ -144,7 +143,6 @@ func TestLoader(t *testing.T) {
 // TestParseError_FieldPaths verifies that errors from a bad regex include
 // the full dot-separated field path in the error message.
 func TestParseError_FieldPaths(t *testing.T) {
-
 	_, err := phishlet.Load("testdata/bad_regex.yaml")
 	if err == nil {
 		t.Fatal("expected error for bad regex")
