@@ -116,7 +116,7 @@ func NewHarness(t *testing.T) *Harness {
 
 	// Build SDK client. Dials proxyAddr but uses testAPIHostname for SNI/Host.
 	apiClient, err := sdk.NewClient(
-		"https://"+proxyAddr,
+		proxyAddr,
 		testAPIHostname,
 		operatorCertPEM,
 		operatorKeyPEM,

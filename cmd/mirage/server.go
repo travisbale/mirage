@@ -101,6 +101,9 @@ func newServerAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if _, _, err := net.SplitHostPort(address); err != nil {
+				return fmt.Errorf("address must be host:port (got %q)", address)
+			}
 			cfg.addServer(Server{
 				Alias:          alias,
 				Address:        address,

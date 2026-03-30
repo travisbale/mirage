@@ -44,12 +44,6 @@ func NewClient(address, secretHostname string, certPEM, keyPEM, caCertPEM []byte
 		return nil, fmt.Errorf("server CA cert is not valid PEM")
 	}
 
-	u, err := url.Parse(address)
-	if err != nil {
-		return nil, fmt.Errorf("parsing address: %w", err)
-	}
-	dialAddr := u.Host
-
 	tlsCfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      pool,
@@ -60,7 +54,7 @@ func NewClient(address, secretHostname string, certPEM, keyPEM, caCertPEM []byte
 	transport := &http.Transport{
 		TLSClientConfig: tlsCfg,
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			return (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, network, dialAddr)
+			return (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, network, address)
 		},
 	}
 
