@@ -32,7 +32,11 @@ func mirageDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolving home directory: %w", err)
 	}
-	return filepath.Join(home, ".mirage"), nil
+	dir := filepath.Join(home, ".mirage")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", fmt.Errorf("creating config directory: %w", err)
+	}
+	return dir, nil
 }
 
 // defaultConfigPath returns the path to ~/.mirage/client.json.
@@ -78,9 +82,6 @@ func loadConfig(path string) (*Client, error) {
 
 // saveConfig atomically writes cfg to path by writing to a temp file then renaming.
 func saveConfig(cfg *Client, path string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return fmt.Errorf("creating config directory: %w", err)
-	}
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encoding config: %w", err)
