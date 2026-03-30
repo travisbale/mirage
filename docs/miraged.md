@@ -29,14 +29,14 @@ miraged <command>
 On startup, `miraged` initializes these subsystems:
 
 1. **SQLite store** — sessions, lures, phishlet definitions, and phishlet configs persist in `data_dir/data.db`
-3. **DNS server** — authoritative nameserver that answers A queries for phishing domains with `external_ipv4`
-4. **Certificate manager** — provisions TLS certificates via ACME (Let's Encrypt) or a locally generated CA when `self_signed: true`
-5. **Proxy pipeline** — MITM reverse proxy that intercepts victim HTTPS traffic, rewrites responses, captures credentials and auth tokens
-6. **BotGuard** — computes JA4 TLS fingerprints and scores requests against a signature database; suspicious clients are spoofed
-7. **Puppet service** (optional) — headless Chromium visits the real target site and collects browser telemetry; injects JS overrides into proxied responses so victim sessions match a legitimate visit's fingerprint
-8. **JS obfuscator** (optional) — Node.js sidecar that transforms injected JavaScript on every request to defeat static fingerprinting
-9. **Notification service** — delivers event notifications to webhook and Slack channels configured via the API
-10. **Management API** — REST API served on `api.secret_hostname`, authenticated via mutual TLS
+2. **DNS server** — authoritative nameserver that answers A queries for phishing domains with `external_ipv4`
+3. **Certificate manager** — provisions TLS certificates via ACME (Let's Encrypt) or a locally generated CA when `self_signed: true`
+4. **Proxy pipeline** — MITM reverse proxy that intercepts victim HTTPS traffic, rewrites responses, captures credentials and auth tokens
+5. **BotGuard** — computes JA4 TLS fingerprints and scores requests against a signature database; suspicious clients are spoofed
+6. **Puppet service** (optional) — headless Chromium visits the real target site and collects browser telemetry; injects JS overrides into proxied responses so victim sessions match a legitimate visit's fingerprint
+7. **JS obfuscator** (optional) — Node.js sidecar that transforms injected JavaScript on every request to defeat static fingerprinting
+8. **Notification service** — delivers event notifications to webhook and Slack channels configured via the API
+9. **Management API** — REST API served on `api.secret_hostname`, authenticated via mutual TLS
 
 ## Proxy architecture
 
