@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/travisbale/mirage/sdk"
@@ -14,6 +15,7 @@ func newPhishletsCmd() *cobra.Command {
 	}
 	cmd.AddCommand(
 		newPhishletsListCmd(),
+		newPhishletsPushCmd(),
 		newPhishletsEnableCmd(),
 		newPhishletsDisableCmd(),
 	)
@@ -51,6 +53,33 @@ func newPhishletsListCmd() *cobra.Command {
 				}
 			}
 			printTable([]string{"NAME", "HOSTNAME", "DOMAIN", "ENABLED"}, rows)
+			return nil
+		},
+	}
+}
+
+func newPhishletsPushCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "push <file>",
+		Short: "Push a phishlet YAML file to the daemon",
+		Args:  requireOneArg,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			data, err := os.ReadFile(args[0])
+			if err != nil {
+				return fmt.Errorf("reading file: %w", err)
+			}
+			client, err := resolveClient(cmd)
+			if err != nil {
+				return err
+			}
+			p, err := client.PushPhishlet(sdk.PushPhishletRequest{YAML: string(data)})
+			if err != nil {
+				return err
+			}
+			if jsonMode(cmd) {
+				return printJSON(p)
+			}
+			fmt.Printf("Pushed %s\n", p.Name)
 			return nil
 		},
 	}
