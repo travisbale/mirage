@@ -39,7 +39,7 @@ func (r *Router) enrollOperator(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, aitm.ErrInvalidToken):
-			r.writeError(w, http.StatusUnauthorized, "invalid or expired invite token", err)
+			r.writeError(w, http.StatusUnauthorized, "invalid invite token", err)
 		case errors.Is(err, aitm.ErrInvalidCSR):
 			r.writeError(w, http.StatusBadRequest, "invalid certificate signing request", err)
 		case errors.Is(err, aitm.ErrConflict):
