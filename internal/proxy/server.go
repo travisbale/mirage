@@ -87,6 +87,11 @@ type Server struct {
 	// with the SNI hostname from the ClientHello.
 	CertSource certSource
 
+	// APICertificate is the TLS certificate served for the management API
+	// (SecretHostname). It is signed by the API CA so clients that trust
+	// only the API CA can verify the connection.
+	APICertificate *tls.Certificate
+
 	// ClientCAs specifies the certificate authority pool used to verify
 	// client certificates for the management API. Only connections to
 	// SecretHostname require a client certificate; phishing victims are
@@ -206,9 +211,9 @@ func (s *Server) setupConnection(ctx context.Context, rawConn net.Conn) {
 		GetConfigForClient: func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
 			if strings.EqualFold(hello.ServerName, s.SecretHostname) {
 				return &tls.Config{
-					GetCertificate: s.CertSource.GetCertificate,
-					ClientAuth:     tls.VerifyClientCertIfGiven,
-					ClientCAs:      s.ClientCAs,
+					Certificates: []tls.Certificate{*s.APICertificate},
+					ClientAuth:   tls.VerifyClientCertIfGiven,
+					ClientCAs:    s.ClientCAs,
 				}, nil
 			}
 			return nil, nil

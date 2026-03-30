@@ -1,4 +1,4 @@
-package api_test
+package cert_test
 
 import (
 	"crypto/tls"
@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/travisbale/mirage/internal/api"
+	"github.com/travisbale/mirage/internal/cert"
 )
 
 func TestGenerateCA_WritesFiles(t *testing.T) {
 	dir := t.TempDir()
 	certPath := filepath.Join(dir, "ca.crt")
 
-	if _, err := api.GenerateCA(certPath); err != nil {
+	if _, err := cert.GenerateCA(certPath, "Test CA"); err != nil {
 		t.Fatalf("GenerateCA: %v", err)
 	}
 
@@ -30,14 +30,14 @@ func TestCA_LoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	certPath := filepath.Join(dir, "ca.crt")
 
-	original, err := api.GenerateCA(certPath)
+	original, err := cert.GenerateCA(certPath, "Test CA")
 	if err != nil {
 		t.Fatalf("GenerateCA: %v", err)
 	}
 
-	loaded, err := api.Load(certPath)
+	loaded, err := cert.LoadCA(certPath)
 	if err != nil {
-		t.Fatalf("Load: %v", err)
+		t.Fatalf("LoadCA: %v", err)
 	}
 
 	if original.Cert.SerialNumber.Cmp(loaded.Cert.SerialNumber) != 0 {
@@ -47,7 +47,7 @@ func TestCA_LoadRoundTrip(t *testing.T) {
 
 func TestIssueClientCert_VerifiesAgainstCA(t *testing.T) {
 	dir := t.TempDir()
-	ca, err := api.GenerateCA(filepath.Join(dir, "ca.crt"))
+	ca, err := cert.GenerateCA(filepath.Join(dir, "ca.crt"), "Test CA")
 	if err != nil {
 		t.Fatalf("GenerateCA: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestIssueClientCert_VerifiesAgainstCA(t *testing.T) {
 
 func TestIssueClientCert_UniqueCerts(t *testing.T) {
 	dir := t.TempDir()
-	ca, err := api.GenerateCA(filepath.Join(dir, "ca.crt"))
+	ca, err := cert.GenerateCA(filepath.Join(dir, "ca.crt"), "Test CA")
 	if err != nil {
 		t.Fatalf("GenerateCA: %v", err)
 	}

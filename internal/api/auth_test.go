@@ -14,6 +14,7 @@ import (
 
 	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/api"
+	"github.com/travisbale/mirage/internal/cert"
 	"github.com/travisbale/mirage/sdk"
 )
 
@@ -87,7 +88,7 @@ func newTestRouter(sessions *stubSessions) *api.Router {
 	}
 }
 
-func newMTLSServer(t *testing.T, handler http.Handler, ca *api.CA) *httptest.Server {
+func newMTLSServer(t *testing.T, handler http.Handler, ca *cert.CA) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewUnstartedServer(handler)
 	srv.TLS = &tls.Config{
@@ -142,7 +143,7 @@ func TestAuthMiddleware_RejectsEmptyVerifiedChains(t *testing.T) {
 
 func TestMTLS_AuthenticatedRequestSucceeds(t *testing.T) {
 	dir := t.TempDir()
-	ca, err := api.GenerateCA(filepath.Join(dir, "ca.crt"))
+	ca, err := cert.GenerateCA(filepath.Join(dir, "ca.crt"), "Test CA")
 	if err != nil {
 		t.Fatalf("GenerateCA: %v", err)
 	}
@@ -180,11 +181,11 @@ func TestMTLS_AuthenticatedRequestSucceeds(t *testing.T) {
 
 func TestMTLS_WrongCAIsRejected(t *testing.T) {
 	dir := t.TempDir()
-	serverCA, err := api.GenerateCA(filepath.Join(dir, "server-ca.crt"))
+	serverCA, err := cert.GenerateCA(filepath.Join(dir, "server-ca.crt"), "Test CA")
 	if err != nil {
 		t.Fatalf("GenerateCA (server): %v", err)
 	}
-	wrongCA, err := api.GenerateCA(filepath.Join(dir, "wrong-ca.crt"))
+	wrongCA, err := cert.GenerateCA(filepath.Join(dir, "wrong-ca.crt"), "Test CA")
 	if err != nil {
 		t.Fatalf("GenerateCA (wrong): %v", err)
 	}

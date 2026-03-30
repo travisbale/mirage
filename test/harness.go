@@ -23,7 +23,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/travisbale/mirage/internal/api"
+	"github.com/travisbale/mirage/internal/cert"
 	"github.com/travisbale/mirage/internal/config"
 	"github.com/travisbale/mirage/internal/daemon"
 	"github.com/travisbale/mirage/sdk"
@@ -101,11 +101,7 @@ func NewHarness(t *testing.T) *Harness {
 	}
 
 	// Read CA certs and issue a test operator cert.
-	proxyCACertPEM, err := os.ReadFile(filepath.Join(tmpDir, "ca", "mirage-ca.crt"))
-	if err != nil {
-		t.Fatalf("reading proxy CA cert: %v", err)
-	}
-	apiCA, err := api.Load(filepath.Join(tmpDir, "api-ca.crt"))
+	apiCA, err := cert.LoadCA(filepath.Join(tmpDir, "api-ca.crt"))
 	if err != nil {
 		t.Fatalf("loading API CA: %v", err)
 	}
@@ -115,12 +111,13 @@ func NewHarness(t *testing.T) *Harness {
 	}
 
 	// Build SDK client. Dials proxyAddr but uses testAPIHostname for SNI/Host.
+	// The API server cert is signed by the API CA, so the client trusts the API CA.
 	apiClient, err := sdk.NewClient(
 		proxyAddr,
 		testAPIHostname,
 		operatorCertPEM,
 		operatorKeyPEM,
-		proxyCACertPEM,
+		apiCA.CACertPEM(),
 	)
 	if err != nil {
 		t.Fatalf("sdk.NewClient: %v", err)
@@ -153,6 +150,10 @@ func NewHarness(t *testing.T) *Harness {
 	}
 
 	// Build victim client: trusts proxy CA, always dials proxyAddr.
+	proxyCACertPEM, err := os.ReadFile(filepath.Join(tmpDir, "ca", "mirage-ca.crt"))
+	if err != nil {
+		t.Fatalf("reading proxy CA cert: %v", err)
+	}
 	jar, _ := cookiejar.New(nil)
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(proxyCACertPEM)
