@@ -37,6 +37,11 @@ func Open(path string) (*DB, error) {
 	if _, err := sqlDB.Exec(`PRAGMA journal_mode=WAL`); err != nil {
 		return nil, fmt.Errorf("sqlite.Open: setting WAL mode: %w", err)
 	}
+	// Allow waiting up to 5s for a write lock, avoiding immediate SQLITE_BUSY
+	// errors when another process (e.g. miraged invite) accesses the database.
+	if _, err := sqlDB.Exec(`PRAGMA busy_timeout=5000`); err != nil {
+		return nil, fmt.Errorf("sqlite.Open: setting busy timeout: %w", err)
+	}
 	if _, err := sqlDB.Exec(`PRAGMA foreign_keys=ON`); err != nil {
 		return nil, fmt.Errorf("sqlite.Open: enabling foreign keys: %w", err)
 	}

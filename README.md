@@ -119,13 +119,7 @@ docker run -d \
   mirage:latest
 ```
 
-Or with Docker Compose:
-
-```bash
-docker compose up -d
-```
-
-> `--network host` (or `network_mode: host` in Compose) is required so the DNS server on port 53 is reachable from the host. `NET_BIND_SERVICE` is needed to bind privileged ports 443 and 53 as a non-root user.
+> `--network host` is required so the DNS server on port 53 is reachable from the host. `NET_BIND_SERVICE` is needed to bind privileged ports 443 and 53 as a non-root user.
 
 ### SSH
 

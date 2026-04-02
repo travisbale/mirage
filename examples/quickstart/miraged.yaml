@@ -1,0 +1,7 @@
+domain: phish.local
+external_ipv4: 127.0.0.1
+
+self_signed: true
+
+api:
+  secret_hostname: mgmt.phish.local

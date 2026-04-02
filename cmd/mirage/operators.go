@@ -26,7 +26,7 @@ func newOperatorsInviteCmd() *cobra.Command {
 		Short: "Create an invite token for a new operator",
 		Args:  requireOneArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := resolveClient(cmd)
+			client, server, err := resolveClientAndServer(cmd)
 			if err != nil {
 				return err
 			}
@@ -37,7 +37,8 @@ func newOperatorsInviteCmd() *cobra.Command {
 			fmt.Printf("Invite token for %q:\n\n", args[0])
 			fmt.Printf("  %s\n\n", resp.Token)
 			fmt.Println("The new operator can enroll with:")
-			fmt.Printf("  mirage server add --address <address> --secret-hostname <hostname> --token %s\n", resp.Token)
+			fmt.Printf("  mirage server add --address %s --secret-hostname %s --token %s\n",
+				server.Address, server.SecretHostname, resp.Token)
 			return nil
 		},
 	}

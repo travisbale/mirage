@@ -13,13 +13,18 @@ COPY . .
 ARG VERSION=dev
 RUN make build VERSION=${VERSION}
 
+# Create the data directory owned by nonroot (UID 65534) so the volume
+# inherits the correct permissions when Docker initializes it.
+RUN mkdir -p /tmp/mirage-data && chown 65534:65534 /tmp/mirage-data
+
 
 # Runtime stage
 FROM gcr.io/distroless/static:nonroot
 
 COPY --from=builder /src/build/miraged /usr/local/bin/miraged
+COPY --from=builder --chown=nonroot:nonroot /tmp/mirage-data /var/lib/mirage
 
-# Config and data are operator-supplied at runtime. Mount them as volumes:
+# Config is operator-supplied at runtime as a read-only mount.
 #   /etc/mirage/miraged.yaml   — config file
 #   /var/lib/mirage/           — SQLite database (includes phishlet definitions) and generated certs
 VOLUME ["/etc/mirage", "/var/lib/mirage"]

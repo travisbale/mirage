@@ -1,0 +1,38 @@
+services:
+  miraged:
+    container_name: miraged
+    build:
+      context: ../../
+      args:
+        VERSION: ${VERSION:-dev}
+    ports:
+      - "443:443"
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - ./miraged.yaml:/etc/mirage/miraged.yaml:ro
+      - mirage-data:/var/lib/mirage
+    networks:
+      - mirage
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  target-site:
+    container_name: target-site
+    build: ../target-site
+    ports:
+      - "8443:443"
+    networks:
+      mirage:
+        aliases:
+          - login.target.local
+          - api.target.local
+
+networks:
+  mirage:
+
+volumes:
+  mirage-data:

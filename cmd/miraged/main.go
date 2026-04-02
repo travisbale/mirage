@@ -6,13 +6,16 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/config"
 	"github.com/travisbale/mirage/internal/daemon"
+	"github.com/travisbale/mirage/internal/store/sqlite"
 )
 
 var Version = "dev"
@@ -64,7 +67,16 @@ func main() {
 		Run:   func(cmd *cobra.Command, args []string) { fmt.Println(Version) },
 	}
 
-	root.AddCommand(serveCmd, validateCmd, versionCmd)
+	inviteCmd := &cobra.Command{
+		Use:   "invite <name>",
+		Short: "Create an invite token for a new operator",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInvite(configPath, args[0])
+		},
+	}
+
+	root.AddCommand(serveCmd, validateCmd, versionCmd, inviteCmd)
 
 	if err := run(root); err != nil {
 		os.Exit(1)
@@ -76,6 +88,29 @@ func run(root *cobra.Command) error {
 	defer stop()
 
 	return root.ExecuteContext(ctx)
+}
+
+func runInvite(configPath, name string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	db, err := sqlite.Open(filepath.Join(cfg.DataDir, "data.db"))
+	if err != nil {
+		return fmt.Errorf("opening database: %w", err)
+	}
+	defer db.Close()
+
+	svc := &aitm.OperatorService{Store: sqlite.NewOperatorStore(db)}
+	invite, err := svc.Invite(name)
+	if err != nil {
+		return fmt.Errorf("creating invite: %w", err)
+	}
+
+	fmt.Printf("mirage server add --address %s:%d --secret-hostname %s --token %s\n",
+		cfg.ExternalIPv4, cfg.HTTPSPort, cfg.API.SecretHostname, invite.Token)
+	return nil
 }
 
 func runServe(ctx context.Context, configPath string, debug bool) error {
