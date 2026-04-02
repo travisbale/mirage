@@ -74,6 +74,30 @@ func NewDNSService(providers map[string]DNSProvider, zones map[string]ZoneConfig
 	}
 }
 
+// ListZones returns all configured DNS zones.
+func (s *DNSService) ListZones() []ZoneConfig {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	zones := make([]ZoneConfig, 0, len(s.zones))
+	for _, zc := range s.zones {
+		zones = append(zones, zc)
+	}
+	return zones
+}
+
+// ListProviders returns the aliases of all configured DNS providers.
+func (s *DNSService) ListProviders() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	names := make([]string, 0, len(s.providers))
+	for alias := range s.providers {
+		names = append(names, alias)
+	}
+	return names
+}
+
 func (s *DNSService) providerFor(zone string) (DNSProvider, ZoneConfig, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

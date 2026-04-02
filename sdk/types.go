@@ -155,6 +155,14 @@ type EnablePhishletRequest struct {
 	DNSProvider string `json:"dns_provider"`
 }
 
+// --- DNS ---
+
+type DNSZoneResponse struct {
+	Zone     string `json:"zone"`
+	Provider string `json:"provider"`
+	IP       string `json:"ip"`
+}
+
 // --- Blacklist ---
 
 type BlacklistEntryResponse struct {

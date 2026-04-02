@@ -378,6 +378,26 @@ func (s *PhishletService) List() ([]*PhishletConfig, error) {
 	return s.Store.ListConfigs(PhishletFilter{})
 }
 
+// ReconcileAll reconciles DNS records for all enabled phishlets.
+func (s *PhishletService) ReconcileAll(ctx context.Context) error {
+	enabled := true
+	configs, err := s.Store.ListConfigs(PhishletFilter{Enabled: &enabled})
+	if err != nil {
+		return fmt.Errorf("listing enabled phishlets: %w", err)
+	}
+
+	var records []PhishletRecord
+	for _, cfg := range configs {
+		cp := s.Resolver.Get(cfg.Name)
+		if cp == nil {
+			continue
+		}
+		records = append(records, phishletRecords(cp)...)
+	}
+
+	return s.DNS.Reconcile(ctx, records)
+}
+
 // deriveBaseDomain infers the base domain from the phishing hostname by matching
 // each proxy host's PhishSubdomain as a prefix. Returns "" if no match is found.
 func deriveBaseDomain(def *Phishlet, hostname string) string {

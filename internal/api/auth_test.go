@@ -67,6 +67,10 @@ func (s *stubBotguard) ListSignatures() ([]aitm.BotSignature, error) { return ni
 func (s *stubBotguard) AddSignature(_ aitm.BotSignature) error       { return nil }
 func (s *stubBotguard) RemoveSignature(_ string) error               { return nil }
 
+type stubDNS struct{}
+
+func (s *stubDNS) ListProviders() []string { return nil }
+
 type stubBus struct{}
 
 func (s *stubBus) Subscribe(_ sdk.EventType) <-chan aitm.Event {
@@ -83,6 +87,7 @@ func newTestRouter(sessions *stubSessions) *api.Router {
 		Phishlets: &stubPhishlets{},
 		Blacklist: &stubBlacklist{},
 		Botguard:  &stubBotguard{},
+		DNS:       &stubDNS{},
 		Bus:       &stubBus{},
 		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}

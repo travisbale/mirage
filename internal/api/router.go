@@ -36,6 +36,7 @@ type phishletManager interface {
 	Disable(ctx context.Context, name string) (*aitm.ConfiguredPhishlet, error)
 	Get(name string) (*aitm.PhishletConfig, error)
 	List() ([]*aitm.PhishletConfig, error)
+	ReconcileAll(ctx context.Context) error
 }
 
 type blacklistManager interface {
@@ -65,6 +66,11 @@ type notificationManager interface {
 	Test(ctx context.Context, id string) error
 }
 
+type dnsManager interface {
+	ListProviders() []string
+	ListZones() []aitm.ZoneConfig
+}
+
 type eventBus interface {
 	Subscribe(eventType sdk.EventType) <-chan aitm.Event
 	Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event)
@@ -79,6 +85,7 @@ type Router struct {
 	Botguard      botguardManager
 	Notifications notificationManager
 	Operators     operatorManager
+	DNS           dnsManager
 	Bus           eventBus
 	HTTPSPort     int // Included in lure URLs when non-standard (not 443)
 	Version       string
@@ -134,6 +141,7 @@ func (r *Router) registerRoutes() {
 	h("DELETE", sdk.RouteBlacklistEntry, r.removeBlacklistEntry)
 
 	// DNS
+	h("GET", sdk.RouteDNSProviders, r.listDNSProviders)
 	h("GET", sdk.RouteDNSZones, r.listDNSZones)
 	h("POST", sdk.RouteDNSSync, r.syncDNS)
 

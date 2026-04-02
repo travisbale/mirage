@@ -222,6 +222,33 @@ func (c *Client) DisablePhishlet(name string) (*PhishletResponse, error) {
 	return send[PhishletResponse](c, http.MethodPost, ResolveRoute(RoutePhishletDisable, "name", name), nil)
 }
 
+// --- DNS ---
+
+func (c *Client) ListDNSProviders() ([]string, error) {
+	resp, err := get[[]string](c, RouteDNSProviders)
+	if err != nil {
+		return nil, err
+	}
+	return *resp, nil
+}
+
+func (c *Client) ListDNSZones() ([]DNSZoneResponse, error) {
+	resp, err := get[[]DNSZoneResponse](c, RouteDNSZones)
+	if err != nil {
+		return nil, err
+	}
+	return *resp, nil
+}
+
+func (c *Client) SyncDNS() error {
+	resp, err := c.do(http.MethodPost, RouteDNSSync, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return checkStatus(resp)
+}
+
 // --- Blacklist ---
 
 func (c *Client) ListBlacklist() (*PaginatedResponse[BlacklistEntryResponse], error) {

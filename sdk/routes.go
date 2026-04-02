@@ -30,8 +30,9 @@ const (
 	RouteBlacklist      = "/api/blacklist"
 
 	// DNS
-	RouteDNSZones = "/api/dns/zones"
-	RouteDNSSync  = "/api/dns/sync"
+	RouteDNSProviders = "/api/dns/providers"
+	RouteDNSZones     = "/api/dns/zones"
+	RouteDNSSync      = "/api/dns/sync"
 
 	// BotGuard
 	RouteBotSignature  = "/api/botguard/signatures/{hash}"
