@@ -54,6 +54,7 @@ func (s *stubPhishlets) Disable(_ context.Context, _ string) (*aitm.ConfiguredPh
 }
 func (s *stubPhishlets) Get(_ string) (*aitm.PhishletConfig, error) { return nil, nil }
 func (s *stubPhishlets) List() ([]*aitm.PhishletConfig, error)      { return nil, nil }
+func (s *stubPhishlets) ReconcileAll(_ context.Context) error       { return nil }
 
 type stubBlacklist struct{}
 
@@ -69,7 +70,8 @@ func (s *stubBotguard) RemoveSignature(_ string) error               { return ni
 
 type stubDNS struct{}
 
-func (s *stubDNS) ListProviders() []string { return nil }
+func (s *stubDNS) ListProviders() []string          { return nil }
+func (s *stubDNS) ListZones() []aitm.ZoneConfig     { return nil }
 
 type stubBus struct{}
 
