@@ -70,8 +70,8 @@ func (s *stubBotguard) RemoveSignature(_ string) error               { return ni
 
 type stubDNS struct{}
 
-func (s *stubDNS) ListProviders() []string          { return nil }
-func (s *stubDNS) ListZones() []aitm.ZoneConfig     { return nil }
+func (s *stubDNS) ListProviders() []string      { return nil }
+func (s *stubDNS) ListZones() []aitm.ZoneConfig { return nil }
 
 type stubBus struct{}
 
