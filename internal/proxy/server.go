@@ -1,13 +1,10 @@
 package proxy
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -238,80 +235,4 @@ func isWebSocketUpgrade(req *http.Request) bool {
 
 func isConnReset(err error) bool {
 	return strings.Contains(err.Error(), "connection reset")
-}
-
-// bufferedResponseWriter is a minimal http.ResponseWriter that writes to a net.Conn.
-type bufferedResponseWriter struct {
-	conn      net.Conn
-	header    http.Header
-	code      int
-	buf       []byte
-	keepAlive bool
-}
-
-func newBufferedResponseWriter(conn net.Conn) *bufferedResponseWriter {
-	return &bufferedResponseWriter{
-		conn:   conn,
-		header: make(http.Header),
-		code:   http.StatusOK,
-	}
-}
-
-func (w *bufferedResponseWriter) Header() http.Header {
-	return w.header
-}
-
-func (w *bufferedResponseWriter) WriteHeader(code int) {
-	w.code = code
-}
-
-func (w *bufferedResponseWriter) Write(b []byte) (int, error) {
-	w.buf = append(w.buf, b...)
-	return len(b), nil
-}
-
-func (w *bufferedResponseWriter) flush() {
-	resp := &http.Response{
-		StatusCode:    w.code,
-		Header:        w.header,
-		Proto:         "HTTP/1.1",
-		ProtoMajor:    1,
-		ProtoMinor:    1,
-		Body:          io.NopCloser(bytes.NewReader(w.buf)),
-		ContentLength: int64(len(w.buf)),
-		Close:         !w.keepAlive,
-	}
-	_ = resp.Write(w.conn) // raw connection write; error unrecoverable at this point
-}
-
-// hijackableResponseWriter wraps a net.Conn and satisfies http.Hijacker for WebSocket upgrades.
-type hijackableResponseWriter struct {
-	conn   net.Conn
-	header http.Header
-	code   int
-}
-
-func newHijackableResponseWriter(conn net.Conn) *hijackableResponseWriter {
-	return &hijackableResponseWriter{
-		conn:   conn,
-		header: make(http.Header),
-		code:   http.StatusOK,
-	}
-}
-
-func (w *hijackableResponseWriter) Header() http.Header {
-	return w.header
-}
-
-func (w *hijackableResponseWriter) WriteHeader(code int) {
-	w.code = code
-}
-
-func (w *hijackableResponseWriter) Write(b []byte) (int, error) {
-	return w.conn.Write(b)
-}
-
-func (w *hijackableResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	brw := bufio.NewReadWriter(bufio.NewReader(w.conn), bufio.NewWriter(w.conn))
-	return w.conn, brw, nil
 }

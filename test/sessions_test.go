@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/travisbale/mirage/sdk"
 	"github.com/travisbale/mirage/test"
@@ -260,5 +261,62 @@ func TestSessions_FullLoginFlow(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected session cookie token to be captured")
+	}
+}
+
+// TestSessions_StreamEvents verifies that StreamSessions delivers real-time
+// events when a victim session is created and credentials are captured.
+func TestSessions_StreamEvents(t *testing.T) {
+	harness := test.NewHarness(t)
+
+	harness.UpstreamMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			http.SetCookie(w, &http.Cookie{
+				Name:   "session",
+				Value:  "tok-stream",
+				Domain: ".testsite.internal",
+			})
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		fmt.Fprint(w, "login page")
+	})
+
+	// Open the SSE stream before triggering any sessions.
+	ch, cancel, err := harness.API.StreamSessions()
+	if err != nil {
+		t.Fatalf("StreamSessions: %v", err)
+	}
+	defer cancel()
+
+	// Wait for the initial "connected" event (not a session event).
+	// The first real event will be a session.created when the victim hits the lure.
+
+	// Trigger a session: victim hits lure then POSTs credentials.
+	test.DrainAndClose(harness.VictimGet(t, "/"))
+	test.DrainAndClose(harness.VictimPost(t, "/login", "username=alice&password=s3cret"))
+
+	// Wait for a credential capture event.
+	waitForEvent(t, ch, func(evt sdk.SessionEvent) bool {
+		return evt.Type == sdk.EventCredsCaptured && evt.Session.Username == "alice"
+	})
+}
+
+// waitForEvent reads from the SSE channel until match returns true or a timeout fires.
+func waitForEvent(t *testing.T, ch <-chan sdk.SessionEvent, match func(sdk.SessionEvent) bool) {
+	t.Helper()
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case evt, ok := <-ch:
+			if !ok {
+				t.Fatal("stream closed unexpectedly")
+			}
+			if match(evt) {
+				return
+			}
+		case <-timeout:
+			t.Fatal("timed out waiting for matching session event")
+		}
 	}
 }

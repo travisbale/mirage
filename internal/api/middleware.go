@@ -55,3 +55,10 @@ func (s *statusRecorder) WriteHeader(status int) {
 	s.status = status
 	s.ResponseWriter.WriteHeader(status)
 }
+
+// Flush underlying ResponseWriter so SSE streaming works
+func (s *statusRecorder) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}

@@ -129,7 +129,10 @@ func (c *Client) StreamSessions() (<-chan SessionEvent, func(), error) {
 	}
 	req.Header.Set("Accept", "text/event-stream")
 
-	resp, err := c.httpClient.Do(req)
+	// SSE connections are long-lived — use a client without the 30s request
+	// timeout. The transport's 10s dial timeout still applies for connect.
+	streamClient := &http.Client{Transport: c.httpClient.Transport}
+	resp, err := streamClient.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("stream connect: %w", err)
 	}

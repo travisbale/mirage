@@ -21,6 +21,9 @@ func newSSEWriter(w http.ResponseWriter) (*sseWriter, bool) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no") // disable nginx buffering if behind a proxy
+	// Send headers immediately so the client's Do() returns without
+	// waiting for the first event.
+	w.WriteHeader(http.StatusOK)
 	return &sseWriter{w: w, flusher: f}, true
 }
 

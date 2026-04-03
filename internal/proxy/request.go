@@ -94,6 +94,14 @@ func (c *connection) serve(ctx context.Context) {
 
 		// API requests — route directly to the API handler.
 		if strings.EqualFold(hostWithoutPort(req.Host), c.server.SecretHostname) {
+			// SSE endpoints require streaming — use a flushing writer that
+			// sends data to the wire immediately instead of buffering.
+			if req.Header.Get("Accept") == "text/event-stream" {
+				sw := newStreamingResponseWriter(c.rawConn)
+				c.server.APIHandler.ServeHTTP(sw, req)
+				return // SSE connections are long-lived; close when done
+			}
+
 			rec := newBufferedResponseWriter(c.rawConn)
 			c.server.APIHandler.ServeHTTP(rec, req)
 			rec.flush()
