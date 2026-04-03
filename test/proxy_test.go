@@ -14,6 +14,7 @@ import (
 // TestProxy_UnknownHostnameSpoofed verifies that requests to a hostname not
 // registered by any phishlet receive a spoof response and create no session.
 func TestProxy_UnknownHostnameSpoofed(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	req, _ := http.NewRequest(http.MethodGet, "https://unknown.phish.test/", nil)
@@ -39,6 +40,7 @@ func TestProxy_UnknownHostnameSpoofed(t *testing.T) {
 // TestProxy_KnownHostnameProxied verifies that a request to the phishing hostname
 // is forwarded upstream and the victim receives the upstream response.
 func TestProxy_KnownHostnameProxied(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +58,7 @@ func TestProxy_KnownHostnameProxied(t *testing.T) {
 // TestProxy_SessionCookieInjected verifies that the first response to the
 // phishing hostname carries the session tracking cookie.
 func TestProxy_SessionCookieInjected(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -80,6 +83,7 @@ func TestProxy_SessionCookieInjected(t *testing.T) {
 // TestProxy_SubsequentRequestsReuseSession verifies that two requests from the
 // same victim (cookie jar) map to a single session, not two.
 func TestProxy_SubsequentRequestsReuseSession(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +105,7 @@ func TestProxy_SubsequentRequestsReuseSession(t *testing.T) {
 // TestProxy_InterceptPreventsUpstreamCall verifies that an intercept rule
 // returns a static response without forwarding the request to the upstream.
 func TestProxy_InterceptPreventsUpstreamCall(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	upstreamCalled := false
@@ -127,6 +132,7 @@ func TestProxy_InterceptPreventsUpstreamCall(t *testing.T) {
 // TestProxy_AutoFilterRewritesDomains verifies that auto_filter rewrites
 // upstream domain references in response bodies to the phishing domain.
 func TestProxy_AutoFilterRewritesDomains(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -244,12 +244,7 @@ func (c *Client) ListDNSZones() ([]DNSZoneResponse, error) {
 }
 
 func (c *Client) SyncDNS() error {
-	resp, err := c.do(http.MethodPost, RouteDNSSync, nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return checkStatus(resp)
+	return discard(c, http.MethodPost, RouteDNSSync, nil)
 }
 
 // --- Blacklist ---

@@ -2,19 +2,15 @@ package test_test
 
 import (
 	"bytes"
-	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
-	"net"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/travisbale/mirage/sdk"
 	"github.com/travisbale/mirage/test"
@@ -22,6 +18,7 @@ import (
 
 // TestAPI_OperatorInviteAndEnroll tests the full invite → enroll → list flow.
 func TestAPI_OperatorInviteAndEnroll(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	// 1. Invite a new operator.
@@ -52,22 +49,7 @@ func TestAPI_OperatorInviteAndEnroll(t *testing.T) {
 	}
 	body, _ := json.Marshal(enrollReq)
 
-	// The enroll endpoint is unauthenticated — use a plain HTTPS client.
-	enrollClient := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				ServerName:         "api.phish.test",
-				InsecureSkipVerify: true, //nolint:gosec // test only
-			},
-			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-				return (&net.Dialer{}).DialContext(ctx, network, harness.ProxyAddr)
-			},
-		},
-	}
-
-	enrollURL := "https://api.phish.test" + sdk.RouteEnroll
-	resp, err := enrollClient.Post(enrollURL, "application/json", bytes.NewReader(body))
+	resp, err := harness.EnrollClient().Post(harness.EnrollURL(), "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("enroll request: %v", err)
 	}
@@ -118,7 +100,7 @@ func TestAPI_OperatorInviteAndEnroll(t *testing.T) {
 	}
 
 	// 5. Reusing the token should fail.
-	resp2, err := enrollClient.Post(enrollURL, "application/json", bytes.NewReader(body))
+	resp2, err := harness.EnrollClient().Post(harness.EnrollURL(), "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("reuse request: %v", err)
 	}
@@ -130,6 +112,7 @@ func TestAPI_OperatorInviteAndEnroll(t *testing.T) {
 
 // TestAPI_OperatorDelete tests inviting then removing an operator.
 func TestAPI_OperatorDelete(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	// Invite creates the operator name reservation. Enroll would register it,
@@ -151,19 +134,7 @@ func TestAPI_OperatorDelete(t *testing.T) {
 	enrollReq := sdk.EnrollRequest{Token: invite.Token, CSRPEM: string(csrPEM)}
 	body, _ := json.Marshal(enrollReq)
 
-	enrollClient := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				ServerName:         "api.phish.test",
-				InsecureSkipVerify: true, //nolint:gosec
-			},
-			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-				return (&net.Dialer{}).DialContext(ctx, network, harness.ProxyAddr)
-			},
-		},
-	}
-	resp, err := enrollClient.Post("https://api.phish.test"+sdk.RouteEnroll, "application/json", bytes.NewReader(body))
+	resp, err := harness.EnrollClient().Post(harness.EnrollURL(), "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("enroll: %v", err)
 	}

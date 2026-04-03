@@ -44,7 +44,7 @@ type ZoneConfig struct {
 // inside an active phishlet.
 type PhishletRecord struct {
 	Zone string
-	Name string // relative subdomain
+	Name string // FQDN, e.g. "login.phish.com"
 	IP   string // overrides ZoneConfig.ExternalIP when non-empty
 }
 

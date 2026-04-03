@@ -11,6 +11,7 @@ import (
 // TestAPI_CreateAndDeleteLure verifies that a lure can be created, appears in
 // the list, and disappears after deletion.
 func TestAPI_CreateAndDeleteLure(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	lure, err := harness.API.CreateLure(sdk.CreateLureRequest{
@@ -55,6 +56,7 @@ func TestAPI_CreateAndDeleteLure(t *testing.T) {
 // TestAPI_PausedLureSpoofs verifies that a paused lure causes the proxy to
 // return a spoof response, and that unpausing restores normal proxying.
 func TestAPI_PausedLureSpoofs(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/go/test", func(w http.ResponseWriter, r *http.Request) {

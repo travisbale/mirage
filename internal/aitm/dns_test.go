@@ -2,8 +2,6 @@ package aitm_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"testing"
 
 	"github.com/travisbale/mirage/internal/aitm"
@@ -47,23 +45,13 @@ func (f *fakeDNSProvider) CleanUp(context.Context, string, string, string) error
 func (f *fakeDNSProvider) Ping(context.Context) error                            { return nil }
 func (f *fakeDNSProvider) Name() string                                          { return "fake" }
 
-type dnsBus struct{ published []aitm.Event }
-
-func (b *dnsBus) Publish(e aitm.Event)                             { b.published = append(b.published, e) }
-func (b *dnsBus) Subscribe(_ sdk.EventType) <-chan aitm.Event      { return make(chan aitm.Event) }
-func (b *dnsBus) Unsubscribe(_ sdk.EventType, _ <-chan aitm.Event) {}
-
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
 func TestDNSService_ListZones(t *testing.T) {
 	zones := map[string]aitm.ZoneConfig{
 		"example.com": {Zone: "example.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
 		"evil.net":    {Zone: "evil.net", ProviderName: "r53", ExternalIP: "5.6.7.8"},
 	}
 
-	svc := aitm.NewDNSService(nil, zones, &dnsBus{}, discardLogger())
+	svc := aitm.NewDNSService(nil, zones, &stubBus{}, discardLogger())
 	got := svc.ListZones()
 
 	if len(got) != 2 {
@@ -80,7 +68,7 @@ func TestDNSService_ListZones(t *testing.T) {
 }
 
 func TestDNSService_ListZones_Empty(t *testing.T) {
-	svc := aitm.NewDNSService(nil, nil, &dnsBus{}, discardLogger())
+	svc := aitm.NewDNSService(nil, nil, &stubBus{}, discardLogger())
 	got := svc.ListZones()
 	if len(got) != 0 {
 		t.Fatalf("expected 0 zones, got %d", len(got))
@@ -93,7 +81,7 @@ func TestDNSService_Reconcile(t *testing.T) {
 	zones := map[string]aitm.ZoneConfig{
 		"example.com": {Zone: "example.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
 	}
-	bus := &dnsBus{}
+	bus := &stubBus{}
 
 	svc := aitm.NewDNSService(providers, zones, bus, discardLogger())
 	err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
@@ -130,7 +118,7 @@ func TestDNSService_Reconcile_FallsBackToUpdate(t *testing.T) {
 		"example.com": {Zone: "example.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
 	}
 
-	svc := aitm.NewDNSService(providers, zones, &dnsBus{}, discardLogger())
+	svc := aitm.NewDNSService(providers, zones, &stubBus{}, discardLogger())
 	err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
 		{Zone: "example.com", Name: "login.example.com"},
 	})
@@ -153,7 +141,7 @@ func TestDNSService_RemoveRecords(t *testing.T) {
 		"example.com": {Zone: "example.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
 	}
 
-	svc := aitm.NewDNSService(providers, zones, &dnsBus{}, discardLogger())
+	svc := aitm.NewDNSService(providers, zones, &stubBus{}, discardLogger())
 	err := svc.RemoveRecords(context.Background(), []aitm.PhishletRecord{
 		{Zone: "example.com", Name: "login.example.com"},
 	})

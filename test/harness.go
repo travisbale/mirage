@@ -54,6 +54,8 @@ type Harness struct {
 
 	// ProxyAddr is the TCP address of the running proxy (e.g. "127.0.0.1:PORT").
 	ProxyAddr string
+
+	enrollClient *http.Client
 }
 
 // NewHarness starts a full daemon and returns a configured Harness.
@@ -290,6 +292,31 @@ func waitForTCP(addr string, timeout time.Duration) error {
 		time.Sleep(50 * time.Millisecond)
 	}
 	return fmt.Errorf("timed out waiting for %s", addr)
+}
+
+// EnrollClient returns an unauthenticated HTTPS client that dials the proxy
+// directly. Used for testing the operator enrollment endpoint.
+func (h *Harness) EnrollClient() *http.Client {
+	if h.enrollClient == nil {
+		h.enrollClient = &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					ServerName:         testAPIHostname,
+					InsecureSkipVerify: true, //nolint:gosec // test only
+				},
+				DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+					return (&net.Dialer{}).DialContext(ctx, network, h.ProxyAddr)
+				},
+			},
+		}
+	}
+	return h.enrollClient
+}
+
+// EnrollURL returns the full URL for the enrollment endpoint.
+func (h *Harness) EnrollURL() string {
+	return "https://" + testAPIHostname + sdk.RouteEnroll
 }
 
 func newStringBody(s string) *strings.Reader { return strings.NewReader(s) }

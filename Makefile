@@ -34,11 +34,11 @@ clean:
 
 test: scripts
 	@echo "Running all tests (unit + integration)..."
-	@go test -tags=integration -count=1 -timeout=120s ./...
+	@go test -race -tags=integration -count=1 -timeout=120s ./...
 
 unit: scripts
 	@echo "Running unit tests..."
-	@go test ./...
+	@go test -race ./...
 
 fmt:
 	@echo "Formatting code..."

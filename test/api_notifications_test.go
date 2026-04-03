@@ -15,6 +15,7 @@ import (
 // TestAPI_NotificationChannelCRUD verifies that notification channels can be
 // created, listed, and removed via the API.
 func TestAPI_NotificationChannelCRUD(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	// Create a webhook channel.
@@ -63,6 +64,7 @@ func TestAPI_NotificationChannelCRUD(t *testing.T) {
 
 // TestAPI_NotificationChannelWithFilter verifies that filters are persisted.
 func TestAPI_NotificationChannelWithFilter(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	created, err := harness.API.CreateNotificationChannel(sdk.CreateNotificationChannelRequest{
@@ -80,6 +82,7 @@ func TestAPI_NotificationChannelWithFilter(t *testing.T) {
 
 // TestAPI_NotificationChannelInvalidType verifies that unknown channel types are rejected.
 func TestAPI_NotificationChannelInvalidType(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	_, err := harness.API.CreateNotificationChannel(sdk.CreateNotificationChannelRequest{
@@ -94,6 +97,7 @@ func TestAPI_NotificationChannelInvalidType(t *testing.T) {
 // TestAPI_NotificationChannelInvalidFilter verifies that unknown event types in
 // the filter are rejected.
 func TestAPI_NotificationChannelInvalidFilter(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	_, err := harness.API.CreateNotificationChannel(sdk.CreateNotificationChannelRequest{
@@ -110,6 +114,7 @@ func TestAPI_NotificationChannelInvalidFilter(t *testing.T) {
 // create a webhook channel → trigger a session via the victim → verify the
 // webhook endpoint receives a notification with session data.
 func TestAPI_WebhookReceivesSessionEvent(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	// Start a webhook receiver.

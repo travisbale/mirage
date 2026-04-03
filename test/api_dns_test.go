@@ -10,6 +10,7 @@ import (
 // successfully. The test harness has no providers configured, so the list
 // should be empty.
 func TestAPI_ListDNSProviders(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	providers, err := harness.API.ListDNSProviders()
@@ -25,6 +26,7 @@ func TestAPI_ListDNSProviders(t *testing.T) {
 // successfully. No zones exist because the test harness has no DNS
 // providers configured.
 func TestAPI_ListDNSZones(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	zones, err := harness.API.ListDNSZones()
@@ -39,6 +41,7 @@ func TestAPI_ListDNSZones(t *testing.T) {
 // TestAPI_SyncDNS verifies that the DNS sync endpoint succeeds. With no
 // DNS providers configured the reconciliation is a no-op.
 func TestAPI_SyncDNS(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	if err := harness.API.SyncDNS(); err != nil {

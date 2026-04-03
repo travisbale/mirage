@@ -11,6 +11,7 @@ import (
 // TestAPI_UnauthenticatedRequestRejected verifies that an API request without
 // a client certificate receives a 401 Unauthorized response.
 func TestAPI_UnauthenticatedRequestRejected(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	// Client with the API hostname as SNI but no client cert.
@@ -37,6 +38,7 @@ func TestAPI_UnauthenticatedRequestRejected(t *testing.T) {
 
 // TestAPI_Status verifies that the status endpoint returns without error.
 func TestAPI_Status(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	status, err := harness.API.Status()

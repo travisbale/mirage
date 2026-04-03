@@ -11,6 +11,7 @@ import (
 // TestAPI_DeleteSession verifies that a session can be deleted via the API
 // and no longer appears in subsequent list responses.
 func TestAPI_DeleteSession(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +44,7 @@ func TestAPI_DeleteSession(t *testing.T) {
 // TestAPI_ListSessions verifies that a session captured via the proxy appears
 // in the sessions list returned by the API.
 func TestAPI_ListSessions(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

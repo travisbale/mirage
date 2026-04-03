@@ -96,7 +96,7 @@ func TestPhishletService_ReconcileAll(t *testing.T) {
 
 	svc := &aitm.PhishletService{
 		Store:    store,
-		Bus:      &dnsBus{},
+		Bus:      &stubBus{},
 		DNS:      dns,
 		Resolver: resolver,
 	}
@@ -131,7 +131,7 @@ func TestPhishletService_ReconcileAll_NoEnabledPhishlets(t *testing.T) {
 
 	svc := &aitm.PhishletService{
 		Store:    store,
-		Bus:      &dnsBus{},
+		Bus:      &stubBus{},
 		DNS:      dns,
 		Resolver: &stubResolver{phishlets: map[string]*aitm.ConfiguredPhishlet{}},
 	}

@@ -61,14 +61,6 @@ func (s *stubSessionStore) CountSessions(_ aitm.SessionFilter) (int, error) {
 	return len(s.sessions), s.err
 }
 
-type stubBus struct {
-	published []aitm.Event
-}
-
-func (b *stubBus) Publish(event aitm.Event)                         { b.published = append(b.published, event) }
-func (b *stubBus) Subscribe(_ sdk.EventType) <-chan aitm.Event      { return make(chan aitm.Event) }
-func (b *stubBus) Unsubscribe(_ sdk.EventType, _ <-chan aitm.Event) {}
-
 func newSessionService() (*aitm.SessionService, *stubSessionStore, *stubBus) {
 	store := newStubSessionStore()
 	bus := &stubBus{}

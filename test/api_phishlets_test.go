@@ -10,6 +10,7 @@ import (
 // TestAPI_PhishletEnableDisable verifies that disabling and re-enabling a
 // phishlet via the API is reflected in ListPhishlets.
 func TestAPI_PhishletEnableDisable(t *testing.T) {
+	t.Parallel()
 	harness := test.NewHarness(t)
 
 	// Disable the already-enabled phishlet.
