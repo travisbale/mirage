@@ -187,6 +187,7 @@ func sessionToResponse(s *aitm.Session) sdk.SessionResponse {
 		Username:     s.Username,
 		Password:     s.Password,
 		Custom:       s.Custom,
+		LureParams:   s.LureParams,
 		CookieTokens: cookies,
 		BodyTokens:   s.BodyTokens,
 		HTTPTokens:   s.HTTPTokens,

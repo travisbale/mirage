@@ -310,6 +310,71 @@ func TestSessions_StreamEvents(t *testing.T) {
 	})
 }
 
+// TestSessions_LureURLParams verifies that encrypted URL parameters (?p=)
+// are decrypted and stored on the session's LureParams field when a victim clicks.
+func TestSessions_LureURLParams(t *testing.T) {
+	t.Parallel()
+	harness := test.NewHarness(t)
+
+	harness.UpstreamMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "ok")
+	})
+
+	// Create a lure with a specific path for this test.
+	lure, err := harness.API.CreateLure(sdk.CreateLureRequest{
+		Phishlet:    "testsite",
+		Path:        "/track",
+		RedirectURL: "https://testsite.internal/",
+	})
+	if err != nil {
+		t.Fatalf("CreateLure: %v", err)
+	}
+
+	// Generate a URL with custom tracking params.
+	urlResp, err := harness.API.GenerateLureURL(lure.ID, sdk.GenerateURLRequest{
+		Params: map[string]string{"t": "result-abc", "campaign": "test-campaign"},
+	})
+	if err != nil {
+		t.Fatalf("GenerateLureURL: %v", err)
+	}
+
+	// Victim clicks the tracked URL.
+	// Extract the path+query from the full URL to use with VictimGet.
+	trackedURL := urlResp.URL
+	// The URL looks like https://login.phish.test/track?p=<encrypted>
+	// We need to visit it through the proxy.
+	req, err := http.NewRequest(http.MethodGet, trackedURL, nil)
+	if err != nil {
+		t.Fatalf("building request: %v", err)
+	}
+	resp, err := harness.Victim.Do(req)
+	if err != nil {
+		t.Fatalf("victim GET tracked URL: %v", err)
+	}
+	test.DrainAndClose(resp)
+
+	// Verify the session has the decrypted params in LureParams.
+	sessions, err := harness.API.ListSessions(sdk.SessionFilter{})
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+
+	// Find the session created by the tracked lure hit (not the default lure).
+	var found bool
+	for _, sess := range sessions.Items {
+		if sess.LureParams != nil && sess.LureParams["t"] == "result-abc" {
+			if sess.LureParams["campaign"] != "test-campaign" {
+				t.Errorf("LureParams[campaign] = %q, want %q", sess.LureParams["campaign"], "test-campaign")
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected session with LureParams from tracked lure URL")
+	}
+}
+
 // waitForEvent reads from the SSE channel until match returns true or a timeout fires.
 func waitForEvent(t *testing.T, ch <-chan sdk.SessionEvent, match func(sdk.SessionEvent) bool) {
 	t.Helper()

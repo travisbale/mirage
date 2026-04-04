@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     username        TEXT    NOT NULL DEFAULT '',
     password        TEXT    NOT NULL DEFAULT '',
     custom          TEXT    NOT NULL DEFAULT '{}',
+    lure_params     TEXT    NOT NULL DEFAULT '{}',
     cookie_tokens   TEXT    NOT NULL DEFAULT '{}',
     body_tokens     TEXT    NOT NULL DEFAULT '{}',
     http_tokens     TEXT    NOT NULL DEFAULT '{}',
