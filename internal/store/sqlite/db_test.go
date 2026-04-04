@@ -24,7 +24,7 @@ func TestWithTx_Rollback(t *testing.T) {
 	}
 
 	// The session should not exist because the transaction was rolled back.
-	s := sqlite.NewSessionStore(db)
+	s := sqlite.NewSessionStore(db, testCipher())
 	if _, err := s.GetSession("tx-sess"); !errors.Is(err, aitm.ErrNotFound) {
 		t.Errorf("rolled-back session should not exist, got %v", err)
 	}

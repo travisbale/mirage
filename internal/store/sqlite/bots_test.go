@@ -12,7 +12,7 @@ func TestBots_RoundTrip(t *testing.T) {
 	db := openTestDB(t)
 	// Bot telemetry has a FK to sessions, so create a session first.
 	session := &aitm.Session{ID: "sess-bot", Phishlet: "p", StartedAt: time.Now()}
-	_ = sqlite.NewSessionStore(db).CreateSession(session)
+	_ = sqlite.NewSessionStore(db, testCipher()).CreateSession(session)
 
 	s := sqlite.NewBotStore(db)
 	tel := &aitm.BotTelemetry{

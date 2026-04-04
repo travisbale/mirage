@@ -11,7 +11,7 @@ import (
 )
 
 func TestSessions_RoundTrip(t *testing.T) {
-	s := sqlite.NewSessionStore(openTestDB(t))
+	s := sqlite.NewSessionStore(openTestDB(t), testCipher())
 
 	session := &aitm.Session{
 		ID:         "sess-1",
@@ -56,7 +56,7 @@ func TestSessions_RoundTrip(t *testing.T) {
 }
 
 func TestSessions_Errors(t *testing.T) {
-	s := sqlite.NewSessionStore(openTestDB(t))
+	s := sqlite.NewSessionStore(openTestDB(t), testCipher())
 	session := &aitm.Session{ID: "s1", Phishlet: "p", StartedAt: time.Now()}
 	_ = s.CreateSession(session)
 
@@ -72,7 +72,7 @@ func TestSessions_Errors(t *testing.T) {
 }
 
 func TestSessions_ListFilter(t *testing.T) {
-	s := sqlite.NewSessionStore(openTestDB(t))
+	s := sqlite.NewSessionStore(openTestDB(t), testCipher())
 
 	for i, phishlet := range []string{"microsoft", "microsoft", "google"} {
 		_ = s.CreateSession(&aitm.Session{
@@ -109,7 +109,7 @@ func TestSessions_ListFilter(t *testing.T) {
 }
 
 func TestSessions_Count(t *testing.T) {
-	s := sqlite.NewSessionStore(openTestDB(t))
+	s := sqlite.NewSessionStore(openTestDB(t), testCipher())
 
 	for i, phishlet := range []string{"microsoft", "microsoft", "google"} {
 		_ = s.CreateSession(&aitm.Session{
@@ -145,5 +145,38 @@ func TestSessions_Count(t *testing.T) {
 	_, err = s.CountSessions(aitm.SessionFilter{CompletedOnly: true, IncompleteOnly: true})
 	if !errors.Is(err, aitm.ErrInvalidFilter) {
 		t.Errorf("contradictory filter: got %v, want ErrInvalidFilter", err)
+	}
+}
+
+// TestSessions_EncryptionRoundTrip verifies that sensitive fields survive
+// encryption on write and decryption on read.
+func TestSessions_EncryptionRoundTrip(t *testing.T) {
+	s := sqlite.NewSessionStore(openTestDB(t), testCipher())
+
+	session := &aitm.Session{
+		ID:        "enc-test",
+		Phishlet:  "microsoft",
+		Username:  "victim@example.com",
+		Password:  "hunter2",
+		Custom:    map[string]string{"campaign": "test"},
+		StartedAt: time.Now().Truncate(time.Second),
+	}
+
+	if err := s.CreateSession(session); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	got, err := s.GetSession("enc-test")
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if got.Username != "victim@example.com" {
+		t.Errorf("Username = %q, want %q", got.Username, "victim@example.com")
+	}
+	if got.Password != "hunter2" {
+		t.Errorf("Password = %q, want %q", got.Password, "hunter2")
+	}
+	if got.Custom["campaign"] != "test" {
+		t.Errorf("Custom[campaign] = %q, want %q", got.Custom["campaign"], "test")
 	}
 }

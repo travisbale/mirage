@@ -8,7 +8,7 @@ import (
 	aesgcm "github.com/travisbale/mirage/internal/crypto/aes"
 )
 
-type aesCipher = aesgcm.Cipher
+type aesCipher = aesgcm.KeylessCipher
 
 type noopInvalidator struct{}
 

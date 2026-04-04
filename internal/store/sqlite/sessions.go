@@ -8,18 +8,83 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/crypto/aes"
 )
 
 // Sessions implements the sessionStore interface defined in the aitm package.
-type Sessions struct{ db *DB }
+type Sessions struct {
+	db     *DB
+	cipher *aes.Cipher
+}
 
-func NewSessionStore(db *DB) *Sessions { return &Sessions{db: db} }
+func NewSessionStore(db *DB, cipher *aes.Cipher) *Sessions {
+	return &Sessions{db: db, cipher: cipher}
+}
+
+// encryptSensitiveFields encrypts the 7 sensitive session fields for storage.
+func (s *Sessions) encryptSensitiveFields(session *aitm.Session, custom, lureParams, cookies, body, httpTok string) (
+	eUsername, ePassword, eCustom, eLureParams, eCookies, eBody, eHTTPTok string, err error,
+) {
+	fields := []struct {
+		name  string
+		value string
+		dest  *string
+	}{
+		{"username", session.Username, &eUsername},
+		{"password", session.Password, &ePassword},
+		{"custom", custom, &eCustom},
+		{"lure_params", lureParams, &eLureParams},
+		{"cookie_tokens", cookies, &eCookies},
+		{"body_tokens", body, &eBody},
+		{"http_tokens", httpTok, &eHTTPTok},
+	}
+	for _, f := range fields {
+		*f.dest, err = s.cipher.EncryptString(f.value)
+		if err != nil {
+			return "", "", "", "", "", "", "", fmt.Errorf("encrypting %s for session %s: %w", f.name, session.ID, err)
+		}
+	}
+	return
+}
+
+// decryptSensitiveFields decrypts the 7 sensitive session fields after reading from storage.
+func (s *Sessions) decryptSensitiveFields(session *aitm.Session, custom, lureParams, cookies, body, httpTok string) (
+	dCustom, dLureParams, dCookies, dBody, dHTTPTok string, err error,
+) {
+	fields := []struct {
+		name string
+		src  string
+		dest *string
+	}{
+		{"username", session.Username, &session.Username},
+		{"password", session.Password, &session.Password},
+		{"custom", custom, &dCustom},
+		{"lure_params", lureParams, &dLureParams},
+		{"cookie_tokens", cookies, &dCookies},
+		{"body_tokens", body, &dBody},
+		{"http_tokens", httpTok, &dHTTPTok},
+	}
+	for _, f := range fields {
+		*f.dest, err = s.cipher.DecryptString(f.src)
+		if err != nil {
+			return "", "", "", "", "", fmt.Errorf("decrypting %s for session %s: %w", f.name, session.ID, err)
+		}
+	}
+	return
+}
 
 func (s *Sessions) CreateSession(session *aitm.Session) error {
 	custom, lureParams, cookies, body, httpTok, err := marshalSessionFields(session)
 	if err != nil {
 		return err
 	}
+
+	username, password, custom, lureParams, cookies, body, httpTok, err :=
+		s.encryptSensitiveFields(session, custom, lureParams, cookies, body, httpTok)
+	if err != nil {
+		return err
+	}
+
 	var completedAt *int64
 	if session.CompletedAt != nil {
 		t := session.CompletedAt.Unix()
@@ -32,7 +97,7 @@ func (s *Sessions) CreateSession(session *aitm.Session) error {
 			 http_tokens, puppet_id, started_at, completed_at)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		session.ID, session.Phishlet, session.LureID, session.RemoteAddr, session.UserAgent,
-		session.JA4Hash, session.BotScore, session.Username, session.Password,
+		session.JA4Hash, session.BotScore, username, password,
 		custom, lureParams, cookies, body, httpTok, session.PuppetID,
 		session.StartedAt.Unix(), completedAt,
 	)
@@ -48,7 +113,7 @@ func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
 		bot_score, username, password, custom, lure_params, cookie_tokens, body_tokens,
 		http_tokens, puppet_id, started_at, completed_at
 		FROM sessions WHERE id = ?`, id)
-	sess, err := scanSession(row)
+	sess, err := s.scanSession(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, aitm.ErrNotFound
 	}
@@ -60,6 +125,13 @@ func (s *Sessions) UpdateSession(session *aitm.Session) error {
 	if err != nil {
 		return err
 	}
+
+	username, password, custom, lureParams, cookies, body, httpTok, err :=
+		s.encryptSensitiveFields(session, custom, lureParams, cookies, body, httpTok)
+	if err != nil {
+		return err
+	}
+
 	var completedAt *int64
 	if session.CompletedAt != nil {
 		t := session.CompletedAt.Unix()
@@ -72,7 +144,7 @@ func (s *Sessions) UpdateSession(session *aitm.Session) error {
 			body_tokens=?, http_tokens=?, puppet_id=?, started_at=?, completed_at=?
 		WHERE id=?`,
 		session.Phishlet, session.LureID, session.RemoteAddr, session.UserAgent, session.JA4Hash,
-		session.BotScore, session.Username, session.Password,
+		session.BotScore, username, password,
 		custom, lureParams, cookies, body, httpTok, session.PuppetID,
 		session.StartedAt.Unix(), completedAt, session.ID,
 	)
@@ -114,7 +186,7 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 
 	var out []*aitm.Session
 	for rows.Next() {
-		sess, err := scanSession(rows)
+		sess, err := s.scanSession(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +246,8 @@ func sessionWhere(f aitm.SessionFilter) ([]string, []any) {
 	return where, args
 }
 
-func scanSession(row scanner) (*aitm.Session, error) {
+// scanSession scans a row into a Session, decrypting sensitive fields.
+func (s *Sessions) scanSession(row scanner) (*aitm.Session, error) {
 	var (
 		session     aitm.Session
 		startedAt   int64
@@ -199,13 +272,20 @@ func scanSession(row scanner) (*aitm.Session, error) {
 		t := time.Unix(*completedAt, 0)
 		session.CompletedAt = &t
 	}
+
+	custom, lureParams, cookies, body, httpTok, err =
+		s.decryptSensitiveFields(&session, custom, lureParams, cookies, body, httpTok)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := unmarshalSessionFields(&session, custom, lureParams, cookies, body, httpTok); err != nil {
 		return nil, err
 	}
 	return &session, nil
 }
 
-// marshalSessionFields marshals the four JSON-serialized fields of a session.
+// marshalSessionFields marshals the JSON-serialized fields of a session.
 func marshalSessionFields(s *aitm.Session) (custom, lureParams, cookies, body, httpTok string, err error) {
 	if custom, err = marshalJSON(s.Custom); err != nil {
 		return "", "", "", "", "", fmt.Errorf("marshaling custom fields for session %s: %w", s.ID, err)
@@ -225,7 +305,7 @@ func marshalSessionFields(s *aitm.Session) (custom, lureParams, cookies, body, h
 	return
 }
 
-// unmarshalSessionFields populates the four JSON-serialized fields of a session.
+// unmarshalSessionFields populates the JSON-serialized fields of a session.
 func unmarshalSessionFields(s *aitm.Session, custom, lureParams, cookies, body, httpTok string) error {
 	if err := unmarshalJSON(custom, &s.Custom); err != nil {
 		return fmt.Errorf("unmarshaling custom fields for session %s: %w", s.ID, err)

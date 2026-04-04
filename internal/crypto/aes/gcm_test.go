@@ -18,7 +18,7 @@ func testKey(t *testing.T) []byte {
 }
 
 func TestGCM_RoundTrip(t *testing.T) {
-	gcm := aesgcm.Cipher{}
+	gcm := aesgcm.KeylessCipher{}
 	key := testKey(t)
 	plaintext := []byte("hello world")
 
@@ -40,7 +40,7 @@ func TestGCM_RoundTrip(t *testing.T) {
 }
 
 func TestGCM_EmptyPlaintext(t *testing.T) {
-	gcm := aesgcm.Cipher{}
+	gcm := aesgcm.KeylessCipher{}
 	key := testKey(t)
 
 	ciphertext, err := gcm.Encrypt(key, []byte{})
@@ -58,7 +58,7 @@ func TestGCM_EmptyPlaintext(t *testing.T) {
 }
 
 func TestGCM_WrongKey_Fails(t *testing.T) {
-	gcm := aesgcm.Cipher{}
+	gcm := aesgcm.KeylessCipher{}
 	key1 := testKey(t)
 	key2 := testKey(t)
 
@@ -73,7 +73,7 @@ func TestGCM_WrongKey_Fails(t *testing.T) {
 }
 
 func TestGCM_TamperedCiphertext_Fails(t *testing.T) {
-	gcm := aesgcm.Cipher{}
+	gcm := aesgcm.KeylessCipher{}
 	key := testKey(t)
 
 	ciphertext, err := gcm.Encrypt(key, []byte("secret"))
@@ -89,7 +89,7 @@ func TestGCM_TamperedCiphertext_Fails(t *testing.T) {
 }
 
 func TestGCM_TooShortCiphertext_Fails(t *testing.T) {
-	gcm := aesgcm.Cipher{}
+	gcm := aesgcm.KeylessCipher{}
 	key := testKey(t)
 
 	if _, err := gcm.Decrypt(key, []byte("short")); err == nil {
@@ -98,7 +98,7 @@ func TestGCM_TooShortCiphertext_Fails(t *testing.T) {
 }
 
 func TestGCM_InvalidKeySize_Fails(t *testing.T) {
-	gcm := aesgcm.Cipher{}
+	gcm := aesgcm.KeylessCipher{}
 	badKey := []byte("too-short")
 
 	if _, err := gcm.Encrypt(badKey, []byte("data")); err == nil {
@@ -107,7 +107,7 @@ func TestGCM_InvalidKeySize_Fails(t *testing.T) {
 }
 
 func TestGCM_UniqueNonces(t *testing.T) {
-	gcm := aesgcm.Cipher{}
+	gcm := aesgcm.KeylessCipher{}
 	key := testKey(t)
 	plaintext := []byte("same input")
 
@@ -116,5 +116,70 @@ func TestGCM_UniqueNonces(t *testing.T) {
 
 	if bytes.Equal(ct1, ct2) {
 		t.Fatal("two encryptions of the same plaintext should produce different ciphertext (unique nonces)")
+	}
+}
+
+// --- Cipher (stateful, string-oriented) ---
+
+func newTestCipher(t *testing.T) *aesgcm.Cipher {
+	t.Helper()
+	c, err := aesgcm.NewCipher(testKey(t))
+	if err != nil {
+		t.Fatalf("NewCipher: %v", err)
+	}
+	return c
+}
+
+func TestCipher_EncryptString_RoundTrip(t *testing.T) {
+	c := newTestCipher(t)
+
+	encrypted, err := c.EncryptString("hello world")
+	if err != nil {
+		t.Fatalf("EncryptString: %v", err)
+	}
+	if encrypted == "hello world" {
+		t.Fatal("encrypted should differ from plaintext")
+	}
+
+	decrypted, err := c.DecryptString(encrypted)
+	if err != nil {
+		t.Fatalf("DecryptString: %v", err)
+	}
+	if decrypted != "hello world" {
+		t.Errorf("DecryptString = %q, want %q", decrypted, "hello world")
+	}
+}
+
+func TestCipher_EncryptString_EmptyPassthrough(t *testing.T) {
+	c := newTestCipher(t)
+
+	encrypted, err := c.EncryptString("")
+	if err != nil {
+		t.Fatalf("EncryptString empty: %v", err)
+	}
+	if encrypted != "" {
+		t.Errorf("expected empty string passthrough, got %q", encrypted)
+	}
+
+	decrypted, err := c.DecryptString("")
+	if err != nil {
+		t.Fatalf("DecryptString empty: %v", err)
+	}
+	if decrypted != "" {
+		t.Errorf("expected empty string passthrough, got %q", decrypted)
+	}
+}
+
+func TestCipher_DecryptString_WrongKey(t *testing.T) {
+	c1 := newTestCipher(t)
+	c2 := newTestCipher(t)
+
+	encrypted, err := c1.EncryptString("secret")
+	if err != nil {
+		t.Fatalf("EncryptString: %v", err)
+	}
+
+	if _, err := c2.DecryptString(encrypted); err == nil {
+		t.Fatal("expected error decrypting with wrong key")
 	}
 }
