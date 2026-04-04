@@ -99,7 +99,7 @@ The Docker image contains only `miraged`. Config and data are supplied at runtim
 | Mount | Contents |
 |-------|----------|
 | `/etc/mirage` | `miraged.yaml` |
-| `/var/lib/mirage` | SQLite database, generated TLS certs |
+| `/var/lib/mirage` | SQLite database, generated TLS certs, encryption key |
 
 Build the image:
 
@@ -160,11 +160,19 @@ Copy and run the command from the daemon output. This generates a keypair locall
 
 **3. Invite additional operators** (optional).
 
+From the CLI (requires an authenticated operator):
+
 ```bash
 mirage operators invite alice
-# prints a token for alice to enroll with:
-#   mirage server add --alias prod --address ... --secret-hostname ... --token <token>
 ```
+
+Or directly on the server (no authentication required — useful for recovery if all operators lose their certificates):
+
+```bash
+miraged invite alice
+```
+
+Both print the enrollment command for the new operator.
 
 ## Usage
 
