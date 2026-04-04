@@ -106,33 +106,3 @@ func (c *Cipher) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 	return c.gcm.Open(nil, ciphertext[:c.gcm.NonceSize()], ciphertext[c.gcm.NonceSize():], nil)
 }
-
-// EncryptString encrypts plaintext and returns a base64-encoded string.
-// Returns an empty string for empty input.
-func (c *Cipher) EncryptString(plaintext string) (string, error) {
-	if plaintext == "" {
-		return "", nil
-	}
-	ct, err := c.Encrypt([]byte(plaintext))
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(ct), nil
-}
-
-// DecryptString decodes a base64 string and decrypts it.
-// Returns an empty string for empty input.
-func (c *Cipher) DecryptString(encoded string) (string, error) {
-	if encoded == "" {
-		return "", nil
-	}
-	ct, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return "", err
-	}
-	plain, err := c.Decrypt(ct)
-	if err != nil {
-		return "", err
-	}
-	return string(plain), nil
-}

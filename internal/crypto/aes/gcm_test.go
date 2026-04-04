@@ -112,7 +112,7 @@ func TestEncrypt_UniqueNonces(t *testing.T) {
 	}
 }
 
-// --- Cipher (stateful, string-oriented) ---
+// --- Cipher (stateful, cached GCM) ---
 
 func newTestCipher(t *testing.T) *aes.Cipher {
 	t.Helper()
@@ -123,56 +123,37 @@ func newTestCipher(t *testing.T) *aes.Cipher {
 	return c
 }
 
-func TestCipher_EncryptString_RoundTrip(t *testing.T) {
+func TestCipher_RoundTrip(t *testing.T) {
 	c := newTestCipher(t)
+	plaintext := []byte("hello world")
 
-	encrypted, err := c.EncryptString("hello world")
+	ciphertext, err := c.Encrypt(plaintext)
 	if err != nil {
-		t.Fatalf("EncryptString: %v", err)
+		t.Fatalf("Encrypt: %v", err)
 	}
-	if encrypted == "hello world" {
-		t.Fatal("encrypted should differ from plaintext")
+	if bytes.Equal(ciphertext, plaintext) {
+		t.Fatal("ciphertext should differ from plaintext")
 	}
 
-	decrypted, err := c.DecryptString(encrypted)
+	decrypted, err := c.Decrypt(ciphertext)
 	if err != nil {
-		t.Fatalf("DecryptString: %v", err)
+		t.Fatalf("Decrypt: %v", err)
 	}
-	if decrypted != "hello world" {
-		t.Errorf("DecryptString = %q, want %q", decrypted, "hello world")
+	if !bytes.Equal(decrypted, plaintext) {
+		t.Errorf("Decrypt = %q, want %q", decrypted, plaintext)
 	}
 }
 
-func TestCipher_EncryptString_EmptyPassthrough(t *testing.T) {
-	c := newTestCipher(t)
-
-	encrypted, err := c.EncryptString("")
-	if err != nil {
-		t.Fatalf("EncryptString empty: %v", err)
-	}
-	if encrypted != "" {
-		t.Errorf("expected empty string passthrough, got %q", encrypted)
-	}
-
-	decrypted, err := c.DecryptString("")
-	if err != nil {
-		t.Fatalf("DecryptString empty: %v", err)
-	}
-	if decrypted != "" {
-		t.Errorf("expected empty string passthrough, got %q", decrypted)
-	}
-}
-
-func TestCipher_DecryptString_WrongKey(t *testing.T) {
+func TestCipher_WrongKey(t *testing.T) {
 	c1 := newTestCipher(t)
 	c2 := newTestCipher(t)
 
-	encrypted, err := c1.EncryptString("secret")
+	ciphertext, err := c1.Encrypt([]byte("secret"))
 	if err != nil {
-		t.Fatalf("EncryptString: %v", err)
+		t.Fatalf("Encrypt: %v", err)
 	}
 
-	if _, err := c2.DecryptString(encrypted); err == nil {
+	if _, err := c2.Decrypt(ciphertext); err == nil {
 		t.Fatal("expected error decrypting with wrong key")
 	}
 }
