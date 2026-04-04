@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	aesgcm "github.com/travisbale/mirage/internal/crypto/aes"
+	"github.com/travisbale/mirage/internal/crypto/aes"
 )
 
 func testKey(t *testing.T) []byte {
@@ -17,12 +17,11 @@ func testKey(t *testing.T) []byte {
 	return key
 }
 
-func TestGCM_RoundTrip(t *testing.T) {
-	gcm := aesgcm.KeylessCipher{}
+func TestEncrypt_RoundTrip(t *testing.T) {
 	key := testKey(t)
 	plaintext := []byte("hello world")
 
-	ciphertext, err := gcm.Encrypt(key, plaintext)
+	ciphertext, err := aes.Encrypt(key, plaintext)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -30,7 +29,7 @@ func TestGCM_RoundTrip(t *testing.T) {
 		t.Fatal("ciphertext should differ from plaintext")
 	}
 
-	decrypted, err := gcm.Decrypt(key, ciphertext)
+	decrypted, err := aes.Decrypt(key, ciphertext)
 	if err != nil {
 		t.Fatalf("Decrypt: %v", err)
 	}
@@ -39,16 +38,15 @@ func TestGCM_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestGCM_EmptyPlaintext(t *testing.T) {
-	gcm := aesgcm.KeylessCipher{}
+func TestEncrypt_EmptyPlaintext(t *testing.T) {
 	key := testKey(t)
 
-	ciphertext, err := gcm.Encrypt(key, []byte{})
+	ciphertext, err := aes.Encrypt(key, []byte{})
 	if err != nil {
 		t.Fatalf("Encrypt empty: %v", err)
 	}
 
-	decrypted, err := gcm.Decrypt(key, ciphertext)
+	decrypted, err := aes.Decrypt(key, ciphertext)
 	if err != nil {
 		t.Fatalf("Decrypt empty: %v", err)
 	}
@@ -57,62 +55,57 @@ func TestGCM_EmptyPlaintext(t *testing.T) {
 	}
 }
 
-func TestGCM_WrongKey_Fails(t *testing.T) {
-	gcm := aesgcm.KeylessCipher{}
+func TestDecrypt_WrongKey_Fails(t *testing.T) {
 	key1 := testKey(t)
 	key2 := testKey(t)
 
-	ciphertext, err := gcm.Encrypt(key1, []byte("secret"))
+	ciphertext, err := aes.Encrypt(key1, []byte("secret"))
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
 
-	if _, err := gcm.Decrypt(key2, ciphertext); err == nil {
+	if _, err := aes.Decrypt(key2, ciphertext); err == nil {
 		t.Fatal("expected error decrypting with wrong key")
 	}
 }
 
-func TestGCM_TamperedCiphertext_Fails(t *testing.T) {
-	gcm := aesgcm.KeylessCipher{}
+func TestDecrypt_TamperedCiphertext_Fails(t *testing.T) {
 	key := testKey(t)
 
-	ciphertext, err := gcm.Encrypt(key, []byte("secret"))
+	ciphertext, err := aes.Encrypt(key, []byte("secret"))
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
 
 	ciphertext[len(ciphertext)-1] ^= 0xff // flip last byte
 
-	if _, err := gcm.Decrypt(key, ciphertext); err == nil {
+	if _, err := aes.Decrypt(key, ciphertext); err == nil {
 		t.Fatal("expected error decrypting tampered ciphertext")
 	}
 }
 
-func TestGCM_TooShortCiphertext_Fails(t *testing.T) {
-	gcm := aesgcm.KeylessCipher{}
+func TestDecrypt_TooShortCiphertext_Fails(t *testing.T) {
 	key := testKey(t)
 
-	if _, err := gcm.Decrypt(key, []byte("short")); err == nil {
+	if _, err := aes.Decrypt(key, []byte("short")); err == nil {
 		t.Fatal("expected error for too-short ciphertext")
 	}
 }
 
-func TestGCM_InvalidKeySize_Fails(t *testing.T) {
-	gcm := aesgcm.KeylessCipher{}
+func TestEncrypt_InvalidKeySize_Fails(t *testing.T) {
 	badKey := []byte("too-short")
 
-	if _, err := gcm.Encrypt(badKey, []byte("data")); err == nil {
+	if _, err := aes.Encrypt(badKey, []byte("data")); err == nil {
 		t.Fatal("expected error for invalid key size")
 	}
 }
 
-func TestGCM_UniqueNonces(t *testing.T) {
-	gcm := aesgcm.KeylessCipher{}
+func TestEncrypt_UniqueNonces(t *testing.T) {
 	key := testKey(t)
 	plaintext := []byte("same input")
 
-	ct1, _ := gcm.Encrypt(key, plaintext)
-	ct2, _ := gcm.Encrypt(key, plaintext)
+	ct1, _ := aes.Encrypt(key, plaintext)
+	ct2, _ := aes.Encrypt(key, plaintext)
 
 	if bytes.Equal(ct1, ct2) {
 		t.Fatal("two encryptions of the same plaintext should produce different ciphertext (unique nonces)")
@@ -121,9 +114,9 @@ func TestGCM_UniqueNonces(t *testing.T) {
 
 // --- Cipher (stateful, string-oriented) ---
 
-func newTestCipher(t *testing.T) *aesgcm.Cipher {
+func newTestCipher(t *testing.T) *aes.Cipher {
 	t.Helper()
-	c, err := aesgcm.NewCipher(testKey(t))
+	c, err := aes.NewCipher(testKey(t))
 	if err != nil {
 		t.Fatalf("NewCipher: %v", err)
 	}

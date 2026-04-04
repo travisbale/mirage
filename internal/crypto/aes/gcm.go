@@ -43,9 +43,11 @@ func Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return gcm.Open(nil, ciphertext[:gcm.NonceSize()], ciphertext[gcm.NonceSize():], nil)
 }
 
-// encryptString encrypts plaintext and returns a base64-encoded string.
-// Returns an empty string for empty input.
-func encryptString(key []byte, plaintext string) (string, error) {
+// KeylessCipher provides AES-256-GCM encryption with the key passed per-call.
+type KeylessCipher struct{}
+
+// EncryptURLString encrypts plaintext and returns a base64 URL-safe encoded string.
+func (KeylessCipher) EncryptURLString(key []byte, plaintext string) (string, error) {
 	if plaintext == "" {
 		return "", nil
 	}
@@ -53,16 +55,15 @@ func encryptString(key []byte, plaintext string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(ct), nil
+	return base64.RawURLEncoding.EncodeToString(ct), nil
 }
 
-// decryptString decodes a base64 string and decrypts it.
-// Returns an empty string for empty input.
-func decryptString(key []byte, encoded string) (string, error) {
+// DecryptURLString decodes a base64 URL-safe string and decrypts it.
+func (KeylessCipher) DecryptURLString(key []byte, encoded string) (string, error) {
 	if encoded == "" {
 		return "", nil
 	}
-	ct, err := base64.StdEncoding.DecodeString(encoded)
+	ct, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil {
 		return "", err
 	}
@@ -73,34 +74,7 @@ func decryptString(key []byte, encoded string) (string, error) {
 	return string(plain), nil
 }
 
-// KeylessCipher provides AES-256-GCM encryption with the key passed per-call.
-// Used when each operation may use a different key (e.g., per-lure encryption).
-type KeylessCipher struct{}
-
-// Encrypt encrypts plaintext with the given key using AES-256-GCM.
-// The returned ciphertext has the random nonce prepended.
-func (KeylessCipher) Encrypt(key, plaintext []byte) ([]byte, error) {
-	return Encrypt(key, plaintext)
-}
-
-// Decrypt decrypts ciphertext produced by Encrypt.
-func (KeylessCipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
-	return Decrypt(key, ciphertext)
-}
-
-// EncryptString encrypts plaintext and returns a base64-encoded string.
-func (KeylessCipher) EncryptString(key []byte, plaintext string) (string, error) {
-	return encryptString(key, plaintext)
-}
-
-// DecryptString decodes a base64 string and decrypts it.
-func (KeylessCipher) DecryptString(key []byte, encoded string) (string, error) {
-	return decryptString(key, encoded)
-}
-
-// Cipher provides AES-256-GCM encryption with a fixed key and cached GCM
-// instance. Used for system-wide encryption (e.g., session credentials at rest).
-// Safe for concurrent use — GCM's Seal and Open are thread-safe.
+// Cipher provides AES-256-GCM encryption with a fixed key and cached GCM instance
 type Cipher struct{ gcm cipher.AEAD }
 
 // NewCipher creates a Cipher with the given key.

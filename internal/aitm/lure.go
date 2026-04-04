@@ -2,7 +2,6 @@ package aitm
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strings"
@@ -83,8 +82,8 @@ type lureInvalidator interface {
 
 // paramCipher provides authenticated encryption for lure URL parameters.
 type paramCipher interface {
-	Encrypt(key, plaintext []byte) ([]byte, error)
-	Decrypt(key, ciphertext []byte) ([]byte, error)
+	EncryptURLString(key []byte, plaintext string) (string, error)
+	DecryptURLString(key []byte, encoded string) (string, error)
 }
 
 // LureService owns all business logic for lure management.
@@ -160,7 +159,7 @@ func (s *LureService) Unpause(id string) (*Lure, error) {
 }
 
 // URLWithParams returns the phishing URL with encrypted custom parameters
-// embedded as a base64url ?p= query value.
+// embedded as a URL-safe base64 ?p= query value.
 func (s *LureService) URLWithParams(lure *Lure, httpsPort int, params map[string]string) (string, error) {
 	base := lure.URL(httpsPort)
 	if len(params) == 0 || len(lure.ParamsKey) == 0 {
@@ -170,11 +169,11 @@ func (s *LureService) URLWithParams(lure *Lure, httpsPort int, params map[string
 	for paramName, value := range params {
 		sb.WriteString(paramName + "=" + value + "\n")
 	}
-	ct, err := s.Cipher.Encrypt(lure.ParamsKey, []byte(sb.String()))
+	encrypted, err := s.Cipher.EncryptURLString(lure.ParamsKey, sb.String())
 	if err != nil {
 		return "", err
 	}
-	return base + "?p=" + base64.RawURLEncoding.EncodeToString(ct), nil
+	return base + "?p=" + encrypted, nil
 }
 
 // DecryptParams decodes and decrypts the ?p= query value from a lure URL.
@@ -182,16 +181,12 @@ func (s *LureService) DecryptParams(lure *Lure, token string) (map[string]string
 	if len(lure.ParamsKey) == 0 || token == "" {
 		return map[string]string{}, nil
 	}
-	ct, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil {
-		return nil, err
-	}
-	plain, err := s.Cipher.Decrypt(lure.ParamsKey, ct)
+	plain, err := s.Cipher.DecryptURLString(lure.ParamsKey, token)
 	if err != nil {
 		return nil, err
 	}
 	out := make(map[string]string)
-	for line := range strings.SplitSeq(string(plain), "\n") {
+	for line := range strings.SplitSeq(plain, "\n") {
 		paramName, val, ok := strings.Cut(line, "=")
 		if ok {
 			out[paramName] = val
