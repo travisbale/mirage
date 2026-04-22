@@ -47,18 +47,19 @@ func NewBus(bufSize int) *Bus {
 // e.OccurredAt is set to time.Now() before delivery regardless of what the
 // caller provides. If a subscriber's channel is full the event is dropped for
 // that subscriber and a warning is written to the default slog logger.
+//
+// The read lock is held across the send loop to prevent Unsubscribe from
+// closing a subscriber's channel between iteration and send (which would
+// panic). Sends are non-blocking (select + default), so the critical section
+// stays short: concurrent publishers still run in parallel, and Unsubscribe
+// only waits for in-flight publishes to return.
 func (b *Bus) Publish(event aitm.Event) {
 	event.OccurredAt = time.Now()
 
 	b.mu.RLock()
-	entries := b.subs[event.Type]
-	// Copy the slice under the read lock to avoid holding it during sends,
-	// which can block briefly when waking a receiver goroutine.
-	snapshot := make([]subEntry, len(entries))
-	copy(snapshot, entries)
-	b.mu.RUnlock()
+	defer b.mu.RUnlock()
 
-	for _, entry := range snapshot {
+	for _, entry := range b.subs[event.Type] {
 		select {
 		case entry.ch <- event:
 		default:
