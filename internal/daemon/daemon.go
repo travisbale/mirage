@@ -307,7 +307,6 @@ func (ini *initializer) initProxy(version string) error {
 		Notifications: ini.notificationSvc,
 		Operators:     ini.operatorSvc,
 		DNS:           ini.dnsService,
-		Bus:           ini.bus,
 		HTTPSPort:     ini.cfg.HTTPSPort,
 		Version:       version,
 		Logger:        ini.logger,

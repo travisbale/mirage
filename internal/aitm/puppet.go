@@ -43,11 +43,11 @@ type PuppetService struct {
 	logger  *slog.Logger
 	cfg     PuppetServiceConfig
 
-	cache    sync.Map // phishlet name → cacheEntry
-	enableC  <-chan Event
-	collectC chan struct{} // semaphore bounding concurrent collections
-	ctx      context.Context
-	cancel   context.CancelFunc
+	cache       sync.Map // phishlet name → cacheEntry
+	unsubscribe func()
+	collectC    chan struct{} // semaphore bounding concurrent collections
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 func NewPuppetService(puppet puppet, builder overrideBuilder, bus eventBus, cfg PuppetServiceConfig, logger *slog.Logger) *PuppetService {
@@ -69,7 +69,7 @@ func NewPuppetService(puppet puppet, builder overrideBuilder, bus eventBus, cfg 
 // cancelling it (e.g. on daemon shutdown) cancels any in-flight collections.
 func (s *PuppetService) Start(ctx context.Context) {
 	s.ctx, s.cancel = context.WithCancel(ctx)
-	s.enableC = SubscribeFunc(s.bus, sdk.EventPhishletEnabled, s.handlePhishletEnabled)
+	s.unsubscribe = SubscribeFunc(s.bus, sdk.EventPhishletEnabled, s.handlePhishletEnabled)
 }
 
 // Shutdown cancels in-flight collections, unsubscribes from events, and shuts
@@ -78,8 +78,8 @@ func (s *PuppetService) Shutdown(ctx context.Context) error {
 	if s.cancel != nil {
 		s.cancel()
 	}
-	if s.enableC != nil {
-		s.bus.Unsubscribe(sdk.EventPhishletEnabled, s.enableC)
+	if s.unsubscribe != nil {
+		s.unsubscribe()
 	}
 	return s.puppet.Shutdown(ctx)
 }

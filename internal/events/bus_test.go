@@ -141,11 +141,11 @@ func TestSubscribeFuncDeliversEvents(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(3)
 
-	ch := aitm.SubscribeFunc(bus, sdk.EventCredsCaptured, func(e aitm.Event) {
+	unsub := aitm.SubscribeFunc(bus, sdk.EventCredsCaptured, func(e aitm.Event) {
 		count.Add(1)
 		wg.Done()
 	})
-	defer bus.Unsubscribe(sdk.EventCredsCaptured, ch)
+	defer unsub()
 
 	for range 3 {
 		bus.Publish(aitm.Event{Type: sdk.EventCredsCaptured})
@@ -167,21 +167,27 @@ func TestSubscribeFuncDeliversEvents(t *testing.T) {
 func TestSubscribeFuncStopsAfterUnsubscribe(t *testing.T) {
 	bus := events.NewBus(8)
 
-	ch := aitm.SubscribeFunc(bus, sdk.EventDNSRecordSynced, func(e aitm.Event) {})
+	received := make(chan struct{}, 1)
+	unsub := aitm.SubscribeFunc(bus, sdk.EventDNSRecordSynced, func(e aitm.Event) {
+		received <- struct{}{}
+	})
 
-	goroutineDone := make(chan struct{})
-	go func() {
-		for range ch {
-		}
-		close(goroutineDone)
-	}()
-
-	bus.Unsubscribe(sdk.EventDNSRecordSynced, ch)
-
+	// Confirm the subscription works before unsubscribing.
+	bus.Publish(aitm.Event{Type: sdk.EventDNSRecordSynced})
 	select {
-	case <-goroutineDone:
+	case <-received:
 	case <-time.After(200 * time.Millisecond):
-		t.Error("goroutine started by SubscribeFunc did not exit after Unsubscribe")
+		t.Fatal("event not delivered before unsubscribe")
+	}
+
+	unsub()
+
+	// After unsubscribe, further publishes must not reach the callback.
+	bus.Publish(aitm.Event{Type: sdk.EventDNSRecordSynced})
+	select {
+	case <-received:
+		t.Error("callback invoked after unsubscribe")
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 

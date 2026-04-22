@@ -33,11 +33,6 @@ type channelBinding struct {
 	config  *aitm.NotificationChannel
 }
 
-type subscription struct {
-	eventType sdk.EventType
-	ch        <-chan aitm.Event
-}
-
 // Dispatcher subscribes to events on the bus, builds Notification payloads,
 // and fans out to registered channels with retries.
 type Dispatcher struct {
@@ -46,7 +41,7 @@ type Dispatcher struct {
 
 	mu       sync.Mutex
 	bindings []channelBinding
-	subs     []subscription
+	unsubs   []func()
 	wg       sync.WaitGroup
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -124,21 +119,21 @@ func (d *Dispatcher) subscribe(channels []*aitm.NotificationChannel) {
 
 	// Compute the union of event types across all channel filters.
 	eventTypes := d.requiredEventTypes()
-	d.subs = make([]subscription, 0, len(eventTypes))
+	d.unsubs = make([]func(), 0, len(eventTypes))
 	for _, eventType := range eventTypes {
-		ch := aitm.SubscribeFunc(d.bus, eventType, func(event aitm.Event) {
+		unsub := aitm.SubscribeFunc(d.bus, eventType, func(event aitm.Event) {
 			d.dispatch(event)
 		})
-		d.subs = append(d.subs, subscription{eventType: eventType, ch: ch})
+		d.unsubs = append(d.unsubs, unsub)
 	}
 }
 
 // unsubscribe removes all event bus subscriptions. Caller must hold d.mu.
 func (d *Dispatcher) unsubscribe() {
-	for _, sub := range d.subs {
-		d.bus.Unsubscribe(sub.eventType, sub.ch)
+	for _, unsub := range d.unsubs {
+		unsub()
 	}
-	d.subs = nil
+	d.unsubs = nil
 	d.bindings = nil
 }
 

@@ -10,11 +10,6 @@ import (
 	"github.com/travisbale/mirage/sdk"
 )
 
-type eventBus interface {
-	Subscribe(eventType sdk.EventType) <-chan aitm.Event
-	Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event)
-}
-
 // Router is the HTTP handler for the management API.
 type Router struct {
 	Sessions      *aitm.SessionService
@@ -25,7 +20,6 @@ type Router struct {
 	Notifications *aitm.NotificationService
 	Operators     *aitm.OperatorService
 	DNS           *aitm.DNSService
-	Bus           eventBus
 	HTTPSPort     int // Included in lure URLs when non-standard (not 443)
 	Version       string
 	Logger        *slog.Logger

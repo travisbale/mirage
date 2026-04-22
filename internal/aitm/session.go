@@ -1,7 +1,9 @@
 package aitm
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -10,6 +12,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/travisbale/mirage/sdk"
 )
+
+// sessionEventTypes is the set of bus events that represent session lifecycle
+// changes. SessionService.Subscribe delivers every member; adding a new
+// session event requires only appending to this list.
+var sessionEventTypes = []sdk.EventType{
+	sdk.EventSessionCreated,
+	sdk.EventCredsCaptured,
+	sdk.EventTokensCaptured,
+	sdk.EventSessionCompleted,
+}
 
 // sessionStore is the persistence interface required by SessionService.
 // Implementations must be safe for concurrent use.
@@ -269,6 +281,38 @@ func (s *SessionService) Count(f SessionFilter) (int, error) {
 func (s *SessionService) Delete(id string) error {
 	s.cache.Delete(id)
 	return s.Store.DeleteSession(id)
+}
+
+// Subscribe returns a channel that receives every session-lifecycle event
+// published on the bus. The channel is closed and all bus subscriptions are
+// released when ctx is cancelled, so callers need only range over it.
+//
+// Delivery is best-effort: if the caller drains slowly and the buffer fills,
+// events are dropped for that subscriber, matching the bus's policy.
+func (s *SessionService) Subscribe(ctx context.Context) <-chan Event {
+	chEvents := make(chan Event, 64)
+	unsubs := make([]func(), 0, len(sessionEventTypes))
+	forward := func(e Event) {
+		select {
+		case chEvents <- e:
+		default:
+			slog.Warn("session stream subscriber slow, dropping event", "type", string(e.Type))
+		}
+	}
+
+	for _, eventType := range sessionEventTypes {
+		unsubs = append(unsubs, SubscribeFunc(s.Bus, eventType, forward))
+	}
+
+	go func() {
+		<-ctx.Done()
+		for _, unsub := range unsubs {
+			unsub()
+		}
+		close(chEvents)
+	}()
+
+	return chEvents
 }
 
 // NewSession creates a new session and persists it to the store.

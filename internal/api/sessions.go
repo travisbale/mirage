@@ -115,57 +115,28 @@ func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	chCreated := r.Bus.Subscribe(sdk.EventSessionCreated)
-	chCreds := r.Bus.Subscribe(sdk.EventCredsCaptured)
-	chTokens := r.Bus.Subscribe(sdk.EventTokensCaptured)
-	chCompleted := r.Bus.Subscribe(sdk.EventSessionCompleted)
-	defer func() {
-		r.Bus.Unsubscribe(sdk.EventSessionCreated, chCreated)
-		r.Bus.Unsubscribe(sdk.EventCredsCaptured, chCreds)
-		r.Bus.Unsubscribe(sdk.EventTokensCaptured, chTokens)
-		r.Bus.Unsubscribe(sdk.EventSessionCompleted, chCompleted)
-	}()
-
 	if err := sse.WriteEvent("connected", []byte(`{"status":"connected"}`)); err != nil {
 		return
 	}
 
-	ctx := req.Context()
-	for {
-		select {
-		case <-ctx.Done():
+	for event := range r.Sessions.Subscribe(req.Context()) {
+		if err := r.sendSessionEvent(sse, event); err != nil {
 			return
-		case event := <-chCreated:
-			if err := r.sendSessionEvent(sse, "session.created", event); err != nil {
-				return
-			}
-		case event := <-chCreds:
-			if err := r.sendSessionEvent(sse, "session.creds_captured", event); err != nil {
-				return
-			}
-		case event := <-chTokens:
-			if err := r.sendSessionEvent(sse, "session.tokens_captured", event); err != nil {
-				return
-			}
-		case event := <-chCompleted:
-			if err := r.sendSessionEvent(sse, "session.completed", event); err != nil {
-				return
-			}
 		}
 	}
 }
 
-func (r *Router) sendSessionEvent(sse *sseWriter, eventType string, event aitm.Event) error {
+func (r *Router) sendSessionEvent(sse *sseWriter, event aitm.Event) error {
 	sess, ok := event.Payload.(*aitm.Session)
 	if !ok {
 		return nil
 	}
 	data, err := json.Marshal(sessionToResponse(sess))
 	if err != nil {
-		r.Logger.Error("failed to marshal session for SSE", "event", eventType, "error", err)
+		r.Logger.Error("failed to marshal session for SSE", "event", event.Type, "error", err)
 		return nil // skip this event, don't close the stream
 	}
-	return sse.WriteEvent(eventType, data)
+	return sse.WriteEvent(string(event.Type), data)
 }
 
 func sessionToResponse(s *aitm.Session) sdk.SessionResponse {

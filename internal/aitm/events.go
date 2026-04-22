@@ -23,19 +23,28 @@ type eventBus interface {
 }
 
 // SubscribeFunc subscribes to eventType on bus and starts a goroutine that
-// calls fn for each received event. The goroutine exits when the subscription
-// channel is closed (i.e., when Unsubscribe is called for the returned channel).
+// calls fn for each received event. It returns an unsubscribe function that
+// terminates the subscription and blocks until the dispatch goroutine has
+// fully exited — so callers can safely tear down resources fn touches (e.g.
+// close a downstream channel) immediately after unsubscribe returns.
 //
 // fn is called sequentially — concurrent calls from a single SubscribeFunc are
 // not possible. For slow handlers, spawn a goroutine inside fn.
-func SubscribeFunc(bus eventBus, eventType sdk.EventType, fn func(Event)) <-chan Event {
+func SubscribeFunc(bus eventBus, eventType sdk.EventType, fn func(Event)) (unsubscribe func()) {
 	ch := bus.Subscribe(eventType)
+	done := make(chan struct{})
+
 	go func() {
+		defer close(done)
 		for event := range ch {
 			fn(event)
 		}
 	}()
-	return ch
+
+	return func() {
+		bus.Unsubscribe(eventType, ch)
+		<-done
+	}
 }
 
 // BotDetectedPayload is the payload for EventBotDetected.
