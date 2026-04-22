@@ -1,7 +1,7 @@
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
 
-.PHONY: build release scripts sidecar-install clean test unit fmt lint docker
+.PHONY: build release scripts sidecar-install clean test unit fmt lint vuln docker
 
 scripts:
 	@echo "Minifying injected JavaScript..."
@@ -48,6 +48,10 @@ fmt:
 lint:
 	@echo "Linting code..."
 	@docker run -t --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.11 golangci-lint run
+
+vuln:
+	@echo "Scanning for known vulnerabilities..."
+	@go run golang.org/x/vuln/cmd/govulncheck@v1.2.0 ./...
 
 docker:
 	@echo "Building Docker image..."
