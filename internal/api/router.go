@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -11,66 +10,6 @@ import (
 	"github.com/travisbale/mirage/sdk"
 )
 
-type sessionManager interface {
-	Get(id string) (*aitm.Session, error)
-	List(filter aitm.SessionFilter) ([]*aitm.Session, error)
-	Count(filter aitm.SessionFilter) (int, error)
-	Delete(id string) error
-	ExportCookiesJSON(id string) ([]byte, error)
-}
-
-type lureManager interface {
-	Get(id string) (*aitm.Lure, error)
-	Create(lure *aitm.Lure) error
-	Update(lure *aitm.Lure) error
-	Delete(id string) error
-	List() ([]*aitm.Lure, error)
-	Pause(id string, d time.Duration) (*aitm.Lure, error)
-	Unpause(id string) (*aitm.Lure, error)
-	URLWithParams(lure *aitm.Lure, httpsPort int, params map[string]string) (string, error)
-}
-
-type phishletManager interface {
-	Push(yaml string) (*aitm.Phishlet, error)
-	Enable(ctx context.Context, name, hostname, dnsProvider string) (*aitm.ConfiguredPhishlet, error)
-	Disable(ctx context.Context, name string) (*aitm.ConfiguredPhishlet, error)
-	Get(name string) (*aitm.PhishletConfig, error)
-	List() ([]*aitm.PhishletConfig, error)
-	ReconcileAll(ctx context.Context) error
-}
-
-type blacklistManager interface {
-	Block(ip string)
-	Unblock(ip string)
-	List() []string
-}
-
-type botguardManager interface {
-	ListSignatures() ([]aitm.BotSignature, error)
-	AddSignature(sig aitm.BotSignature) error
-	RemoveSignature(ja4Hash string) error
-}
-
-type operatorManager interface {
-	Invite(name string) (*aitm.OperatorInvite, error)
-	Enroll(token string, csrPEM []byte) (certPEM, caCertPEM []byte, err error)
-	List() ([]*aitm.Operator, error)
-	Delete(name string) error
-}
-
-type notificationManager interface {
-	Create(ch *aitm.NotificationChannel) error
-	Delete(id string) error
-	Get(id string) (*aitm.NotificationChannel, error)
-	List() ([]*aitm.NotificationChannel, error)
-	Test(ctx context.Context, id string) error
-}
-
-type dnsManager interface {
-	ListProviders() []string
-	ListZones() []aitm.ZoneConfig
-}
-
 type eventBus interface {
 	Subscribe(eventType sdk.EventType) <-chan aitm.Event
 	Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event)
@@ -78,14 +17,14 @@ type eventBus interface {
 
 // Router is the HTTP handler for the management API.
 type Router struct {
-	Sessions      sessionManager
-	Lures         lureManager
-	Phishlets     phishletManager
-	Blacklist     blacklistManager
-	Botguard      botguardManager
-	Notifications notificationManager
-	Operators     operatorManager
-	DNS           dnsManager
+	Sessions      *aitm.SessionService
+	Lures         *aitm.LureService
+	Phishlets     *aitm.PhishletService
+	Blacklist     *aitm.BlacklistService
+	Botguard      *aitm.BotGuardService
+	Notifications *aitm.NotificationService
+	Operators     *aitm.OperatorService
+	DNS           *aitm.DNSService
 	Bus           eventBus
 	HTTPSPort     int // Included in lure URLs when non-standard (not 443)
 	Version       string
