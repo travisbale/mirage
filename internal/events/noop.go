@@ -11,10 +11,8 @@ type NoOpBus struct{}
 
 func (n *NoOpBus) Publish(event aitm.Event) {}
 
-func (n *NoOpBus) Subscribe(_ sdk.EventType) <-chan aitm.Event {
+func (n *NoOpBus) Subscribe(_ sdk.EventType) (<-chan aitm.Event, func()) {
 	ch := make(chan aitm.Event)
 	close(ch)
-	return ch
+	return ch, func() {}
 }
-
-func (n *NoOpBus) Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event) {}

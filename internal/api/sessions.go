@@ -119,7 +119,7 @@ func (r *Router) streamSessions(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	for event := range r.Sessions.Subscribe(req.Context()) {
+	for event := range r.Sessions.Stream(req.Context()) {
 		if err := r.sendSessionEvent(sse, event); err != nil {
 			return
 		}

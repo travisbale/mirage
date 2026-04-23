@@ -14,9 +14,10 @@ type stubBus struct {
 	published []aitm.Event
 }
 
-func (b *stubBus) Publish(e aitm.Event)                             { b.published = append(b.published, e) }
-func (b *stubBus) Subscribe(_ sdk.EventType) <-chan aitm.Event      { return make(chan aitm.Event) }
-func (b *stubBus) Unsubscribe(_ sdk.EventType, _ <-chan aitm.Event) {}
+func (b *stubBus) Publish(e aitm.Event) { b.published = append(b.published, e) }
+func (b *stubBus) Subscribe(_ sdk.EventType) (<-chan aitm.Event, func()) {
+	return make(chan aitm.Event), func() {}
+}
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))

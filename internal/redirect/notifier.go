@@ -27,7 +27,7 @@ type redirectMsg struct {
 }
 
 type eventSubscriber interface {
-	Subscribe(eventType sdk.EventType) <-chan aitm.Event
+	Subscribe(eventType sdk.EventType) (events <-chan aitm.Event, unsubscribe func())
 }
 
 type sessionGetter interface {
@@ -67,8 +67,8 @@ func NewNotifier(bus eventSubscriber, sessions sessionGetter, lures lureGetter, 
 }
 
 func (n *Notifier) listenCompletions(bus eventSubscriber) {
-	completionCh := bus.Subscribe(sdk.EventSessionCompleted)
-	for event := range completionCh {
+	events, _ := bus.Subscribe(sdk.EventSessionCompleted)
+	for event := range events {
 		session, ok := event.Payload.(*aitm.Session)
 		if !ok {
 			n.logger.Warn("unexpected event payload type", "type", fmt.Sprintf("%T", event.Payload))

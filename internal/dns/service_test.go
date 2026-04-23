@@ -43,8 +43,8 @@ func TestDNSService_ReconcileRoutesToCorrectProvider(t *testing.T) {
 
 func TestDNSService_Reconcile_EmitsEvent(t *testing.T) {
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(sdk.EventDNSRecordSynced)
-	defer bus.Unsubscribe(sdk.EventDNSRecordSynced, ch)
+	syncedEvents, unsubscribe := bus.Subscribe(sdk.EventDNSRecordSynced)
+	defer unsubscribe()
 
 	svc := aitm.NewDNSService(
 		map[string]aitm.DNSProvider{"bi": &mockProvider{name: "builtin"}},
@@ -62,7 +62,7 @@ func TestDNSService_Reconcile_EmitsEvent(t *testing.T) {
 	}
 
 	select {
-	case e := <-ch:
+	case e := <-syncedEvents:
 		if e.Type != sdk.EventDNSRecordSynced {
 			t.Errorf("event type: got %q, want %q", e.Type, sdk.EventDNSRecordSynced)
 		}

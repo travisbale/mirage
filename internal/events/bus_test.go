@@ -17,7 +17,7 @@ func TestPublishReachesAllSubscribers(t *testing.T) {
 	const n = 5
 	chs := make([]<-chan aitm.Event, n)
 	for i := range n {
-		chs[i] = bus.Subscribe(sdk.EventSessionCreated)
+		chs[i], _ = bus.Subscribe(sdk.EventSessionCreated)
 	}
 
 	bus.Publish(aitm.Event{Type: sdk.EventSessionCreated, Payload: "test-session-id"})
@@ -40,8 +40,8 @@ func TestPublishReachesAllSubscribers(t *testing.T) {
 func TestPublishDoesNotReachOtherTypes(t *testing.T) {
 	bus := events.NewBus(8)
 
-	wrongCh := bus.Subscribe(sdk.EventBotDetected)
-	rightCh := bus.Subscribe(sdk.EventSessionCreated)
+	wrongCh, _ := bus.Subscribe(sdk.EventBotDetected)
+	rightCh, _ := bus.Subscribe(sdk.EventSessionCreated)
 
 	bus.Publish(aitm.Event{Type: sdk.EventSessionCreated})
 
@@ -63,7 +63,7 @@ func TestSlowSubscriberDoesNotBlockFastPublisher(t *testing.T) {
 	const bufSize = 4
 	bus := events.NewBus(bufSize)
 
-	_ = bus.Subscribe(sdk.EventSessionCreated) // never reads
+	bus.Subscribe(sdk.EventSessionCreated) // never reads; entry stays registered in the bus
 
 	for range bufSize {
 		bus.Publish(aitm.Event{Type: sdk.EventSessionCreated})
@@ -84,7 +84,7 @@ func TestSlowSubscriberDoesNotBlockFastPublisher(t *testing.T) {
 
 func TestUnsubscribeStopsDelivery(t *testing.T) {
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(sdk.EventTokensCaptured)
+	ch, unsubscribe := bus.Subscribe(sdk.EventTokensCaptured)
 
 	bus.Publish(aitm.Event{Type: sdk.EventTokensCaptured, Payload: "a"})
 	select {
@@ -93,7 +93,7 @@ func TestUnsubscribeStopsDelivery(t *testing.T) {
 		t.Fatal("first event did not arrive")
 	}
 
-	bus.Unsubscribe(sdk.EventTokensCaptured, ch)
+	unsubscribe()
 	bus.Publish(aitm.Event{Type: sdk.EventTokensCaptured, Payload: "b"})
 
 	time.Sleep(5 * time.Millisecond)
@@ -101,7 +101,7 @@ func TestUnsubscribeStopsDelivery(t *testing.T) {
 	select {
 	case _, ok := <-ch:
 		if ok {
-			t.Error("received event after Unsubscribe; channel should be closed")
+			t.Error("received event after unsubscribe; channel should be closed")
 		}
 	default:
 	}
@@ -109,29 +109,16 @@ func TestUnsubscribeStopsDelivery(t *testing.T) {
 
 func TestUnsubscribeIsIdempotent(t *testing.T) {
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(sdk.EventBotDetected)
+	_, unsubscribe := bus.Subscribe(sdk.EventBotDetected)
 
 	defer func() {
 		if r := recover(); r != nil {
-			t.Errorf("Unsubscribe panicked on second call: %v", r)
+			t.Errorf("unsubscribe panicked on second call: %v", r)
 		}
 	}()
 
-	bus.Unsubscribe(sdk.EventBotDetected, ch)
-	bus.Unsubscribe(sdk.EventBotDetected, ch)
-}
-
-func TestUnsubscribeNeverSubscribedChannel(t *testing.T) {
-	bus := events.NewBus(8)
-	foreign := make(chan aitm.Event, 8)
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("Unsubscribe panicked for unregistered channel: %v", r)
-		}
-	}()
-
-	bus.Unsubscribe(sdk.EventPhishletPushed, foreign)
+	unsubscribe()
+	unsubscribe()
 }
 
 func TestSubscribeFuncDeliversEvents(t *testing.T) {
@@ -238,8 +225,8 @@ func TestPublishUnsubscribeRace(t *testing.T) {
 		wg.Add(1)
 		go work(&wg, func() {
 			for time.Now().Before(deadline) {
-				ch := bus.Subscribe(eventType)
-				bus.Unsubscribe(eventType, ch)
+				_, unsubscribe := bus.Subscribe(eventType)
+				unsubscribe()
 			}
 		})
 	}
@@ -260,7 +247,7 @@ func TestConcurrentPublishAndSubscribe(t *testing.T) {
 	const eventsPerPublisher = 100
 
 	for range 5 {
-		ch := bus.Subscribe(sdk.EventSessionCreated)
+		ch, _ := bus.Subscribe(sdk.EventSessionCreated)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -293,8 +280,8 @@ func TestConcurrentPublishAndSubscribe(t *testing.T) {
 
 func TestOccurredAtIsSetByPublish(t *testing.T) {
 	bus := events.NewBus(8)
-	ch := bus.Subscribe(sdk.EventSessionCompleted)
-	defer bus.Unsubscribe(sdk.EventSessionCompleted, ch)
+	ch, unsubscribe := bus.Subscribe(sdk.EventSessionCompleted)
+	defer unsubscribe()
 
 	before := time.Now()
 	bus.Publish(aitm.Event{
@@ -318,7 +305,7 @@ func TestOccurredAtIsSetByPublish(t *testing.T) {
 func TestBufferSizeRespected(t *testing.T) {
 	const bufSize = 3
 	bus := events.NewBus(bufSize)
-	ch := bus.Subscribe(sdk.EventBotDetected)
+	ch, unsubscribe := bus.Subscribe(sdk.EventBotDetected)
 
 	for range bufSize {
 		bus.Publish(aitm.Event{Type: sdk.EventBotDetected})
@@ -343,5 +330,5 @@ drain:
 		t.Errorf("expected %d buffered events, got %d", bufSize, count)
 	}
 
-	bus.Unsubscribe(sdk.EventBotDetected, ch)
+	unsubscribe()
 }

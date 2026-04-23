@@ -16,10 +16,10 @@ type Event struct {
 // eventBus is the publish/subscribe interface for decoupling components.
 // Implementations must be safe for concurrent use.
 // Publish must never block — if a subscriber's channel is full, the event is dropped.
+// The returned unsubscribe func is safe to call multiple times.
 type eventBus interface {
 	Publish(event Event)
-	Subscribe(eventType sdk.EventType) <-chan Event
-	Unsubscribe(eventType sdk.EventType, ch <-chan Event)
+	Subscribe(eventType sdk.EventType) (events <-chan Event, unsubscribe func())
 }
 
 // SubscribeFunc subscribes to eventType on bus and starts a goroutine that
@@ -31,18 +31,18 @@ type eventBus interface {
 // fn is called sequentially — concurrent calls from a single SubscribeFunc are
 // not possible. For slow handlers, spawn a goroutine inside fn.
 func SubscribeFunc(bus eventBus, eventType sdk.EventType, fn func(Event)) (unsubscribe func()) {
-	ch := bus.Subscribe(eventType)
+	events, unsub := bus.Subscribe(eventType)
 	done := make(chan struct{})
 
 	go func() {
 		defer close(done)
-		for event := range ch {
+		for event := range events {
 			fn(event)
 		}
 	}()
 
 	return func() {
-		bus.Unsubscribe(eventType, ch)
+		unsub()
 		<-done
 	}
 }

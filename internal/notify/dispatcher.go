@@ -23,8 +23,7 @@ const (
 // eventBus is the subset of the event bus interface needed by the dispatcher.
 type eventBus interface {
 	Publish(event aitm.Event)
-	Subscribe(eventType sdk.EventType) <-chan aitm.Event
-	Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event)
+	Subscribe(eventType sdk.EventType) (events <-chan aitm.Event, unsubscribe func())
 }
 
 // channelBinding pairs a Channel implementation with its event filter.

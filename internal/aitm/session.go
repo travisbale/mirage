@@ -14,8 +14,8 @@ import (
 )
 
 // sessionEventTypes is the set of bus events that represent session lifecycle
-// changes. SessionService.Subscribe delivers every member; adding a new
-// session event requires only appending to this list.
+// changes. SessionService.Stream delivers every member; adding a new session
+// event requires only appending to this list.
 var sessionEventTypes = []sdk.EventType{
 	sdk.EventSessionCreated,
 	sdk.EventCredsCaptured,
@@ -283,13 +283,13 @@ func (s *SessionService) Delete(id string) error {
 	return s.Store.DeleteSession(id)
 }
 
-// Subscribe returns a channel that receives every session-lifecycle event
+// Stream returns a channel that receives every session-lifecycle event
 // published on the bus. The channel is closed and all bus subscriptions are
 // released when ctx is cancelled, so callers need only range over it.
 //
 // Delivery is best-effort: if the caller drains slowly and the buffer fills,
 // events are dropped for that subscriber, matching the bus's policy.
-func (s *SessionService) Subscribe(ctx context.Context) <-chan Event {
+func (s *SessionService) Stream(ctx context.Context) <-chan Event {
 	chEvents := make(chan Event, 64)
 	unsubs := make([]func(), 0, len(sessionEventTypes))
 	forward := func(e Event) {

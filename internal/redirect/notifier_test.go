@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/events"
 	"github.com/travisbale/mirage/internal/redirect"
 	"github.com/travisbale/mirage/sdk"
 )
@@ -31,7 +31,7 @@ func newTestServer(t *testing.T, notifier *redirect.Notifier, sessionID string) 
 	return srv, "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
 }
 
-func publishCompletion(bus *testEventBus, sess *aitm.Session) {
+func publishCompletion(bus *events.Bus, sess *aitm.Session) {
 	bus.Publish(aitm.Event{
 		Type:       sdk.EventSessionCompleted,
 		OccurredAt: time.Now(),
@@ -40,7 +40,7 @@ func publishCompletion(bus *testEventBus, sess *aitm.Session) {
 }
 
 func TestNotifier_WebSocketClientReceivesRedirect(t *testing.T) {
-	bus := newTestEventBus()
+	bus := events.NewBus(8)
 	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
 		"lure-001": {ID: "lure-001", RedirectURL: "https://real.example.com/dashboard"},
 	}}
@@ -71,7 +71,7 @@ func TestNotifier_WebSocketClientReceivesRedirect(t *testing.T) {
 }
 
 func TestNotifier_MultipleWaiters(t *testing.T) {
-	bus := newTestEventBus()
+	bus := events.NewBus(8)
 	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
 		"lure-multi": {ID: "lure-multi", RedirectURL: "https://real.example.com/home"},
 	}}
@@ -111,7 +111,7 @@ func TestNotifier_MultipleWaiters(t *testing.T) {
 }
 
 func TestNotifier_AlreadyCompleteSession(t *testing.T) {
-	bus := newTestEventBus()
+	bus := events.NewBus(8)
 	sess := &aitm.Session{ID: "already-done", LureID: "lure-done"}
 	sess.Complete()
 	store := &stubSessionGetter{sessions: map[string]*aitm.Session{sess.ID: sess}}
@@ -140,7 +140,7 @@ func TestNotifier_AlreadyCompleteSession(t *testing.T) {
 }
 
 func TestNotifier_UnknownSession_CleanedOnServerClose(t *testing.T) {
-	bus := newTestEventBus()
+	bus := events.NewBus(8)
 	notifier := redirect.NewNotifier(bus, &stubSessionGetter{sessions: make(map[string]*aitm.Session)}, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
 
 	srv, wsURL := newTestServer(t, notifier, "ghost-session")
@@ -163,7 +163,7 @@ func TestPollForRedirect_NotDone(t *testing.T) {
 	store := &stubSessionGetter{sessions: map[string]*aitm.Session{
 		"sid1": {ID: "sid1"},
 	}}
-	notifier := redirect.NewNotifier(newTestEventBus(), store, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
+	notifier := redirect.NewNotifier(events.NewBus(8), store, &stubLureGetter{lures: make(map[string]*aitm.Lure)}, discardLogger())
 
 	rec := httptest.NewRecorder()
 	notifier.PollForRedirect(rec, "sid1")
@@ -184,7 +184,7 @@ func TestPollForRedirect_Done(t *testing.T) {
 	lures := &stubLureGetter{lures: map[string]*aitm.Lure{
 		"lure-sid2": {ID: "lure-sid2", RedirectURL: "https://example.com/done"},
 	}}
-	notifier := redirect.NewNotifier(newTestEventBus(), store, lures, discardLogger())
+	notifier := redirect.NewNotifier(events.NewBus(8), store, lures, discardLogger())
 
 	rec := httptest.NewRecorder()
 	notifier.PollForRedirect(rec, "sid2")
@@ -196,46 +196,6 @@ func TestPollForRedirect_Done(t *testing.T) {
 }
 
 // ---- stubs ------------------------------------------------------------------
-
-type testEventBus struct {
-	mu   sync.Mutex
-	subs map[sdk.EventType][]chan aitm.Event
-}
-
-func newTestEventBus() *testEventBus {
-	return &testEventBus{subs: make(map[sdk.EventType][]chan aitm.Event)}
-}
-
-func (b *testEventBus) Publish(event aitm.Event) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	for _, ch := range b.subs[event.Type] {
-		select {
-		case ch <- event:
-		default:
-		}
-	}
-}
-
-func (b *testEventBus) Subscribe(eventType sdk.EventType) <-chan aitm.Event {
-	ch := make(chan aitm.Event, 8)
-	b.mu.Lock()
-	b.subs[eventType] = append(b.subs[eventType], ch)
-	b.mu.Unlock()
-	return ch
-}
-
-func (b *testEventBus) Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	list := b.subs[eventType]
-	for i, c := range list {
-		if c == ch {
-			b.subs[eventType] = append(list[:i], list[i+1:]...)
-			return
-		}
-	}
-}
 
 type stubSessionGetter struct {
 	sessions map[string]*aitm.Session

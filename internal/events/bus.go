@@ -23,14 +23,11 @@ const DefaultBufferSize = 64
 type Bus struct {
 	bufSize int
 	mu      sync.RWMutex
-	subs    map[sdk.EventType][]subEntry
+	subs    map[sdk.EventType][]*subEntry
 }
 
-// subEntry pairs a bidirectional channel with a closed flag so that
-// Unsubscribe is idempotent and double-close is prevented.
 type subEntry struct {
-	ch     chan aitm.Event
-	closed bool
+	ch chan aitm.Event
 }
 
 func NewBus(bufSize int) *Bus {
@@ -39,7 +36,7 @@ func NewBus(bufSize int) *Bus {
 	}
 	return &Bus{
 		bufSize: bufSize,
-		subs:    make(map[sdk.EventType][]subEntry),
+		subs:    make(map[sdk.EventType][]*subEntry),
 	}
 }
 
@@ -51,8 +48,8 @@ func NewBus(bufSize int) *Bus {
 // The read lock is held across the send loop to prevent Unsubscribe from
 // closing a subscriber's channel between iteration and send (which would
 // panic). Sends are non-blocking (select + default), so the critical section
-// stays short: concurrent publishers still run in parallel, and Unsubscribe
-// only waits for in-flight publishes to return.
+// stays short: concurrent publishers still run in parallel, and an
+// Unsubscribe call only waits for in-flight publishes to return.
 func (b *Bus) Publish(event aitm.Event) {
 	event.OccurredAt = time.Now()
 
@@ -70,36 +67,47 @@ func (b *Bus) Publish(event aitm.Event) {
 	}
 }
 
-// Subscribe returns a buffered channel for the given event type.
-func (b *Bus) Subscribe(eventType sdk.EventType) <-chan aitm.Event {
+// Subscribe registers a subscriber for eventType and returns a buffered
+// channel of events plus an unsubscribe function. The unsubscribe func is
+// safe to call multiple times.
+func (b *Bus) Subscribe(eventType sdk.EventType) (events <-chan aitm.Event, unsubscribe func()) {
 	ch := make(chan aitm.Event, b.bufSize)
+	entry := &subEntry{ch: ch}
+
 	b.mu.Lock()
-	b.subs[eventType] = append(b.subs[eventType], subEntry{ch: ch})
+	b.subs[eventType] = append(b.subs[eventType], entry)
 	b.mu.Unlock()
-	return ch
+
+	return ch, func() { b.unsubscribe(eventType, entry) }
 }
 
-// Unsubscribe removes ch from the subscriber list for t and closes it.
-// Safe to call multiple times for the same channel — subsequent calls are no-ops.
-func (b *Bus) Unsubscribe(eventType sdk.EventType, ch <-chan aitm.Event) {
+// unsubscribe removes entry from the subscriber list for eventType and
+// closes its channel. Idempotent: after the first call the entry is no
+// longer in the slice and subsequent calls are no-ops, so the unsubscribe
+// closure returned from Subscribe is safe to invoke multiple times.
+func (b *Bus) unsubscribe(eventType sdk.EventType, entry *subEntry) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	entries := b.subs[eventType]
-	for i, entry := range entries {
-		// Compare by converting the bidirectional internal channel to
-		// receive-only, matching the type of the ch parameter.
-		if (<-chan aitm.Event)(entry.ch) == ch {
-			if entry.closed {
-				return // already unsubscribed — no-op
-			}
-			entries[i].closed = true
-			close(entry.ch)
-
-			last := len(entries) - 1
-			entries[i] = entries[last]
-			b.subs[eventType] = entries[:last]
-			return
+	for i, e := range entries {
+		if e != entry {
+			continue
 		}
+		close(e.ch)
+		b.subs[eventType] = swapDelete(entries, i)
+		if len(b.subs[eventType]) == 0 {
+			delete(b.subs, eventType)
+		}
+
+		return
 	}
+}
+
+// swapDelete removes s[i] in O(1) by moving the last element into its slot
+// and truncating. Used when element order is irrelevant.
+func swapDelete[T any](s []T, i int) []T {
+	last := len(s) - 1
+	s[i] = s[last]
+	return s[:last]
 }

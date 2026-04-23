@@ -36,9 +36,10 @@ type stubBus struct {
 	ch chan Event
 }
 
-func (s *stubBus) Publish(event Event)                         {}
-func (s *stubBus) Subscribe(_ sdk.EventType) <-chan Event      { return s.ch }
-func (s *stubBus) Unsubscribe(_ sdk.EventType, _ <-chan Event) {}
+func (s *stubBus) Publish(event Event) {}
+func (s *stubBus) Subscribe(_ sdk.EventType) (<-chan Event, func()) {
+	return s.ch, func() {}
+}
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
