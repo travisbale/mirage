@@ -3,8 +3,21 @@ package dns_test
 import (
 	"context"
 
+	"github.com/travisbale/mirage/internal/aitm"
 	"github.com/travisbale/mirage/internal/config"
+	"github.com/travisbale/mirage/sdk"
 )
+
+// nopBus satisfies aitm.DNSService's eventBus dependency for tests that
+// don't care about events. Subscribe returns a pre-closed channel.
+type nopBus struct{}
+
+func (nopBus) Publish(aitm.Event) {}
+func (nopBus) Subscribe(sdk.EventType) (<-chan aitm.Event, func()) {
+	ch := make(chan aitm.Event)
+	close(ch)
+	return ch, func() {}
+}
 
 type mockProvider struct {
 	name        string

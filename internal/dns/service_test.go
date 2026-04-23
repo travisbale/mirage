@@ -22,7 +22,7 @@ func TestDNSService_ReconcileRoutesToCorrectProvider(t *testing.T) {
 			"attacker.com": {Zone: "attacker.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
 			"evil.net":     {Zone: "evil.net", ProviderName: "bi", ExternalIP: "5.6.7.8"},
 		},
-		&events.NoOpBus{},
+		nopBus{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	)
 
@@ -78,7 +78,7 @@ func TestDNSService_RemoveRecords(t *testing.T) {
 		map[string]aitm.ZoneConfig{
 			"attacker.com": {Zone: "attacker.com", ProviderName: "bi", ExternalIP: "1.2.3.4"},
 		},
-		&events.NoOpBus{},
+		nopBus{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	)
 
