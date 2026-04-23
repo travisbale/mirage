@@ -27,6 +27,16 @@ type BotSignature struct {
 	AddedAt     time.Time
 }
 
+// BotDetectedPayload is the payload for EventBotDetected.
+type BotDetectedPayload struct {
+	SessionID  string
+	RemoteAddr string
+	JA4Hash    string
+	BotScore   float64
+	Verdict    string // "spoof" or "block"
+	Reason     string // e.g. "JA4 match: zgrab2"
+}
+
 type botTelemetryStore interface {
 	StoreBotTelemetry(t *BotTelemetry) error
 	GetBotTelemetry(sessionID string) ([]*BotTelemetry, error)

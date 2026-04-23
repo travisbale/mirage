@@ -79,7 +79,7 @@ func buildNotification(event aitm.Event) Notification {
 			Zone:     payload.Zone,
 			Name:     payload.Name,
 			Type:     payload.Type,
-			Action:   payload.Action,
+			Action:   string(payload.Action),
 			Provider: payload.Provider,
 		}
 	case *aitm.Phishlet:

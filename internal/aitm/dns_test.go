@@ -81,9 +81,8 @@ func TestDNSService_Reconcile(t *testing.T) {
 	zones := map[string]aitm.ZoneConfig{
 		"example.com": {Zone: "example.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
 	}
-	bus := &stubBus{}
 
-	svc := aitm.NewDNSService(providers, zones, bus, discardLogger())
+	svc := aitm.NewDNSService(providers, zones, &stubBus{}, discardLogger())
 	err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
 		{Zone: "example.com", Name: "login.example.com"},
 		{Zone: "example.com", Name: "api.example.com", IP: "9.9.9.9"},
@@ -104,10 +103,76 @@ func TestDNSService_Reconcile(t *testing.T) {
 	if provider.created[1].Value != "9.9.9.9" {
 		t.Errorf("expected override IP 9.9.9.9, got %s", provider.created[1].Value)
 	}
+}
 
-	// Should have published a sync event.
-	if len(bus.published) != 1 || bus.published[0].Type != sdk.EventDNSRecordSynced {
-		t.Errorf("expected one dns.synced event, got %v", bus.published)
+func TestDNSService_Reconcile_PublishesPerRecordPayload(t *testing.T) {
+	t.Run("create path emits action=create", func(t *testing.T) {
+		provider := &fakeDNSProvider{}
+		bus := &stubBus{}
+		svc := aitm.NewDNSService(
+			map[string]aitm.DNSProvider{"cf": provider},
+			map[string]aitm.ZoneConfig{
+				"example.com": {Zone: "example.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
+			},
+			bus,
+			discardLogger(),
+		)
+
+		if err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
+			{Zone: "example.com", Name: "login.example.com"},
+			{Zone: "example.com", Name: "api.example.com", IP: "9.9.9.9"},
+		}); err != nil {
+			t.Fatalf("Reconcile: %v", err)
+		}
+
+		want := []aitm.DNSSyncPayload{
+			{Zone: "example.com", Name: "login.example.com", Type: "A", Value: "1.2.3.4", Action: aitm.DNSActionCreate, Provider: "fake"},
+			{Zone: "example.com", Name: "api.example.com", Type: "A", Value: "9.9.9.9", Action: aitm.DNSActionCreate, Provider: "fake"},
+		}
+		assertSyncPayloads(t, bus.published, want)
+	})
+
+	t.Run("update path emits action=update", func(t *testing.T) {
+		provider := &fakeDNSProvider{createErr: aitm.ErrRecordExists}
+		bus := &stubBus{}
+		svc := aitm.NewDNSService(
+			map[string]aitm.DNSProvider{"cf": provider},
+			map[string]aitm.ZoneConfig{
+				"example.com": {Zone: "example.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
+			},
+			bus,
+			discardLogger(),
+		)
+
+		if err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
+			{Zone: "example.com", Name: "login.example.com"},
+		}); err != nil {
+			t.Fatalf("Reconcile: %v", err)
+		}
+
+		want := []aitm.DNSSyncPayload{
+			{Zone: "example.com", Name: "login.example.com", Type: "A", Value: "1.2.3.4", Action: aitm.DNSActionUpdate, Provider: "fake"},
+		}
+		assertSyncPayloads(t, bus.published, want)
+	})
+}
+
+func assertSyncPayloads(t *testing.T, events []aitm.Event, want []aitm.DNSSyncPayload) {
+	t.Helper()
+	if len(events) != len(want) {
+		t.Fatalf("event count: got %d, want %d (events=%+v)", len(events), len(want), events)
+	}
+	for i, e := range events {
+		if e.Type != sdk.EventDNSRecordSynced {
+			t.Errorf("event %d type: got %q, want %q", i, e.Type, sdk.EventDNSRecordSynced)
+		}
+		got, ok := e.Payload.(aitm.DNSSyncPayload)
+		if !ok {
+			t.Fatalf("event %d payload type: got %T, want aitm.DNSSyncPayload", i, e.Payload)
+		}
+		if got != want[i] {
+			t.Errorf("event %d payload:\n  got:  %+v\n  want: %+v", i, got, want[i])
+		}
 	}
 }
 

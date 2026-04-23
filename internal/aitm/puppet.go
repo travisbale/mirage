@@ -69,7 +69,7 @@ func NewPuppetService(puppet puppet, builder overrideBuilder, bus eventBus, cfg 
 // cancelling it (e.g. on daemon shutdown) cancels any in-flight collections.
 func (s *PuppetService) Start(ctx context.Context) {
 	s.ctx, s.cancel = context.WithCancel(ctx)
-	s.unsubscribe = SubscribeFunc(s.bus, sdk.EventPhishletEnabled, s.handlePhishletEnabled)
+	s.unsubscribe = SubscribeAndHandle(s.bus, sdk.EventPhishletEnabled, s.handlePhishletEnabled)
 }
 
 // Shutdown cancels in-flight collections, unsubscribes from events, and shuts

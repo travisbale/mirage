@@ -7,8 +7,6 @@ import (
 	"net"
 	"regexp"
 	"strings"
-
-	"github.com/travisbale/mirage/sdk"
 )
 
 var (
@@ -284,7 +282,7 @@ func (s *PhishletService) Push(yaml string) (*Phishlet, error) {
 	if err := s.Store.SavePhishlet(def.Name, yaml); err != nil {
 		return nil, err
 	}
-	s.Bus.Publish(Event{Type: sdk.EventPhishletPushed, Payload: def})
+	s.Bus.Publish(NewPhishletPushedEvent(def))
 	return def, nil
 }
 
@@ -345,7 +343,7 @@ func (s *PhishletService) Enable(ctx context.Context, name, hostname, dnsProvide
 		return nil, fmt.Errorf("dns reconcile: %w", err)
 	}
 	s.Resolver.Register(cp)
-	s.Bus.Publish(Event{Type: sdk.EventPhishletEnabled, Payload: cp})
+	s.Bus.Publish(NewPhishletEnabledEvent(cp))
 	return cp, nil
 }
 

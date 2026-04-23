@@ -121,14 +121,14 @@ func TestUnsubscribeIsIdempotent(t *testing.T) {
 	unsubscribe()
 }
 
-func TestSubscribeFuncDeliversEvents(t *testing.T) {
+func TestSubscribeAndHandleDeliversEvents(t *testing.T) {
 	bus := events.NewBus(8)
 
 	var count atomic.Int32
 	var wg sync.WaitGroup
 	wg.Add(3)
 
-	unsub := aitm.SubscribeFunc(bus, sdk.EventCredsCaptured, func(e aitm.Event) {
+	unsub := aitm.SubscribeAndHandle(bus, sdk.EventCredsCaptured, func(e aitm.Event) {
 		count.Add(1)
 		wg.Done()
 	})
@@ -147,15 +147,15 @@ func TestSubscribeFuncDeliversEvents(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(200 * time.Millisecond):
-		t.Errorf("SubscribeFunc: expected 3 calls, got %d", count.Load())
+		t.Errorf("SubscribeAndHandle: expected 3 calls, got %d", count.Load())
 	}
 }
 
-func TestSubscribeFuncStopsAfterUnsubscribe(t *testing.T) {
+func TestSubscribeAndHandleStopsAfterUnsubscribe(t *testing.T) {
 	bus := events.NewBus(8)
 
 	received := make(chan struct{}, 1)
-	unsub := aitm.SubscribeFunc(bus, sdk.EventDNSRecordSynced, func(e aitm.Event) {
+	unsub := aitm.SubscribeAndHandle(bus, sdk.EventDNSRecordSynced, func(e aitm.Event) {
 		received <- struct{}{}
 	})
 

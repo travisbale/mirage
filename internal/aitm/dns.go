@@ -7,8 +7,6 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
-
-	"github.com/travisbale/mirage/sdk"
 )
 
 var ErrRecordExists = errors.New("dns: record already exists")
@@ -46,6 +44,25 @@ type PhishletRecord struct {
 	Zone string
 	Name string // FQDN, e.g. "login.phish.com"
 	IP   string // overrides ZoneConfig.ExternalIP when non-empty
+}
+
+// DNSSyncAction names the DNS record change reported by a DNSSyncPayload.
+type DNSSyncAction string
+
+const (
+	DNSActionCreate DNSSyncAction = "create"
+	DNSActionUpdate DNSSyncAction = "update"
+	DNSActionDelete DNSSyncAction = "delete"
+)
+
+// DNSSyncPayload is the payload for EventDNSRecordSynced.
+type DNSSyncPayload struct {
+	Zone     string
+	Name     string
+	Type     string // "A", "AAAA", "TXT", etc.
+	Value    string
+	Action   DNSSyncAction
+	Provider string // provider alias from config
 }
 
 // NopDNSReconciler is a DNS reconciler that does nothing. Used when no DNS
@@ -178,6 +195,7 @@ func (s *DNSService) CleanUp(ctx context.Context, domain, token, keyAuth string)
 // It is idempotent — calling it twice with the same desired state is safe.
 func (s *DNSService) Reconcile(ctx context.Context, desiredRecords []PhishletRecord) error {
 	var errs []error
+	synced := make([]DNSSyncPayload, 0, len(desiredRecords))
 	for _, record := range desiredRecords {
 		provider, zoneConfig, err := s.providerFor(record.Zone)
 		if err != nil {
@@ -190,12 +208,14 @@ func (s *DNSService) Reconcile(ctx context.Context, desiredRecords []PhishletRec
 			ip = zoneConfig.ExternalIP
 		}
 
+		action := DNSActionCreate
 		if err := provider.CreateRecord(ctx, record.Zone, record.Name, "A", ip, 300); err != nil {
 			if errors.Is(err, ErrRecordExists) {
 				if updateErr := provider.UpdateRecord(ctx, record.Zone, record.Name, "A", ip, 300); updateErr != nil {
 					errs = append(errs, updateErr)
 					continue
 				}
+				action = DNSActionUpdate
 			} else {
 				errs = append(errs, err)
 				continue
@@ -208,15 +228,22 @@ func (s *DNSService) Reconcile(ctx context.Context, desiredRecords []PhishletRec
 			"ip", ip,
 			"provider", provider.Name(),
 		)
+		synced = append(synced, DNSSyncPayload{
+			Zone:     record.Zone,
+			Name:     record.Name,
+			Type:     "A",
+			Value:    ip,
+			Action:   action,
+			Provider: provider.Name(),
+		})
 	}
 
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
-	s.bus.Publish(Event{
-		Type:    sdk.EventDNSRecordSynced,
-		Payload: desiredRecords,
-	})
+	for _, payload := range synced {
+		s.bus.Publish(NewDNSSyncEvent(payload))
+	}
 
 	return nil
 }

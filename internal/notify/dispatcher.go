@@ -120,7 +120,7 @@ func (d *Dispatcher) subscribe(channels []*aitm.NotificationChannel) {
 	eventTypes := d.requiredEventTypes()
 	d.unsubs = make([]func(), 0, len(eventTypes))
 	for _, eventType := range eventTypes {
-		unsub := aitm.SubscribeFunc(d.bus, eventType, func(event aitm.Event) {
+		unsub := aitm.SubscribeAndHandle(d.bus, eventType, func(event aitm.Event) {
 			d.dispatch(event)
 		})
 		d.unsubs = append(d.unsubs, unsub)

