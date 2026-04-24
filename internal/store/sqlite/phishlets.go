@@ -14,7 +14,7 @@ type Phishlets struct{ db *DB }
 func NewPhishletStore(db *DB) *Phishlets { return &Phishlets{db: db} }
 
 func (s *Phishlets) SavePhishlet(name string, yaml string) error {
-	_, err := s.db.db.Exec(`
+	_, err := s.db.Exec(`
 		INSERT INTO phishlets (name, yaml) VALUES (?,?)
 		ON CONFLICT(name) DO UPDATE SET yaml=excluded.yaml`,
 		name, yaml,
@@ -24,7 +24,7 @@ func (s *Phishlets) SavePhishlet(name string, yaml string) error {
 
 func (s *Phishlets) GetPhishlet(name string) (string, error) {
 	var yaml string
-	err := s.db.db.QueryRow(`SELECT yaml FROM phishlets WHERE name = ?`, name).Scan(&yaml)
+	err := s.db.QueryRow(`SELECT yaml FROM phishlets WHERE name = ?`, name).Scan(&yaml)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", aitm.ErrNotFound
 	}
@@ -32,7 +32,7 @@ func (s *Phishlets) GetPhishlet(name string) (string, error) {
 }
 
 func (s *Phishlets) ListPhishlets() ([]string, error) {
-	rows, err := s.db.db.Query(`SELECT name FROM phishlets WHERE yaml != '' ORDER BY name ASC`)
+	rows, err := s.db.Query(`SELECT name FROM phishlets WHERE yaml != '' ORDER BY name ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s *Phishlets) ListPhishlets() ([]string, error) {
 }
 
 func (s *Phishlets) SetConfig(cfg *aitm.PhishletConfig) error {
-	_, err := s.db.db.Exec(`
+	_, err := s.db.Exec(`
 		INSERT INTO phishlets (name, base_domain, dns_provider, hostname, spoof_url, enabled)
 		VALUES (?,?,?,?,?,?)
 		ON CONFLICT(name) DO UPDATE SET
@@ -66,7 +66,7 @@ func (s *Phishlets) SetConfig(cfg *aitm.PhishletConfig) error {
 }
 
 func (s *Phishlets) GetConfig(name string) (*aitm.PhishletConfig, error) {
-	row := s.db.db.QueryRow(`SELECT
+	row := s.db.QueryRow(`SELECT
 		name, base_domain, dns_provider, hostname, spoof_url, enabled
 		FROM phishlets WHERE name = ?`, name)
 	cfg, err := scanConfig(row)
@@ -91,7 +91,7 @@ func (s *Phishlets) ListConfigs(filter aitm.PhishletFilter) ([]*aitm.PhishletCon
 	}
 	query += " ORDER BY name ASC"
 
-	rows, err := s.db.db.Query(query, args...)
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (s *Phishlets) ListConfigs(filter aitm.PhishletFilter) ([]*aitm.PhishletCon
 }
 
 func (s *Phishlets) DeletePhishlet(name string) error {
-	res, err := s.db.db.Exec(`DELETE FROM phishlets WHERE name = ?`, name)
+	res, err := s.db.Exec(`DELETE FROM phishlets WHERE name = ?`, name)
 	if err != nil {
 		return err
 	}

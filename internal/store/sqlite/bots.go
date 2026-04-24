@@ -17,7 +17,7 @@ func (s *Bots) StoreBotTelemetry(t *aitm.BotTelemetry) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.db.db.Exec(`
+	_, err = s.db.Exec(`
 		INSERT INTO bot_telemetry (id, session_id, collected_at, raw)
 		VALUES (?,?,?,?)`,
 		t.ID, t.SessionID, t.CollectedAt.Unix(), raw,
@@ -29,7 +29,7 @@ func (s *Bots) StoreBotTelemetry(t *aitm.BotTelemetry) error {
 }
 
 func (s *Bots) GetBotTelemetry(sessionID string) ([]*aitm.BotTelemetry, error) {
-	rows, err := s.db.db.Query(`
+	rows, err := s.db.Query(`
 		SELECT id, session_id, collected_at, raw
 		FROM bot_telemetry WHERE session_id = ? ORDER BY collected_at ASC`,
 		sessionID,
@@ -59,12 +59,12 @@ func (s *Bots) GetBotTelemetry(sessionID string) ([]*aitm.BotTelemetry, error) {
 }
 
 func (s *Bots) DeleteBotTelemetry(sessionID string) error {
-	_, err := s.db.db.Exec(`DELETE FROM bot_telemetry WHERE session_id = ?`, sessionID)
+	_, err := s.db.Exec(`DELETE FROM bot_telemetry WHERE session_id = ?`, sessionID)
 	return err
 }
 
 func (s *Bots) CreateBotSignature(sig aitm.BotSignature) error {
-	_, err := s.db.db.Exec(`
+	_, err := s.db.Exec(`
 		INSERT INTO bot_signatures (ja4_hash, description, added_at)
 		VALUES (?,?,?)`,
 		sig.JA4Hash, sig.Description, sig.AddedAt.Unix(),
@@ -76,7 +76,7 @@ func (s *Bots) CreateBotSignature(sig aitm.BotSignature) error {
 }
 
 func (s *Bots) DeleteBotSignature(ja4Hash string) error {
-	res, err := s.db.db.Exec(`DELETE FROM bot_signatures WHERE ja4_hash = ?`, ja4Hash)
+	res, err := s.db.Exec(`DELETE FROM bot_signatures WHERE ja4_hash = ?`, ja4Hash)
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (s *Bots) DeleteBotSignature(ja4Hash string) error {
 }
 
 func (s *Bots) ListBotSignatures() ([]aitm.BotSignature, error) {
-	rows, err := s.db.db.Query(`SELECT ja4_hash, description, added_at FROM bot_signatures ORDER BY added_at ASC`)
+	rows, err := s.db.Query(`SELECT ja4_hash, description, added_at FROM bot_signatures ORDER BY added_at ASC`)
 	if err != nil {
 		return nil, err
 	}

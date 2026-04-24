@@ -22,7 +22,7 @@ func (s *Notifications) CreateChannel(ch *aitm.NotificationChannel) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.db.db.Exec(`
+	_, err = s.db.Exec(`
 		INSERT INTO notify_channels (id, type, url, auth_header, filter, enabled, created_at)
 		VALUES (?,?,?,?,?,?,?)`,
 		ch.ID, string(ch.Type), ch.URL, ch.AuthHeader,
@@ -35,7 +35,7 @@ func (s *Notifications) CreateChannel(ch *aitm.NotificationChannel) error {
 }
 
 func (s *Notifications) GetChannel(id string) (*aitm.NotificationChannel, error) {
-	row := s.db.db.QueryRow(`SELECT
+	row := s.db.QueryRow(`SELECT
 		id, type, url, auth_header, filter, enabled, created_at
 		FROM notify_channels WHERE id = ?`, id)
 	ch, err := scanNotificationChannel(row)
@@ -46,7 +46,7 @@ func (s *Notifications) GetChannel(id string) (*aitm.NotificationChannel, error)
 }
 
 func (s *Notifications) DeleteChannel(id string) error {
-	res, err := s.db.db.Exec(`DELETE FROM notify_channels WHERE id = ?`, id)
+	res, err := s.db.Exec(`DELETE FROM notify_channels WHERE id = ?`, id)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (s *Notifications) DeleteChannel(id string) error {
 }
 
 func (s *Notifications) ListChannels() ([]*aitm.NotificationChannel, error) {
-	rows, err := s.db.db.Query(`SELECT
+	rows, err := s.db.Query(`SELECT
 		id, type, url, auth_header, filter, enabled, created_at
 		FROM notify_channels ORDER BY created_at ASC`)
 	if err != nil {

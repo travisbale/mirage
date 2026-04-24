@@ -14,7 +14,7 @@ type Operators struct{ db *DB }
 func NewOperatorStore(db *DB) *Operators { return &Operators{db: db} }
 
 func (s *Operators) CreateOperator(op *aitm.Operator) error {
-	_, err := s.db.db.Exec(
+	_, err := s.db.Exec(
 		`INSERT INTO operators (name, created_at) VALUES (?, ?)`,
 		op.Name, op.CreatedAt.Unix(),
 	)
@@ -25,7 +25,7 @@ func (s *Operators) CreateOperator(op *aitm.Operator) error {
 }
 
 func (s *Operators) ListOperators() ([]*aitm.Operator, error) {
-	rows, err := s.db.db.Query(`SELECT name, created_at FROM operators ORDER BY created_at ASC`)
+	rows, err := s.db.Query(`SELECT name, created_at FROM operators ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *Operators) ListOperators() ([]*aitm.Operator, error) {
 }
 
 func (s *Operators) DeleteOperator(name string) error {
-	res, err := s.db.db.Exec(`DELETE FROM operators WHERE name = ?`, name)
+	res, err := s.db.Exec(`DELETE FROM operators WHERE name = ?`, name)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (s *Operators) DeleteOperator(name string) error {
 }
 
 func (s *Operators) CreateInvite(invite *aitm.OperatorInvite) error {
-	_, err := s.db.db.Exec(
+	_, err := s.db.Exec(
 		`INSERT INTO operator_invites (token, name) VALUES (?, ?)`,
 		invite.Token, invite.Name,
 	)
@@ -62,7 +62,7 @@ func (s *Operators) CreateInvite(invite *aitm.OperatorInvite) error {
 }
 
 func (s *Operators) ListInvites() ([]*aitm.OperatorInvite, error) {
-	rows, err := s.db.db.Query(`SELECT token, name FROM operator_invites`)
+	rows, err := s.db.Query(`SELECT token, name FROM operator_invites`)
 	if err != nil {
 		return nil, err
 	}

@@ -14,7 +14,7 @@ import (
 
 // DB is the shared SQLite connection. Open once; pass to each domain store constructor.
 type DB struct {
-	db *sql.DB
+	*sql.DB
 }
 
 // Open opens (or creates) the SQLite database at path, enables WAL mode and
@@ -46,19 +46,16 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("sqlite.Open: enabling foreign keys: %w", err)
 	}
 
-	db := &DB{db: sqlDB}
-	if err := applySchema(db.db); err != nil {
+	if err := applySchema(sqlDB); err != nil {
 		return nil, fmt.Errorf("sqlite.Open: %w", err)
 	}
-	return db, nil
+	return &DB{DB: sqlDB}, nil
 }
-
-func (d *DB) Close() error { return d.db.Close() }
 
 // WithTx executes fn inside a transaction. If fn returns an error the transaction
 // is rolled back; otherwise it is committed.
 func (d *DB) WithTx(fn func(*sql.Tx) error) error {
-	tx, err := d.db.Begin()
+	tx, err := d.Begin()
 	if err != nil {
 		return err
 	}
