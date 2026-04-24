@@ -89,6 +89,7 @@ func (r *Router) registerRoutes() {
 	h("POST", sdk.RouteNotificationChannels, r.createNotificationChannel)
 	h("DELETE", sdk.RouteNotificationChannel, r.deleteNotificationChannel)
 	h("POST", sdk.RouteNotificationTest, r.testNotificationChannel)
+	h("GET", sdk.RouteNotificationEventTypes, r.listNotificationEventTypes)
 
 	// Operators (authenticated)
 	h("POST", sdk.RouteOperatorInvite, r.inviteOperator)

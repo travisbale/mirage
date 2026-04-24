@@ -297,6 +297,14 @@ func (c *Client) TestNotificationChannel(id string) error {
 	return discard(c, http.MethodPost, ResolveRoute(RouteNotificationTest, "id", id), nil)
 }
 
+func (c *Client) ListNotificationEventTypes() ([]EventType, error) {
+	resp, err := get[[]EventType](c, RouteNotificationEventTypes)
+	if err != nil {
+		return nil, err
+	}
+	return *resp, nil
+}
+
 // --- Operators ---
 
 func (c *Client) InviteOperator(req InviteOperatorRequest) (*InviteOperatorResponse, error) {

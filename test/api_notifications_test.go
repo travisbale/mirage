@@ -94,6 +94,33 @@ func TestAPI_NotificationChannelInvalidType(t *testing.T) {
 	}
 }
 
+// TestAPI_NotificationEventTypes verifies that the event-types endpoint
+// returns the full set of subscribable event types.
+func TestAPI_NotificationEventTypes(t *testing.T) {
+	t.Parallel()
+	harness := test.NewHarness(t)
+
+	types, err := harness.API.ListNotificationEventTypes()
+	if err != nil {
+		t.Fatalf("ListNotificationEventTypes: %v", err)
+	}
+
+	want := sdk.AllEventTypes()
+	if len(types) != len(want) {
+		t.Fatalf("event type count = %d, want %d", len(types), len(want))
+	}
+
+	got := make(map[sdk.EventType]bool, len(types))
+	for _, et := range types {
+		got[et] = true
+	}
+	for _, et := range want {
+		if !got[et] {
+			t.Errorf("missing event type %q", et)
+		}
+	}
+}
+
 // TestAPI_NotificationChannelInvalidFilter verifies that unknown event types in
 // the filter are rejected.
 func TestAPI_NotificationChannelInvalidFilter(t *testing.T) {

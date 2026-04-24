@@ -94,6 +94,7 @@ mirage botguard remove <ja4-hash>
 
 ```bash
 mirage notify list
+mirage notify events
 mirage notify add --type <webhook|slack> --url <url> [--auth-header "Bearer ..."] [--filter session.completed,session.creds_captured]
 mirage notify remove <id>
 mirage notify test <id>

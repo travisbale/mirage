@@ -18,6 +18,7 @@ func newNotifyCmd() *cobra.Command {
 		newNotifyAddCmd(),
 		newNotifyRemoveCmd(),
 		newNotifyTestCmd(),
+		newNotifyEventsCmd(),
 	)
 	return cmd
 }
@@ -107,7 +108,7 @@ func newNotifyAddCmd() *cobra.Command {
 	cmd.Flags().String("type", "", "channel type (webhook or slack)")
 	cmd.Flags().String("url", "", "destination URL")
 	cmd.Flags().String("auth-header", "", "Authorization header value (webhook only)")
-	cmd.Flags().String("filter", "", "comma-separated event types to filter (empty = all)")
+	cmd.Flags().String("filter", "", "comma-separated event types to filter, empty = all (see `mirage notify events`)")
 	_ = cmd.MarkFlagRequired("type")
 	_ = cmd.MarkFlagRequired("url")
 	return cmd
@@ -127,6 +128,36 @@ func newNotifyRemoveCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("Removed notification channel %s\n", args[0])
+			return nil
+		},
+	}
+}
+
+func newNotifyEventsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "events",
+		Short: "List event types available for channel filters",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := resolveClient(cmd)
+			if err != nil {
+				return err
+			}
+			types, err := client.ListNotificationEventTypes()
+			if err != nil {
+				return err
+			}
+			if jsonMode(cmd) {
+				return printJSON(types)
+			}
+			if len(types) == 0 {
+				fmt.Println("No event types available.")
+				return nil
+			}
+			rows := make([][]string, len(types))
+			for i, et := range types {
+				rows[i] = []string{string(et)}
+			}
+			printTable([]string{"EVENT"}, rows)
 			return nil
 		},
 	}

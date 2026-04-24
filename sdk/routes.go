@@ -40,9 +40,10 @@ const (
 	RouteBotThreshold  = "/api/botguard/threshold"
 
 	// Notifications
-	RouteNotificationTest     = "/api/notifications/channels/{id}/test"
-	RouteNotificationChannel  = "/api/notifications/channels/{id}"
-	RouteNotificationChannels = "/api/notifications/channels"
+	RouteNotificationTest       = "/api/notifications/channels/{id}/test"
+	RouteNotificationChannel    = "/api/notifications/channels/{id}"
+	RouteNotificationChannels   = "/api/notifications/channels"
+	RouteNotificationEventTypes = "/api/notifications/event-types"
 
 	// Operators
 	RouteOperatorInvite = "/api/operators/invite"

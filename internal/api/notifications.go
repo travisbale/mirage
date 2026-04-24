@@ -61,6 +61,10 @@ func (r *Router) deleteNotificationChannel(w http.ResponseWriter, req *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (r *Router) listNotificationEventTypes(w http.ResponseWriter, req *http.Request) {
+	writeJSON(w, http.StatusOK, sdk.AllEventTypes())
+}
+
 func (r *Router) testNotificationChannel(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	if err := r.Notifications.Test(req.Context(), id); err != nil {
