@@ -3,8 +3,10 @@ package aitm_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/travisbale/mirage/internal/aitm"
+	"github.com/travisbale/mirage/internal/events"
 	"github.com/travisbale/mirage/sdk"
 )
 
@@ -219,5 +221,63 @@ func TestDNSService_RemoveRecords(t *testing.T) {
 	}
 	if provider.deleted[0].Name != "login.example.com" {
 		t.Errorf("expected login.example.com, got %s", provider.deleted[0].Name)
+	}
+}
+
+func TestDNSService_Reconcile_RoutesToCorrectProvider(t *testing.T) {
+	p1 := &fakeDNSProvider{}
+	p2 := &fakeDNSProvider{}
+
+	svc := aitm.NewDNSService(
+		map[string]aitm.DNSProvider{"cf": p1, "bi": p2},
+		map[string]aitm.ZoneConfig{
+			"attacker.com": {Zone: "attacker.com", ProviderName: "cf", ExternalIP: "1.2.3.4"},
+			"evil.net":     {Zone: "evil.net", ProviderName: "bi", ExternalIP: "5.6.7.8"},
+		},
+		&stubBus{},
+		discardLogger(),
+	)
+
+	if err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
+		{Zone: "attacker.com", Name: "mail"},
+		{Zone: "evil.net", Name: "www"},
+	}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if len(p1.created) != 1 {
+		t.Errorf("p1 created: got %d, want 1", len(p1.created))
+	}
+	if len(p2.created) != 1 {
+		t.Errorf("p2 created: got %d, want 1", len(p2.created))
+	}
+}
+
+func TestDNSService_Reconcile_EmitsEventOnRealBus(t *testing.T) {
+	bus := events.NewBus(8)
+	syncedEvents, unsubscribe := bus.Subscribe(sdk.EventDNSRecordSynced)
+	defer unsubscribe()
+
+	svc := aitm.NewDNSService(
+		map[string]aitm.DNSProvider{"bi": &fakeDNSProvider{}},
+		map[string]aitm.ZoneConfig{
+			"attacker.com": {Zone: "attacker.com", ProviderName: "bi", ExternalIP: "1.2.3.4"},
+		},
+		bus,
+		discardLogger(),
+	)
+
+	if err := svc.Reconcile(context.Background(), []aitm.PhishletRecord{
+		{Zone: "attacker.com", Name: "login"},
+	}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	select {
+	case e := <-syncedEvents:
+		if e.Type != sdk.EventDNSRecordSynced {
+			t.Errorf("event type: got %q, want %q", e.Type, sdk.EventDNSRecordSynced)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("timed out waiting for EventDNSRecordSynced")
 	}
 }
